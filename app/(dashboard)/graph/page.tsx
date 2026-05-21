@@ -35,33 +35,65 @@ interface MobileNode {
 function MobileGraphList() {
   const [nodes, setNodes] = useState<MobileNode[]>([]);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   useEffect(() => {
+    // Reset to page 1 on search change
+    setPage(1);
+  }, [search]);
+
+  useEffect(() => {
+    let active = true;
     async function load() {
       try {
-        const url = search
-          ? `/api/graph/nodes?search=${encodeURIComponent(search)}&limit=50`
-          : `/api/graph/nodes?limit=50`;
+        const url = `/api/graph/nodes?limit=50&page=${page}${
+          search ? `&search=${encodeURIComponent(search)}` : ""
+        }`;
         const res = await fetch(url);
         if (!res.ok) throw new Error();
         const data = await res.json();
-        setNodes(data.nodes ?? []);
+        if (!active) return;
+        
+        if (page === 1) {
+          setNodes(data.nodes ?? []);
+        } else {
+          setNodes((prev) => [...prev, ...(data.nodes ?? [])]);
+        }
+        setTotal(data.total ?? 0);
       } catch (err) {
-        // FIX #4: Log errors instead of swallowing
         console.error("[MobileGraphList] Failed to fetch nodes:", err);
-        setNodes([]);
+        if (page === 1) {
+          setNodes([]);
+          setTotal(0);
+        }
       } finally {
-        setIsLoading(false);
+        if (active) {
+          setIsLoading(false);
+          setIsLoadingMore(false);
+        }
       }
     }
-    // FIX #3: Move setIsLoading inside timeout so spinner only shows after debounce
-    const t = setTimeout(() => {
-      setIsLoading(true);
+
+    if (page === 1) {
+      const t = setTimeout(() => {
+        setIsLoading(true);
+        load();
+      }, 300);
+      return () => {
+        active = false;
+        clearTimeout(t);
+      };
+    } else {
+      setIsLoadingMore(true);
       load();
-    }, 300);
-    return () => clearTimeout(t);
-  }, [search]);
+      return () => {
+        active = false;
+      };
+    }
+  }, [search, page]);
 
   return (
     <div className="graph-mobile" id="graph-mobile-view">
@@ -77,6 +109,14 @@ function MobileGraphList() {
         />
       </div>
 
+      {!isLoading && nodes.length > 0 && (
+        <div className="flex justify-between items-center mb-4 px-2">
+          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+            Showing {nodes.length} of {total} nodes
+          </span>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="graph-mobile__loading">
           <Loader2 className="h-6 w-6 animate-spin" />
@@ -87,30 +127,49 @@ function MobileGraphList() {
           <p>No nodes found</p>
         </div>
       ) : (
-        <ul className="graph-mobile__list">
-          {nodes.map((n) => (
-            <li key={n.id} className="graph-mobile__item">
-              <div
-                className="graph-mobile__item-dot"
-                style={{
-                  backgroundColor:
-                    ENTITY_COLORS[n.entity_type as EntityColorKey] ??
-                    ENTITY_COLORS.concept,
-                }}
-              />
-              <div className="graph-mobile__item-content">
-                <span className="graph-mobile__item-label">{n.label}</span>
-                <span className="graph-mobile__item-type">{n.entity_type}</span>
-                {n.description && (
-                  <p className="graph-mobile__item-desc">
-                    {n.description.slice(0, 120)}
-                    {n.description.length > 120 ? "…" : ""}
-                  </p>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="graph-mobile__list">
+            {nodes.map((n) => (
+              <li key={n.id} className="graph-mobile__item">
+                <div
+                  className="graph-mobile__item-dot"
+                  style={{
+                    backgroundColor:
+                      ENTITY_COLORS[n.entity_type as EntityColorKey] ??
+                      ENTITY_COLORS.concept,
+                  }}
+                />
+                <div className="graph-mobile__item-content">
+                  <span className="graph-mobile__item-label">{n.label}</span>
+                  <span className="graph-mobile__item-type">{n.entity_type}</span>
+                  {n.description && (
+                    <p className="graph-mobile__item-desc">
+                      {n.description.slice(0, 120)}
+                      {n.description.length > 120 ? "…" : ""}
+                    </p>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          {nodes.length < total && (
+            <button
+              onClick={() => setPage((p) => p + 1)}
+              disabled={isLoadingMore}
+              className="mt-6 w-full h-14 rounded-2xl border border-white/5 bg-card hover:bg-white/5 active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest text-purple-400 disabled:opacity-50"
+            >
+              {isLoadingMore ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading nodes...
+                </>
+              ) : (
+                "Load More Nodes"
+              )}
+            </button>
+          )}
+        </>
       )}
     </div>
   );

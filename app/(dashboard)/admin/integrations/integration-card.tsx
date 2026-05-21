@@ -23,7 +23,7 @@ export interface Integration {
   displayName: string;
   category: string;
   resources: string[];
-  status: "connected" | "syncing" | "error";
+  status: "connected" | "syncing" | "error" | "stale";
   lastSyncedAt: string | null;
   totalDocs: number;
   createdAt: string | null;
@@ -44,6 +44,7 @@ interface IntegrationCardProps {
   onDisconnect: (integration: Integration) => void;
   onIndex: (integration: Integration) => Promise<void>;
   onConfigureSync: (integration: Integration) => void;
+  onCheckStatus: (integration: Integration) => Promise<void>;
 }
 
 const CONFIGURABLE = new Set(["google_drive", "snowflake", "bigquery", "redshift", "powerbi"]);
@@ -68,8 +69,10 @@ export function IntegrationCard({
   onDisconnect,
   onIndex,
   onConfigureSync,
+  onCheckStatus,
 }: IntegrationCardProps) {
   const [indexing, setIndexing] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -82,6 +85,15 @@ export function IntegrationCard({
       await onIndex(integration);
     } finally {
       setIndexing(false);
+    }
+  };
+
+  const handleCheckStatus = async () => {
+    setChecking(true);
+    try {
+      await onCheckStatus(integration);
+    } finally {
+      setChecking(false);
     }
   };
 
@@ -101,18 +113,26 @@ export function IntegrationCard({
       icon: <AlertCircle className="w-3 h-3" />,
       label: "Issue"
     },
+    stale: {
+      color: "text-yellow-400 bg-yellow-400/10 border-yellow-400/20",
+      icon: <AlertCircle className="w-3 h-3" />,
+      label: "Stale"
+    },
   };
 
   const config = statusConfig[integration.status] ?? statusConfig['connected'];
   const needsConfig = needsConfiguration(integration);
 
   const isError = integration.status === "error";
+  const isStale = integration.status === "stale";
 
   return (
     <div className={cn(
       "group relative rounded-[2rem] sm:rounded-[2.5rem] bg-card border p-4 sm:p-6 md:p-8 transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl",
       isError
         ? "border-amber-400/25 hover:border-amber-400/40 hover:shadow-amber-500/5"
+        : isStale
+        ? "border-yellow-400/25 hover:border-yellow-400/40 hover:shadow-yellow-500/5"
         : "border-white/5 hover:border-white/10 hover:shadow-[#D96FAB]/5"
     )}>
       <div className="absolute top-0 right-0 p-8 flex flex-col items-end gap-2">
@@ -172,7 +192,7 @@ export function IntegrationCard({
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           <Button
             onClick={handleIndex}
-            disabled={indexing || integration.status === 'syncing'}
+            disabled={indexing || checking || integration.status === 'syncing'}
             variant="ghost"
             className={cn(
               "h-10 px-4 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all gap-2",
@@ -183,6 +203,23 @@ export function IntegrationCard({
           >
             {indexing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
             {isError ? "Retry Sync" : "Force Sync"}
+          </Button>
+
+          <Button
+            onClick={handleCheckStatus}
+            disabled={checking || indexing || integration.status === 'syncing'}
+            variant="ghost"
+            className={cn(
+              "h-10 px-4 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all gap-2",
+              isError
+                ? "text-amber-400 hover:bg-amber-400/10"
+                : isStale
+                ? "text-yellow-400 hover:bg-yellow-400/10"
+                : "text-foreground hover:bg-[#7AADCF]/10 hover:text-[#7AADCF]"
+            )}
+          >
+            {checking ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
+            Check Status
           </Button>
 
           <Button

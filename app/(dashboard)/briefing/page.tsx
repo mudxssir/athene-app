@@ -40,7 +40,8 @@ interface BriefingContent {
   emails?: string;
   docs?: string;
   knowledge?: string;
-  [key: string]: string | undefined;
+  section_status?: Record<string, 'ok' | 'failed' | 'no_data'>;
+  [key: string]: any;
 }
 
 interface Briefing {
@@ -468,18 +469,21 @@ export default function BriefingPage() {
             type="calendar"
             title="Calendar & Strategic Alignment"
             content={briefing.content?.calendar ?? ""}
+            status={briefing.content?.section_status?.calendar}
             className="stagger-1"
           />
           <BriefingSection
             type="emails"
             title="High-Priority Communications"
             content={briefing.content?.emails ?? ""}
+            status={briefing.content?.section_status?.emails}
             className="stagger-2"
           />
           <BriefingSection
             type="docs"
             title="Knowledge & Document Evolution"
             content={briefing.content?.docs ?? ""}
+            status={briefing.content?.section_status?.docs}
             className="stagger-3"
           />
           {briefing.content?.knowledge && (
@@ -487,6 +491,7 @@ export default function BriefingPage() {
               type="knowledge"
               title="Executive Summary"
               content={briefing.content.knowledge}
+              status={briefing.content?.section_status?.knowledge}
               className="stagger-4"
             />
           )}
