@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/server'
 import { getContextFromHeaders } from '@/lib/supabase/rls-client'
+import { logger } from '@/lib/logger'
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const context = getContextFromHeaders(req.headers)
@@ -35,7 +36,10 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     .eq('grant_id', id)
     .eq('org_id', context.org_id)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    logger.error({ grantId: id, orgId: context.org_id, err: error.message }, '[bi-grants] Delete failed')
+    return NextResponse.json({ error: 'Failed to delete BI grant' }, { status: 500 })
+  }
 
   // Revert visibility back to department (defaulting)
   if (grant.resource_type === 'document' || grant.resource_type === 'folder') {

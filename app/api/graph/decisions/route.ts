@@ -60,7 +60,9 @@ export async function GET(req: NextRequest) {
       query = query.contains("department_ids", [dept]);
     }
     if (entity) {
-      query = query.or(`label.ilike.%${entity}%,description.ilike.%${entity}%`);
+      // Escape ilike wildcard chars to prevent accidental pattern injection
+      const sanitizedEntity = entity.replace(/[%_\\]/g, '\\$&')
+      query = query.or(`label.ilike.%${sanitizedEntity}%,description.ilike.%${sanitizedEntity}%`);
     }
 
     // RLS visibility filter — mirrors the pattern in /api/graph/nodes

@@ -14,7 +14,11 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.clerk.accounts.dev",
+      // 'unsafe-eval' is required by Clerk's iframe SDK in local dev only.
+      // Strip it in production to block XSS code-injection attacks.
+      process.env.NODE_ENV === "production"
+        ? "script-src 'self' 'unsafe-inline' https://*.clerk.accounts.dev"
+        : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.clerk.accounts.dev",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self'",

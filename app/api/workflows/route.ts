@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
+import { rateLimit } from "@/lib/redis/client";
 
 export async function POST(req: NextRequest) {
   try {
     const { userId, orgId } = await auth();
     if (!userId || !orgId) return new NextResponse("Unauthorized", { status: 401 });
+
+    // Rate limit: 30 workflow saves per user per hour
+    const { allowed } = await rateLimit(`workflows:post:${userId}`, 30, 3600);
+    if (!allowed) return NextResponse.json({ error: "Rate limit exceeded — try again later" }, { status: 429 });
 
     const { name, config } = await req.json();
 
@@ -48,7 +53,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(data);
   } catch (error: any) {
     logger.error({ err: error?.message ?? String(error) }, "[workflows] POST Error");
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Workflow save failed" }, { status: 500 });
   }
 }
 
@@ -77,6 +82,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(data);
   } catch (error: any) {
     logger.error({ err: error?.message ?? String(error) }, "[workflows] GET Error");
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to fetch workflows" }, { status: 500 });
   }
 }

@@ -45,12 +45,15 @@ export async function GET(req: NextRequest) {
 
     const internalOrgId = orgData.id;
 
-    // Find the target node by label (case-insensitive)
+    // Find the target node by label (case-insensitive exact match).
+    // Escape ilike wildcard chars so a label like "50% growth" doesn't
+    // become a pattern match catching unrelated nodes.
+    const sanitizedLabel = entityLabel.replace(/[%_\\]/g, '\\$&')
     const { data: targetNode } = await supabaseAdmin
       .from("kg_nodes")
       .select("id, label")
       .eq("org_id", internalOrgId)
-      .ilike("label", entityLabel)
+      .ilike("label", sanitizedLabel)
       .limit(1)
       .maybeSingle();
 

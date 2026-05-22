@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 import { resolveUserAccess } from "@/lib/auth/rbac";
+import { rateLimit } from "@/lib/redis/client";
 
 
 /**
@@ -62,7 +63,9 @@ export async function GET(request: Request) {
       .eq("org_id", orgData.id);
 
     if (search) {
-      query = query.or(`display_name.ilike.%${search}%,email.ilike.%${search}%`);
+      // Escape ilike wildcard chars to prevent accidental pattern injection
+      const sanitizedSearch = search.replace(/[%_\\]/g, '\\$&')
+      query = query.or(`display_name.ilike.%${sanitizedSearch}%,email.ilike.%${sanitizedSearch}%`);
     }
 
     const { data: members, error, count } = await query
@@ -103,6 +106,9 @@ export async function POST(request: Request) {
     return new NextResponse("Forbidden", { status: 403 });
   }
 
+  // Rate limit: 20 user invitations per org per hour
+  const { allowed } = await rateLimit(`admin:invite:${orgId}`, 20, 3600);
+  if (!allowed) return NextResponse.json({ error: "Rate limit exceeded — try again later" }, { status: 429 });
 
   try {
     const { email, role: targetRole, departmentId } = await request.json();

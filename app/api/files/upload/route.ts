@@ -82,7 +82,15 @@ export async function POST(req: NextRequest) {
     }
 
     // --- 2. Upload to Supabase Storage ---
-    const storagePath = `${orgId}/${Date.now()}_${file.name}`;
+    // Sanitize filename: strip path traversal characters and any character that
+    // is not alphanumeric, hyphen, underscore, period, or space.
+    // This prevents directory traversal (../../../etc/passwd) and storage key injection.
+    const safeName = file.name
+      .replace(/[/\\]/g, '_')        // path separators → underscore
+      .replace(/\.\./g, '_')         // parent directory traversal
+      .replace(/[^\w.\- ]/g, '_')    // non-safe chars → underscore
+      .slice(0, 255);                // cap total length
+    const storagePath = `${orgId}/${Date.now()}_${safeName}`;
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
@@ -196,6 +204,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: any) {
     logger.error({ err: err?.message ?? String(err) }, "[files/upload] Unexpected error");
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: "File upload failed" }, { status: 500 });
   }
 }

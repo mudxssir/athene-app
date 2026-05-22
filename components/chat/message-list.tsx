@@ -96,7 +96,8 @@ export function MessageList({ messages, awaitingApproval }: MessageListProps) {
                 className="inline-flex items-center px-2 py-0.5 mx-0.5 bg-secondary/10 border border-secondary/20 rounded text-[10px] font-bold uppercase tracking-wider text-secondary cursor-pointer hover:bg-secondary/20 transition-colors"
                 onClick={() => {
                   if (source.external_url) {
-                    window.open(source.external_url, "_blank");
+                    // noopener prevents the opened tab from accessing window.opener
+                    window.open(source.external_url, "_blank", "noopener,noreferrer");
                   }
                 }}
               >

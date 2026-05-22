@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { dispatchThrottled } from "@/lib/qstash/client";
 import { invalidatePromptCache } from "@/lib/knowledge-graph/modules/resolver";
 import { logger } from "@/lib/logger";
+import { rateLimit } from "@/lib/redis/client";
 
 /**
  * POST /api/connections
@@ -16,6 +17,10 @@ export async function POST(request: Request) {
   const { userId, orgId, orgRole } = await auth();
   if (!userId || !orgId) return new NextResponse("Unauthorized", { status: 401 });
   if (mapRole(orgRole ?? undefined) !== "admin") return new NextResponse("Forbidden", { status: 403 });
+
+  // Rate limit: 20 new connections per org per hour to prevent abuse
+  const { allowed } = await rateLimit(`connections:post:${orgId}`, 20, 3600);
+  if (!allowed) return NextResponse.json({ error: "Rate limit exceeded — try again later" }, { status: 429 });
 
   let body: {
     nangoConnectionId: string;

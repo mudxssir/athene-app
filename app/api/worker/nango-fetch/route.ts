@@ -20,7 +20,7 @@ export const dynamic = 'force-dynamic';
 // ============================================================
 
 import { NextResponse } from 'next/server'
-import { verifyQStashSignature } from '@/lib/qstash/verify'
+import { verifyQStashSignature, checkIdempotency } from '@/lib/qstash/verify'
 import { releaseSlot, qstash } from '@/lib/qstash/client'
 import { indexDocuments } from '@/lib/integrations/indexing'
 import { logger } from '@/lib/logger'
@@ -242,6 +242,13 @@ interface NangoFetchJobBody {
 export async function POST(request: Request): Promise<Response> {
   const isValid = await verifyQStashSignature(request)
   if (!isValid) return new Response('Invalid QStash signature', { status: 401 })
+
+  // Idempotency: skip duplicate deliveries (QStash retries on 5xx / timeouts)
+  const isFirstTime = await checkIdempotency(request)
+  if (!isFirstTime) {
+    logger.info('[nango-fetch] Skipping duplicate job (idempotency)')
+    return NextResponse.json({ status: 'ok', skipped: 'duplicate' })
+  }
 
   let body: NangoFetchJobBody
   try {

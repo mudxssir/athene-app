@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/server'
 import { auth } from '@clerk/nextjs/server'
 import { resolveUserAccess } from '@/lib/auth/rbac'
+import { logger } from '@/lib/logger'
 
 export async function GET(req: Request) {
   const { userId, orgId, orgRole } = await auth()
@@ -40,7 +41,9 @@ export async function GET(req: Request) {
     .order('performed_at', { ascending: false })
 
   if (search) {
-    query = query.ilike('action', `%${search}%`)
+    // Escape ilike wildcard chars to prevent accidental pattern injection
+    const sanitizedSearch = search.replace(/[%_\\]/g, '\\$&')
+    query = query.ilike('action', `%${sanitizedSearch}%`)
   }
 
   if (isCSV) {
@@ -52,7 +55,8 @@ export async function GET(req: Request) {
   const { data, error, count } = await query
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    logger.error({ orgId: internalOrgId, err: error.message }, '[audit-log] Query failed')
+    return NextResponse.json({ error: 'Failed to fetch audit log' }, { status: 500 })
   }
 
   // ── CSV export ────────────────────────────────────────────────────────────

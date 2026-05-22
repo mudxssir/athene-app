@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveUserAccess } from "@/lib/auth/rbac";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
+import { rateLimit } from "@/lib/redis/client";
 
 /**
  * GET /api/threads
@@ -55,6 +56,10 @@ export async function POST(request: NextRequest) {
   if (!clerkUserId || !clerkOrgId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // Rate limit: 60 thread creations per user per hour
+  const { allowed } = await rateLimit(`threads:post:${clerkUserId}`, 60, 3600);
+  if (!allowed) return NextResponse.json({ error: "Rate limit exceeded — try again later" }, { status: 429 });
 
   const access = await resolveUserAccess(clerkUserId, clerkOrgId);
   if (!access.internal_user_id) {

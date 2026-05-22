@@ -58,8 +58,16 @@ export async function cached<T>(
  * Increment a numerical counter by 1. If the counter did not exist,
  * it will be set to 1 and receive the specified expiration.
  *
+ * ATOMICITY: INCR and EXPIRE are sent in a single pipeline batch (one HTTP
+ * round-trip for Upstash REST), preventing the EXPIRE-never-called bug that
+ * would occur if the process crashed between two separate calls.
+ * EXPIRE is called unconditionally — this uses a "sliding window" semantics
+ * where the TTL resets with each request. For the slot counter use-case this
+ * is intentional (job window extends while actively running); for rate
+ * limiters it keeps counters from leaking indefinitely.
+ *
  * @param key - The strictly tracked key name
- * @param ttlSeconds - Time-to-live for the newly created counter
+ * @param ttlSeconds - Time-to-live for the counter
  * @returns The new count, or null if Redis fails (fail-closed: aborts dispatch)
  */
 export async function incrWithExpire(
@@ -67,10 +75,13 @@ export async function incrWithExpire(
   ttlSeconds: number
 ): Promise<number | null> {
   try {
-    const count = await redis.incr(key);
-    if (count === 1) {
-      await redis.expire(key, ttlSeconds);
-    }
+    // Pipeline: both commands sent in one HTTP request — avoids EXPIRE being
+    // dropped if the process crashes between a bare INCR and a bare EXPIRE.
+    const pipe = redis.pipeline();
+    pipe.incr(key);
+    pipe.expire(key, ttlSeconds);
+    const results = await pipe.exec<[number, number]>();
+    const count = results[0];
     return count;
   } catch (error) {
     logger.error({ key, err: error instanceof Error ? error.message : String(error) }, "[Redis] Error incrementing key — dispatch will abort (fail-closed)");

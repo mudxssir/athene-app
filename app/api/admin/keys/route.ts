@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@clerk/nextjs/server'
 import { requireAdmin } from '@/lib/auth/admin'
 import { supabaseAdmin } from '@/lib/supabase/server'
 import { logger } from '@/lib/logger'
 import { deriveOrgKey, getMasterKey } from '@/lib/auth/kms'
+import { rateLimit } from '@/lib/redis/client'
 
 /**
  * GET: List all LLM keys for the current organization.
@@ -45,6 +47,13 @@ export async function GET() {
  */
 export async function POST(req: NextRequest) {
   try {
+    // Rate limit before expensive auth — 10 key mutations per org per hour
+    const { orgId: clerkOrgId } = await auth()
+    if (clerkOrgId) {
+      const { allowed } = await rateLimit(`admin:keys:post:${clerkOrgId}`, 10, 3600)
+      if (!allowed) return NextResponse.json({ error: 'Rate limit exceeded — try again later' }, { status: 429 })
+    }
+
     const { provider, key, label } = await req.json()
 
     if (!provider || !key) {
@@ -120,10 +129,11 @@ export async function PATCH(req: NextRequest) {
 
       const { data, error: updateError } = await supabaseAdmin
         .from('llm_keys')
+        // Explicitly select only safe fields — never return encrypted_key to the client
         .update({ is_active, label })
         .eq('id', id)
         .eq('org_id', context.orgId)
-        .select()
+        .select('id, provider, key_hint, label, is_active, last_used_at, updated_at')
         .limit(1)
         .maybeSingle()
 
