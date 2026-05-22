@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
+import { z } from "zod";
 import { supervisor } from "@/lib/langgraph/nodes/supervisor";
 import { logger } from "@/lib/logger";
 import { rateLimit } from "@/lib/redis/client";
@@ -8,6 +9,14 @@ import { emailAgentNode } from "@/lib/langgraph/nodes/email-agent";
 import { calendarAgentNode } from "@/lib/langgraph/nodes/calendar-agent";
 import { synthesisAgentNode } from "@/lib/langgraph/nodes/synthesis-agent";
 import { actionExecutorNode } from "@/lib/langgraph/nodes/action-executor";
+import { parseBody } from "@/lib/validation";
+
+const VALID_NODE_NAMES = ["supervisor", "retrieval", "email_agent", "calendar_agent", "synthesis", "action_executor"] as const;
+
+const TestNodeSchema = z.object({
+  nodeName:  z.enum(VALID_NODE_NAMES),
+  mockState: z.record(z.string(), z.unknown()).optional().default({}),
+});
 
 const NODE_MAP: Record<string, any> = {
   supervisor,
@@ -27,7 +36,11 @@ export async function POST(req: NextRequest) {
     const { allowed } = await rateLimit(`agent-lab:test-node:${userId}`, 30, 3600);
     if (!allowed) return NextResponse.json({ error: "Rate limit exceeded — try again later" }, { status: 429 });
 
-    const { nodeName, mockState } = await req.json();
+    let raw: unknown;
+    try { raw = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+    const parsed = parseBody(TestNodeSchema, raw);
+    if (!parsed.success) return parsed.response;
+    const { nodeName, mockState } = parsed.data;
 
     const nodeFn = NODE_MAP[nodeName];
     if (!nodeFn) {

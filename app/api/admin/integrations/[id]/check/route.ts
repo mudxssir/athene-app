@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
+import { z } from 'zod'
 import { mapRole } from '@/lib/auth/clerk'
 import { supabaseAdmin } from '@/lib/supabase/server'
 import { getConnection } from '@/lib/nango/client'
+import { parseBody } from '@/lib/validation'
+
+const CheckSchema = z.object({ provider: z.string().min(1).max(100) })
 
 async function ensureAdmin() {
   const { userId, orgId, orgRole } = await auth()
@@ -19,12 +23,11 @@ export async function POST(
     const { clerkOrgId } = await ensureAdmin()
     const { id: nangoConnectionId } = await params
 
-    const body = await req.json()
-    const { provider } = body
-
-    if (!provider) {
-      return NextResponse.json({ error: 'provider is required' }, { status: 400 })
-    }
+    let raw: unknown
+    try { raw = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
+    const parsed = parseBody(CheckSchema, raw)
+    if (!parsed.success) return parsed.response
+    const { provider } = parsed.data
 
     // Resolve internal org UUID
     const { data: orgData } = await supabaseAdmin

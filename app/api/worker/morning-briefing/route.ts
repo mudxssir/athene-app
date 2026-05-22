@@ -21,10 +21,12 @@ export const dynamic = 'force-dynamic';
 // ============================================================
 
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import { verifyQStashSignature } from '@/lib/qstash/verify'
 import { supabaseAdmin } from '@/lib/supabase/server'
 import { resolveModelClient } from '@/lib/langgraph/llm-factory'
 import { logger } from '@/lib/logger'
+import { parseBody, uuidSchema } from '@/lib/validation'
 
 // Fetchers
 import { indexEmailChunks } from '@/lib/integrations/google/gmail-fetcher'
@@ -33,13 +35,15 @@ import { fetchCalendarChunks } from '@/lib/integrations/google/calendar-fetcher'
 
 import type { FetchedChunk } from '@/lib/integrations/base'
 
-// ---- Types --------------------------------------------------
+// ---- Payload schema -----------------------------------------
 
-interface BriefingJobBody {
-  org_id: string
-  user_id: string
-  triggered_by?: string
-}
+const BriefingJobSchema = z.object({
+  org_id:       uuidSchema,
+  user_id:      uuidSchema,
+  triggered_by: z.string().max(100).optional(),
+})
+
+type BriefingJobBody = z.infer<typeof BriefingJobSchema>
 
 interface BriefingContent {
   calendar?: string
@@ -159,17 +163,13 @@ export async function POST(request: Request): Promise<Response> {
   const isValid = await verifyQStashSignature(request)
   if (!isValid) return new Response('Invalid QStash signature', { status: 401 })
 
-  let body: BriefingJobBody
-  try {
-    body = (await request.json()) as BriefingJobBody
-  } catch {
+  let raw: unknown
+  try { raw = await request.json() } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
-
-  const { org_id: orgId, user_id: userId } = body
-  if (!orgId || !userId) {
-    return NextResponse.json({ error: 'Missing required fields: org_id, user_id' }, { status: 400 })
-  }
+  const parsedBody = parseBody(BriefingJobSchema, raw)
+  if (!parsedBody.success) return parsedBody.response
+  const { org_id: orgId, user_id: userId } = parsedBody.data
 
   // ── Resolve internal UUIDs ────────────────────────────────
   // org_id and user_id arrive as either Clerk IDs (from manual triggers) or

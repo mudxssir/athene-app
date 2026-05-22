@@ -1,10 +1,21 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { mapRole } from "@/lib/auth/clerk";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { updateConnectionNangoMetadata } from "@/lib/nango/client";
 import { dispatchThrottled } from "@/lib/qstash/client";
 import { logger } from "@/lib/logger";
+import { parseBody, uuidSchema } from "@/lib/validation";
+
+const ConfigureSchema = z.object({
+  provider:              z.string().min(1).max(100),
+  selectedFolderIds:     z.array(z.string()).optional(),
+  selectedWorkspaceIds:  z.array(z.string()).optional(),
+  allowlist:             z.array(z.string()).optional(),
+  excludedMimeTypes:     z.array(z.string()).optional(),
+  departmentId:          uuidSchema.nullable().optional(),
+});
 
 interface Params { params: Promise<{ id: string }> }
 
@@ -28,15 +39,11 @@ export async function PATCH(request: Request, { params }: Params) {
 
   const { id: connectionId } = await params;
 
-  let body: { provider?: string; selectedFolderIds?: string[]; allowlist?: string[]; excludedMimeTypes?: string[]; departmentId?: string | null; selectedWorkspaceIds?: string[] };
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-
-  const { provider, selectedFolderIds, allowlist, excludedMimeTypes, departmentId, selectedWorkspaceIds } = body;
-  if (!provider) return NextResponse.json({ error: "provider is required" }, { status: 400 });
+  let raw: unknown;
+  try { raw = await request.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+  const parsed = parseBody(ConfigureSchema, raw);
+  if (!parsed.success) return parsed.response;
+  const { provider, selectedFolderIds, allowlist, excludedMimeTypes, departmentId, selectedWorkspaceIds } = parsed.data;
 
   // Resolve Clerk orgId → internal UUID
   const { data: orgData, error: orgErr } = await supabaseAdmin

@@ -1,9 +1,16 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { HumanMessage } from "@langchain/core/messages";
 import { getAgentGraph } from "@/lib/langgraph/graph";
 import { mapRole } from "@/lib/auth/clerk";
 import { logger } from "@/lib/logger";
+import { parseBody } from "@/lib/validation";
+
+const AgentStreamSchema = z.object({
+  query:    z.string().min(1).max(10000),
+  threadId: z.string().max(255).optional(),
+});
 
 /**
  * POST /api/agent/stream
@@ -20,17 +27,11 @@ export async function POST(req: NextRequest) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    let body: { query?: string; threadId?: string };
-    try {
-      body = await req.json();
-    } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-    }
-
-    const { query, threadId } = body;
-    if (!query || typeof query !== "string") {
-      return NextResponse.json({ error: "query is required" }, { status: 400 });
-    }
+    let raw: unknown;
+    try { raw = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+    const parsed = parseBody(AgentStreamSchema, raw);
+    if (!parsed.success) return parsed.response;
+    const { query, threadId } = parsed.data;
 
     const role = mapRole(orgRole ?? undefined) ?? "member";
     const graph = await getAgentGraph();

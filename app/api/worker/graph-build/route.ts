@@ -17,19 +17,23 @@ export const dynamic = 'force-dynamic';
 // ============================================================
 
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import { verifyQStashSignature, checkIdempotency } from '@/lib/qstash/verify'
 import { buildGraphForDocuments, type BuildMode } from '@/lib/knowledge-graph/builder'
 import { qstash } from '@/lib/qstash/client'
 import { logger } from '@/lib/logger'
+import { parseBody, uuidSchema, jobTypeSchema } from '@/lib/validation'
 
-// ---- Payload type -------------------------------------------
+// ---- Payload schema -----------------------------------------
 
-interface GraphBuildPayload {
-  org_id: string
-  document_ids?: string[]
-  job_type?: BuildMode
-  depth?: number
-}
+const GraphBuildPayloadSchema = z.object({
+  org_id:       uuidSchema,
+  document_ids: z.array(uuidSchema).optional().default([]),
+  job_type:     jobTypeSchema.optional().default('incremental'),
+  depth:        z.number().int().min(0).max(50).optional().default(0),
+})
+
+type GraphBuildPayload = z.infer<typeof GraphBuildPayloadSchema>
 
 // ---- POST handler -------------------------------------------
 
@@ -50,34 +54,17 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ status: 'ok', skipped: 'duplicate' })
   }
 
-  // 3. Parse payload
-  let payload: GraphBuildPayload
-  try {
-    payload = (await request.json()) as GraphBuildPayload
-  } catch {
-    return NextResponse.json(
-      { error: 'Invalid JSON body' },
-      { status: 400 },
-    )
+  // 3. Parse and validate payload
+  let raw: unknown
+  try { raw = await request.json() } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
+  const parsedPayload = parseBody(GraphBuildPayloadSchema, raw)
+  if (!parsedPayload.success) return parsedPayload.response
 
-  const { org_id, document_ids = [], job_type = 'incremental', depth = 0 } = payload
+  const { org_id, document_ids, job_type, depth } = parsedPayload.data
 
-  // 4. Validate required fields
-  if (!org_id) {
-    return NextResponse.json(
-      { error: 'Missing required field: org_id' },
-      { status: 400 },
-    )
-  }
-
-  if (job_type !== 'incremental' && job_type !== 'full') {
-    return NextResponse.json(
-      { error: "job_type must be 'incremental' or 'full'" },
-      { status: 400 },
-    )
-  }
-
+  // 4. Semantic validation
   if (job_type === 'incremental' && document_ids.length === 0) {
     return NextResponse.json(
       { error: 'incremental mode requires at least one document_id' },

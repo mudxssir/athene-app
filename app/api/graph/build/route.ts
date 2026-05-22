@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getContextFromHeaders } from '@/lib/supabase/rls-client';
 import { qstash } from '@/lib/qstash/client';
 import { getServerBaseUrl } from '@/lib/url/server-base-url';
 import { logger } from '@/lib/logger';
 import { rateLimit } from '@/lib/redis/client';
+import { parseBody, jobTypeSchema } from '@/lib/validation';
+
+const GraphBuildSchema = z.object({
+  job_type: jobTypeSchema.optional().default('full'),
+});
 
 export async function POST(request: Request) {
   const context = getContextFromHeaders(request.headers);
@@ -18,15 +24,19 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { job_type } = await request.json();
-    
+    let raw: unknown;
+    try { raw = await request.json(); } catch { raw = {}; } // empty body → use defaults
+    const parsedBody = parseBody(GraphBuildSchema, raw);
+    if (!parsedBody.success) return parsedBody.response;
+    const { job_type } = parsedBody.data;
+
     // Enqueue job via QStash
     const workerUrl = `${getServerBaseUrl()}/api/worker/graph-build`;
-    
+
     // We send org_id so the worker knows which org to build for
     const body = {
       org_id: context.org_id,
-      job_type: job_type || 'full'
+      job_type,
     };
 
     const response = await qstash.publishJSON({

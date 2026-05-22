@@ -1,9 +1,17 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 import { resolveUserAccess } from "@/lib/auth/rbac";
 import { rateLimit } from "@/lib/redis/client";
+import { parseBody, emailSchema, uuidSchema, internalRoleSchema } from "@/lib/validation";
+
+const UserInviteSchema = z.object({
+  email: emailSchema,
+  role: internalRoleSchema,
+  departmentId: uuidSchema,
+});
 
 
 /**
@@ -110,20 +118,13 @@ export async function POST(request: Request) {
   const { allowed } = await rateLimit(`admin:invite:${orgId}`, 20, 3600);
   if (!allowed) return NextResponse.json({ error: "Rate limit exceeded — try again later" }, { status: 429 });
 
+  let raw: unknown;
+  try { raw = await request.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+  const parsed = parseBody(UserInviteSchema, raw);
+  if (!parsed.success) return parsed.response;
+  const { email, role: targetRole, departmentId } = parsed.data;
+
   try {
-    const { email, role: targetRole, departmentId } = await request.json();
-
-    if (!email || !targetRole || !departmentId) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-    }
-
-    // Email validation before Clerk call
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return NextResponse.json({ error: "Invalid email format" }, { status: 400 });
-    }
-
-
     // 2. Resolve internal org UUID
     const { data: orgData } = await supabaseAdmin
       .from("organizations")

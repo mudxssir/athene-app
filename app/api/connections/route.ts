@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { listConnections, saveConnectionMapping } from "@/lib/nango/client";
 import { mapRole } from "@/lib/auth/clerk";
 import { supabaseAdmin } from "@/lib/supabase/server";
@@ -7,6 +8,16 @@ import { dispatchThrottled } from "@/lib/qstash/client";
 import { invalidatePromptCache } from "@/lib/knowledge-graph/modules/resolver";
 import { logger } from "@/lib/logger";
 import { rateLimit } from "@/lib/redis/client";
+import { parseBody, uuidSchema } from "@/lib/validation";
+
+const ConnectionPostSchema = z.object({
+  nangoConnectionId: z.string().min(1).max(255),
+  provider:          z.string().min(1).max(100),
+  sourceType:        z.string().min(1).max(100),
+  departmentId:      uuidSchema.nullable().optional(),
+  scope:             z.string().max(50).optional(),
+  syncConfig:        z.record(z.string(), z.unknown()).optional(),
+});
 
 /**
  * POST /api/connections
@@ -22,28 +33,11 @@ export async function POST(request: Request) {
   const { allowed } = await rateLimit(`connections:post:${orgId}`, 20, 3600);
   if (!allowed) return NextResponse.json({ error: "Rate limit exceeded — try again later" }, { status: 429 });
 
-  let body: {
-    nangoConnectionId: string;
-    provider: string;
-    sourceType: string;
-    departmentId?: string | null;
-    scope?: string;
-    syncConfig?: Record<string, unknown>;
-  };
-
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-
-  const { nangoConnectionId, provider, sourceType, departmentId, scope, syncConfig } = body;
-  if (!nangoConnectionId || !provider || !sourceType) {
-    return NextResponse.json(
-      { error: "nangoConnectionId, provider, and sourceType are required" },
-      { status: 400 }
-    );
-  }
+  let raw: unknown;
+  try { raw = await request.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+  const parsed = parseBody(ConnectionPostSchema, raw);
+  if (!parsed.success) return parsed.response;
+  const { nangoConnectionId, provider, sourceType, departmentId, scope, syncConfig } = parsed.data;
 
   // Bug 1 fix: resolve Clerk orgId → internal UUID (connections.org_id is a uuid FK to organizations.id)
   const { data: orgData, error: orgErr } = await supabaseAdmin
@@ -162,13 +156,12 @@ export async function GET() {
     
     // ✅ AUDIT CHECK: Robust error signaling (401/403/500)
     return NextResponse.json(
-      { 
+      {
         success: false,
         error: "Internal Server Error",
-        details: err.message,
         reason: err.reason || 'UNEXPECTED_FAILURE',
         reconnect_required: !!err.reconnect_required
-      }, 
+      },
       { status: err.status || 500 }
     );
   }

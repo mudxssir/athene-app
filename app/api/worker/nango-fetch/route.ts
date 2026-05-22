@@ -20,12 +20,14 @@ export const dynamic = 'force-dynamic';
 // ============================================================
 
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import { verifyQStashSignature, checkIdempotency } from '@/lib/qstash/verify'
 import { releaseSlot, qstash } from '@/lib/qstash/client'
 import { indexDocuments } from '@/lib/integrations/indexing'
 import { logger } from '@/lib/logger'
 import { parseSyncConfig, type SyncConfig } from '@/lib/integrations/sync-config'
 import { supabaseAdmin } from '@/lib/supabase/server'
+import { parseBody, uuidSchema } from '@/lib/validation'
 
 // --- Google ---
 import { fetchCalendarChunks } from '@/lib/integrations/google/calendar-fetcher'
@@ -223,19 +225,20 @@ const providerFetcherMap: Record<string, FetcherFn[]> = {
   'microsoft-graph':[(cid, oid, opts) => microsoftFetcher(cid, oid, opts)],
 }
 
-// ---- Request body type ------------------------------------------
+// ---- Request body schema ----------------------------------------
 
-interface NangoFetchJobBody {
-  orgId: string
-  connectionId: string       // Supabase connections.id UUID — used for indexDocuments FK
-  nangoConnectionId?: string // Nango connection string — used for all Nango API calls
-  provider: string
-  sourceType: string
-  departmentId?: string | null
-  since?: string
-  /** If provided, overrides the DB-stored sync_config for this job (used by delta re-indexer). */
-  syncConfigOverride?: SyncConfig
-}
+const NangoFetchJobSchema = z.object({
+  orgId:              uuidSchema,
+  connectionId:       uuidSchema,       // Supabase connections.id UUID — FK for documents
+  nangoConnectionId:  z.string().max(255).optional(), // Nango string — for provider API calls
+  provider:           z.string().min(1).max(100),
+  sourceType:         z.string().min(1).max(100),
+  departmentId:       uuidSchema.nullable().optional(),
+  since:              z.string().optional(),
+  syncConfigOverride: z.record(z.string(), z.unknown()).optional(),
+})
+
+type NangoFetchJobBody = z.infer<typeof NangoFetchJobSchema>
 
 // ---- POST handler -----------------------------------------------
 
@@ -250,21 +253,13 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json({ status: 'ok', skipped: 'duplicate' })
   }
 
-  let body: NangoFetchJobBody
-  try {
-    body = (await request.json()) as NangoFetchJobBody
-  } catch {
+  let raw: unknown
+  try { raw = await request.json() } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
-
-  const { orgId, connectionId, nangoConnectionId, provider, sourceType, departmentId, since, syncConfigOverride } = body
-
-  if (!orgId || !connectionId || !provider) {
-    return NextResponse.json(
-      { error: 'Missing required fields: orgId, connectionId, provider' },
-      { status: 400 }
-    )
-  }
+  const parsedBody = parseBody(NangoFetchJobSchema, raw)
+  if (!parsedBody.success) return parsedBody.response
+  const { orgId, connectionId, nangoConnectionId, provider, sourceType, departmentId, since, syncConfigOverride } = parsedBody.data
 
   // Fetchers need the Nango connection string to call Nango APIs.
   // connectionId is the Supabase UUID used only for indexDocuments (FK).
@@ -285,7 +280,7 @@ export async function POST(request: Request): Promise<Response> {
   // ---- Resolve sync_config: caller override takes precedence over DB value ----
   // syncConfigOverride is set by the delta re-indexer (worker/index) to scope a job to
   // specific external IDs without touching the connection's stored sync config.
-  let syncConfig: SyncConfig = syncConfigOverride ?? { mode: 'all' }
+  let syncConfig: SyncConfig = (syncConfigOverride as SyncConfig | undefined) ?? { mode: 'all' }
   if (!syncConfigOverride) {
     try {
       const { data: conn } = await supabaseAdmin

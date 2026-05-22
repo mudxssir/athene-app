@@ -1,10 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
+import { z } from 'zod'
 import { mapRole } from '@/lib/auth/clerk'
 import { listConnections, deleteConnection, saveConnectionMapping } from '@/lib/nango/client'
 import { PROVIDER_REGISTRY } from '@/lib/integrations/providers'
 import { supabaseAdmin } from '@/lib/supabase/server'
 import { invalidatePromptCache } from '@/lib/knowledge-graph/modules/resolver'
+import { parseBody } from '@/lib/validation'
+
+const IntegrationConnectSchema = z.object({
+  connectionId: z.string().min(1).max(255),
+  provider:     z.string().min(1).max(100),
+})
+
+const IntegrationDeleteSchema = z.object({
+  connectionId: z.string().min(1).max(255),
+  provider:     z.string().min(1).max(100),
+})
 
 /**
  * 🛡️ ADMIN ROLE ENFORCEMENT
@@ -113,17 +125,11 @@ export async function POST(req: NextRequest) {
   try {
     const { orgId } = await ensureAdmin()
     
-    let body: { connectionId?: string; provider?: string }
-    try {
-      body = await req.json()
-    } catch {
-      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
-    }
-
-    const { connectionId, provider } = body
-    if (!connectionId || !provider) {
-      return NextResponse.json({ error: 'connectionId and provider are required' }, { status: 400 })
-    }
+    let raw: unknown
+    try { raw = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
+    const parsed = parseBody(IntegrationConnectSchema, raw)
+    if (!parsed.success) return parsed.response
+    const { connectionId, provider } = parsed.data
 
     // Resolve Clerk orgId → internal UUID (required for connections table FK)
     const { data: orgData } = await supabaseAdmin
@@ -180,19 +186,23 @@ export async function DELETE(req: NextRequest) {
   try {
     const { orgId } = await ensureAdmin()
 
-    let body: { connectionId?: string; provider?: string }
+    // Accept body JSON or query params (DELETE with body is non-standard)
+    let connectionId: string | undefined
+    let provider: string | undefined
+    let raw: unknown
     try {
-      body = await req.json()
+      raw = await req.json()
+      const parsed = parseBody(IntegrationDeleteSchema, raw)
+      if (!parsed.success) return parsed.response
+      connectionId = parsed.data.connectionId
+      provider = parsed.data.provider
     } catch {
       // Fallback to query params if JSON body is missing
       const { searchParams } = new URL(req.url)
-      body = {
-        connectionId: searchParams.get('connectionId') ?? undefined,
-        provider: searchParams.get('provider') ?? searchParams.get('providerConfigKey') ?? undefined
-      }
+      connectionId = searchParams.get('connectionId') ?? undefined
+      provider = searchParams.get('provider') ?? searchParams.get('providerConfigKey') ?? undefined
     }
 
-    const { connectionId, provider } = body
     if (!connectionId || !provider) {
       return NextResponse.json({ error: 'connectionId and provider are required' }, { status: 400 })
     }

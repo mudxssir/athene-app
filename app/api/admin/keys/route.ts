@@ -1,9 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { requireAdmin } from '@/lib/auth/admin'
 import { supabaseAdmin } from '@/lib/supabase/server'
 import { logger } from '@/lib/logger'
 import { deriveOrgKey, getMasterKey } from '@/lib/auth/kms'
 import { rateLimit } from '@/lib/redis/client'
+import { parseBody, uuidSchema } from '@/lib/validation'
+
+const KeyPostSchema = z.object({
+  provider: z.string().min(1).max(100).trim(),
+  key:      z.string().min(1).max(512),
+  label:    z.string().max(200).trim().optional(),
+})
+
+const KeyPatchSchema = z.object({
+  id:        uuidSchema,
+  is_active: z.boolean().optional(),
+  label:     z.string().max(200).trim().optional(),
+}).refine(
+  (d) => d.is_active !== undefined || d.label !== undefined,
+  { message: 'At least one of is_active or label must be provided' },
+)
 
 /**
  * GET: List all LLM keys for the current organization.
@@ -46,11 +63,11 @@ export async function GET() {
  */
 export async function POST(req: NextRequest) {
   try {
-    const { provider, key, label } = await req.json()
-
-    if (!provider || !key) {
-      return NextResponse.json({ error: 'provider and key are required' }, { status: 400 })
-    }
+    let raw: unknown
+    try { raw = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
+    const parsed = parseBody(KeyPostSchema, raw)
+    if (!parsed.success) return parsed.response
+    const { provider, key, label } = parsed.data
 
     return await requireAdmin(async (_supabase, { orgId, userId }) => {
       // Rate limit inside requireAdmin so we reuse the already-resolved clerkOrgId
@@ -105,9 +122,11 @@ export async function POST(req: NextRequest) {
  */
 export async function PATCH(req: NextRequest) {
   try {
-    const { id, is_active, label } = await req.json()
-
-    if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
+    let raw: unknown
+    try { raw = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
+    const parsed = parseBody(KeyPatchSchema, raw)
+    if (!parsed.success) return parsed.response
+    const { id, is_active, label } = parsed.data
 
     return await requireAdmin(async (_supabase, { orgId, userId }) => {
       const context = await resolveInternalAdminContext(orgId, userId)

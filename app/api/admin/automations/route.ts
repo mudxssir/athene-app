@@ -1,11 +1,22 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import { mapRole } from '@/lib/auth/clerk'
 import { supabaseAdmin } from '@/lib/supabase/server'
 import { withRLS, type RLSContext } from '@/lib/supabase/rls-client'
 import { qstash } from '@/lib/qstash/client'
 import { logger } from '@/lib/logger'
 import { rateLimit } from '@/lib/redis/client'
+import { parseBody } from '@/lib/validation'
+
+const AutomationPostSchema = z.object({
+  name:            z.string().min(1).max(200).trim().optional(),
+  description:     z.string().max(500).trim().optional(),
+  type:            z.string().min(1).max(100).optional(),
+  cron_expression: z.string().max(100).optional(),
+  status:          z.enum(['active', 'paused', 'disabled']).optional(),
+  config:          z.record(z.string(), z.unknown()).optional(),
+}).passthrough()
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? ''
 
@@ -91,10 +102,13 @@ export async function POST(req: Request) {
   const { allowed } = await rateLimit(`automations:post:${context.org_id}`, 20, 3600)
   if (!allowed) return NextResponse.json({ error: 'Rate limit exceeded — try again later' }, { status: 429 })
 
-  try {
-    const body = await req.json()
-    const { id: _id, org_id: _orgId, user_id: _userId, qstash_schedule_id: _sid, ...safeBody } = body
+  let raw: unknown
+  try { raw = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
+  const parsedBody = parseBody(AutomationPostSchema, raw)
+  if (!parsedBody.success) return parsedBody.response
+  const { id: _id, org_id: _orgId, user_id: _userId, qstash_schedule_id: _sid, ...safeBody } = parsedBody.data as any
 
+  try {
     return withRLS(context, async (supabase) => {
       // 1. Insert automation row (without schedule ID yet)
       const { data: automation, error: insertError } = await supabase
@@ -152,7 +166,8 @@ export async function POST(req: Request) {
 
       return NextResponse.json(automation)
     })
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  } catch (err: any) {
+    logger.error({ err: err.message }, '[automations_post] Unexpected error')
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 }

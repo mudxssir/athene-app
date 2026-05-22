@@ -1,9 +1,15 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { resolveUserAccess } from "@/lib/auth/rbac";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 import { rateLimit } from "@/lib/redis/client";
+import { parseBody } from "@/lib/validation";
+
+const ThreadPostSchema = z.object({
+  title: z.string().min(1).max(300).trim().optional(),
+});
 
 /**
  * GET /api/threads
@@ -77,11 +83,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Organization not found" }, { status: 404 });
   }
 
-  let body: { title?: string } = {};
+  let title: string | undefined;
   try {
-    body = await request.json();
+    const rawBody = await request.json();
+    const parsed = parseBody(ThreadPostSchema, rawBody);
+    if (!parsed.success) return parsed.response;
+    title = parsed.data.title;
   } catch {
-    // empty body is fine -- title is optional
+    // empty body is valid — title is optional
   }
 
   const { data, error } = await supabaseAdmin
@@ -89,7 +98,7 @@ export async function POST(request: NextRequest) {
     .insert({
       org_id: orgData.id,
       user_id: access.internal_user_id,
-      title: body.title || null,
+      title: title ?? null,
     })
     .select("id, title, last_message_at, message_count, created_at")
     .single();

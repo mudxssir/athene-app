@@ -32,18 +32,22 @@ export const maxDuration = 300;
 // ============================================================
 
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { verifyQStashSignature, checkIdempotency } from '@/lib/qstash/verify';
 import { qstash } from '@/lib/qstash/client';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
+import { parseBody, uuidSchema } from '@/lib/validation';
 import type { SyncConfig, SelectedResource } from '@/lib/integrations/sync-config';
 
-// ---- Types -------------------------------------------------------
+// ---- Payload schema ----------------------------------------------
 
-interface IndexPayload {
-  org_id: string;
-  document_ids: string[];
-}
+const IndexPayloadSchema = z.object({
+  org_id:       uuidSchema,
+  document_ids: z.array(uuidSchema).min(1),
+});
+
+type IndexPayload = z.infer<typeof IndexPayloadSchema>;
 
 // ---- POST handler ------------------------------------------------
 
@@ -61,22 +65,14 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ status: 'ok', skipped: 'duplicate' });
   }
 
-  // 3. Parse payload
-  let payload: IndexPayload;
-  try {
-    payload = (await request.json()) as IndexPayload;
-  } catch {
+  // 3. Parse and validate payload
+  let raw: unknown;
+  try { raw = await request.json(); } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
-
-  const { org_id, document_ids } = payload;
-
-  if (!org_id || !Array.isArray(document_ids) || document_ids.length === 0) {
-    return NextResponse.json(
-      { error: 'Missing required fields: org_id, document_ids (non-empty array)' },
-      { status: 400 }
-    );
-  }
+  const parsedPayload = parseBody(IndexPayloadSchema, raw);
+  if (!parsedPayload.success) return parsedPayload.response;
+  const { org_id, document_ids } = parsedPayload.data;
 
   logger.info({ org_id, docsCount: document_ids.length }, '[index] Processing delta re-index');
 

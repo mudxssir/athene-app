@@ -1,10 +1,20 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import { mapRole } from '@/lib/auth/clerk'
 import { supabaseAdmin } from '@/lib/supabase/server'
 import { withRLS, type RLSContext } from '@/lib/supabase/rls-client'
 import { qstash } from '@/lib/qstash/client'
 import { logger } from '@/lib/logger'
+import { parseBody } from '@/lib/validation'
+
+const AutomationPatchSchema = z.object({
+  name:            z.string().min(1).max(200).trim().optional(),
+  description:     z.string().max(500).trim().optional(),
+  status:          z.enum(['active', 'paused', 'disabled']).optional(),
+  cron_expression: z.string().max(100).optional(),
+  config:          z.record(z.string(), z.unknown()).optional(),
+}).passthrough()
 
 async function resolveAutomationContext(): Promise<RLSContext | Response> {
   const { userId, orgId: clerkOrgId, orgRole } = await auth()
@@ -66,10 +76,13 @@ export async function PATCH(
 
   if (context instanceof Response) return context
 
-  try {
-    const body = await req.json()
-    const { id: _id, org_id: _orgId, user_id: _userId, ...safeBody } = body
+  let raw: unknown
+  try { raw = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
+  const parsedBody = parseBody(AutomationPatchSchema, raw)
+  if (!parsedBody.success) return parsedBody.response
+  const { id: _id, org_id: _orgId, user_id: _userId, ...safeBody } = parsedBody.data as any
 
+  try {
     return withRLS(context, async (supabase) => {
       const { data, error } = await supabase
         .from('automations')
@@ -87,8 +100,9 @@ export async function PATCH(
 
       return NextResponse.json(data)
     })
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  } catch (err: any) {
+    logger.error({ err: err.message, id }, '[automation_patch] Unexpected error')
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 }
 

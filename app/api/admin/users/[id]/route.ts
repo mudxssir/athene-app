@@ -1,8 +1,19 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 import { invalidateRBACCache, resolveUserAccess } from "@/lib/auth/rbac";
+import { parseBody, uuidSchema, internalRoleSchema } from "@/lib/validation";
+
+const UserPatchSchema = z.object({
+  role: internalRoleSchema.optional(),
+  departmentId: uuidSchema.optional(),
+  active: z.boolean().optional(),
+}).refine(
+  (d) => d.role !== undefined || d.departmentId !== undefined || d.active !== undefined,
+  { message: "At least one field (role, departmentId, active) must be provided" }
+);
 
 // Internal role → Clerk org role (inverse of mapRole in lib/auth/clerk.ts)
 const INTERNAL_TO_CLERK_ROLE: Record<string, string> = {
@@ -34,9 +45,13 @@ export async function PATCH(
   }
 
 
-  try {
-    const { role: newRole, departmentId, active } = await request.json();
+  let raw: unknown;
+  try { raw = await request.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+  const parsed = parseBody(UserPatchSchema, raw);
+  if (!parsed.success) return parsed.response;
+  const { role: newRole, departmentId, active } = parsed.data;
 
+  try {
     // 2. Resolve internal org UUID
     const { data: orgData } = await supabaseAdmin
       .from("organizations")
@@ -84,9 +99,6 @@ export async function PATCH(
     if (departmentId !== undefined) updates.department_id = departmentId;
     if (active !== undefined) updates.active = active;
 
-    if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
-    }
 
 
     const { data: updatedMember, error: updateError } = await supabaseAdmin

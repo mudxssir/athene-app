@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { cachedAuth } from "@/lib/auth/cached-clerk";
 import { HumanMessage } from "@langchain/core/messages";
 import { getAgentGraph } from "@/lib/langgraph/graph";
@@ -8,6 +9,14 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 import { syncUserContext } from "@/lib/auth/sync";
 import { withSSEFrameSpan } from "@/lib/telemetry/spans";
+import { parseBody } from "@/lib/validation";
+
+const AgentPostSchema = z.object({
+  message:             z.string().min(1).max(10000),
+  threadId:            z.string().min(1).max(255),
+  task_type:           z.string().max(100).optional(),
+  is_cross_dept_query: z.boolean().optional(),
+});
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,20 +27,11 @@ export async function POST(req: NextRequest) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { message, threadId, task_type, is_cross_dept_query } = await req.json();
-
-    // 1. Validate Message
-    if (!message || typeof message !== "string" || message.trim().length === 0) {
-      return NextResponse.json({ error: "A non-empty message string is required." }, { status: 400 });
-    }
-    if (message.length > 10000) {
-      return NextResponse.json({ error: "Message exceeds maximum length of 10,000 characters." }, { status: 400 });
-    }
-
-    // 2. Validate Thread ID
-    if (!threadId) {
-      return NextResponse.json({ error: "threadId is required to maintain conversation state and prevent unbounded history." }, { status: 400 });
-    }
+    let raw: unknown;
+    try { raw = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+    const parsedReq = parseBody(AgentPostSchema, raw);
+    if (!parsedReq.success) return parsedReq.response;
+    const { message, threadId, task_type, is_cross_dept_query } = parsedReq.data;
 
     const { allowed } = await rateLimit(`agent:${userId}`, 10, 60);
     if (!allowed) {

@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
+import { z } from 'zod'
 import { mapRole } from '@/lib/auth/clerk'
 import { supabaseAdmin } from '@/lib/supabase/server'
 import { logger } from '@/lib/logger'
+import { parseBody } from '@/lib/validation'
+
+const SaveResourcesSchema = z.object({
+  connectionId: z.string().min(1).max(255),
+  selections:   z.array(z.unknown()).or(z.record(z.string(), z.unknown())),
+})
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,12 +17,11 @@ export async function POST(req: NextRequest) {
     if (!userId || !orgId) return new NextResponse('Unauthorized', { status: 401 })
     if (mapRole(orgRole ?? undefined) !== 'admin') return new NextResponse('Forbidden', { status: 403 })
 
-    const body = await req.json()
-    const { connectionId, selections } = body
-
-    if (!connectionId || !selections) {
-      return NextResponse.json({ error: 'connectionId and selections are required' }, { status: 400 })
-    }
+    let raw: unknown
+    try { raw = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
+    const parsed = parseBody(SaveResourcesSchema, raw)
+    if (!parsed.success) return parsed.response
+    const { connectionId, selections } = parsed.data
 
     // 1. Find the internal connection UUID from the nango_connection_id
     // Wait, the connections table uses nango_connection_id but its PK is 'id' (UUID)

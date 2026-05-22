@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import { supabaseAdmin } from '@/lib/supabase/server'
 import { getContextFromHeaders } from '@/lib/supabase/rls-client'
 import { assertAdminRole } from '@/lib/auth/rbac'
 import { logger } from '@/lib/logger'
 import { rateLimit } from '@/lib/redis/client'
+import { parseBody } from '@/lib/validation'
+
+const BiGrantSchema = z.object({
+  resource_id: z.string().min(1).max(255),
+  resource_type: z.enum(['document', 'folder', 'connection']),
+})
 
 export async function GET(req: Request) {
   const context = getContextFromHeaders(req.headers)
@@ -41,13 +48,11 @@ export async function POST(req: Request) {
   const { allowed } = await rateLimit(`bi-grants:post:${context.org_id}`, 50, 3600)
   if (!allowed) return NextResponse.json({ error: 'Rate limit exceeded — try again later' }, { status: 429 })
 
-  const body = await req.json()
-  const { resource_id, resource_type } = body
-
-  // Input validation (ATH-47 #2)
-  if (!resource_id || !resource_type) {
-    return NextResponse.json({ error: 'Missing resource_id or resource_type' }, { status: 400 })
-  }
+  let raw: unknown
+  try { raw = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
+  const parsed = parseBody(BiGrantSchema, raw)
+  if (!parsed.success) return parsed.response
+  const { resource_id, resource_type } = parsed.data
 
   // Insert grant
   const { data, error } = await supabaseAdmin.from('bi_accessible_grants').insert({

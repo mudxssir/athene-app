@@ -1,9 +1,16 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { mapRole } from "@/lib/auth/clerk";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { validateSyncConfig, parseSyncConfig } from "@/lib/integrations/sync-config";
 import { logger } from "@/lib/logger";
+import { parseBody } from "@/lib/validation";
+
+const SyncConfigPutSchema = z.object({
+  syncConfig:   z.record(z.string(), z.unknown()),
+  triggerSync:  z.boolean().optional(),
+});
 
 interface Params { params: Promise<{ id: string }> }
 
@@ -63,14 +70,13 @@ export async function PUT(request: Request, { params }: Params) {
 
   const { id: connectionId } = await params;
 
-  let body: { syncConfig: unknown; triggerSync?: boolean };
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+  let raw: unknown;
+  try { raw = await request.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+  const parsed = parseBody(SyncConfigPutSchema, raw);
+  if (!parsed.success) return parsed.response;
+  const body = parsed.data;
 
-  // Validate the sync config
+  // Deep-validate the sync config structure (provider-specific rules)
   const validationError = validateSyncConfig(body.syncConfig);
   if (validationError) {
     return NextResponse.json({ error: validationError }, { status: 400 });
