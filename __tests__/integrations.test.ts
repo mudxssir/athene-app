@@ -6,7 +6,9 @@ import { linearProjectsFetcher } from '../lib/integrations/linear/projects-fetch
 import { linearCyclesFetcher } from '../lib/integrations/linear/cycles-fetcher';
 import { indexDocument } from '../lib/integrations/indexing';
 import { getConnectionToken } from '../lib/nango/client';
-import { supabase } from '../lib/supabase/server';
+import { supabase, supabaseAdmin, supabaseServer } from '../lib/supabase/server';
+import { hubspotSearch } from '../lib/integrations/hubspot/searcher';
+import { salesforceSearch } from '../lib/integrations/salesforce/searcher';
 
 // Mock dependencies
 vi.mock('../lib/nango/client', () => ({
@@ -17,15 +19,32 @@ vi.mock('../lib/integrations/indexing', () => ({
   indexDocument: vi.fn(),
 }));
 
-vi.mock('../lib/supabase/server', () => ({
-  supabase: {
-    from: vi.fn(() => ({
-      insert: vi.fn(),
-      select: vi.fn(),
-      upsert: vi.fn(),
-    })),
-  },
-}));
+vi.mock('../lib/supabase/server', () => {
+  const mockSupabaseChain = {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({
+      data: {
+        connection_id: 'fake-conn-id',
+        metadata: { instance_url: 'https://fake-instance.salesforce.com' },
+      },
+      error: null,
+    }),
+    insert: vi.fn().mockResolvedValue({ error: null }),
+    upsert: vi.fn().mockResolvedValue({ error: null }),
+  };
+
+  const mockSupabaseClient = {
+    from: vi.fn(() => mockSupabaseChain),
+  };
+
+  return {
+    supabase: mockSupabaseClient,
+    supabaseAdmin: mockSupabaseClient,
+    supabaseServer: mockSupabaseClient,
+  };
+});
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
@@ -238,4 +257,133 @@ describe('Integrations Fetchers', () => {
       expect(chunks[0].content).toContain('Dates: 2023-01-01T00:00:00Z to 2023-01-14T00:00:00Z');
     });
   });
+
+  describe('HubSpot Searcher', () => {
+    it('should search contacts, companies, and deals, and construct FetchedChunk array', async () => {
+      (getConnectionToken as any).mockResolvedValue('fake-nango-token');
+      
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            results: [
+              {
+                id: 'contact-1',
+                properties: {
+                  firstname: 'Hub',
+                  lastname: 'Spot',
+                  description: 'HubSpot Contact Desc',
+                },
+              },
+            ],
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            results: [
+              {
+                id: 'company-1',
+                properties: {
+                  name: 'HubSpot Inc',
+                  description: 'HubSpot Company Desc',
+                },
+              },
+            ],
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            results: [
+              {
+                id: 'deal-1',
+                properties: {
+                  dealname: 'Big Deal',
+                  description: 'HubSpot Deal Desc',
+                },
+              },
+            ],
+          }),
+        });
+
+      const chunks = await hubspotSearch('conn-1', 'org-1', 'test query', { limit: 5 });
+
+      expect(chunks).toHaveLength(3);
+      expect(chunks[0]).toMatchObject({
+        chunk_id: 'hs-contact-contact-1',
+        title: 'Hub Spot',
+        content: 'HubSpot Contact Desc',
+        source_url: 'https://app.hubspot.com/contacts/contact/contact-1',
+        metadata: {
+          provider: 'hubspot',
+          resource_type: 'contacts',
+          id: 'contact-1',
+        },
+      });
+      expect(chunks[1]).toMatchObject({
+        chunk_id: 'hs-companie-company-1',
+        title: 'HubSpot Inc',
+        content: 'HubSpot Company Desc',
+      });
+      expect(chunks[2]).toMatchObject({
+        chunk_id: 'hs-deal-deal-1',
+        title: 'Big Deal',
+        content: 'HubSpot Deal Desc',
+      });
+    });
+  });
+
+  describe('Salesforce Searcher', () => {
+    it('should search accounts, opportunities, and cases, and construct FetchedChunk array', async () => {
+      (getConnectionToken as any).mockResolvedValue('fake-nango-token');
+      
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          searchRecords: [
+            {
+              attributes: { type: 'Account' },
+              Id: 'acc-1',
+              Name: 'Salesforce Acc',
+            },
+            {
+              attributes: { type: 'Opportunity' },
+              Id: 'opp-1',
+              Name: 'Salesforce Opp',
+            },
+            {
+              attributes: { type: 'Case' },
+              Id: 'case-1',
+              Subject: 'Salesforce Case',
+            },
+          ],
+        }),
+      });
+
+      const chunks = await salesforceSearch('conn-2', 'org-1', 'test query', { limit: 5 });
+
+      expect(chunks).toHaveLength(3);
+      expect(chunks[0]).toMatchObject({
+        chunk_id: 'sf-account-acc-1',
+        title: 'Salesforce Acc',
+        content: 'Salesforce Acc',
+        source_url: 'https://fake-instance.salesforce.com/lightning/r/Account/acc-1/view',
+        metadata: {
+          provider: 'salesforce',
+          resource_type: 'accounts',
+          id: 'acc-1',
+        },
+      });
+      expect(chunks[1]).toMatchObject({
+        chunk_id: 'sf-opportunity-opp-1',
+        title: 'Salesforce Opp',
+      });
+      expect(chunks[2]).toMatchObject({
+        chunk_id: 'sf-case-case-1',
+        title: 'Salesforce Case',
+      });
+    });
+  });
 });
+
