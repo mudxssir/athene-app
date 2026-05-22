@@ -1,7 +1,6 @@
-'use client';
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Calendar, Mail, FileText, ChevronRight, Brain } from 'lucide-react';
+import { Calendar, Mail, FileText, ChevronRight, Brain, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type SectionType = 'calendar' | 'emails' | 'docs' | 'knowledge';
@@ -11,6 +10,7 @@ interface BriefingSectionProps {
   title: string;
   content: string;
   className?: string;
+  status?: 'ok' | 'failed' | 'no_data';
 }
 
 const icons = {
@@ -34,7 +34,7 @@ const borderColors = {
   knowledge: 'border-primary/20',
 };
 
-export function BriefingSection({ type, title, content, className }: BriefingSectionProps) {
+export function BriefingSection({ type, title, content, className, status }: BriefingSectionProps) {
   return (
     <div className={cn(
       "group relative overflow-hidden rounded-[3rem] border bg-card/40 p-10 transition-all duration-700 hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-2 backdrop-blur-2xl font-['Space_Grotesk']",
@@ -69,6 +69,13 @@ export function BriefingSection({ type, title, content, className }: BriefingSec
             </div>
           </div>
 
+          {status === 'failed' && (
+            <div className="text-amber-500 text-xs flex items-center gap-1.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 font-bold">
+              <AlertCircle className="w-3.5 h-3.5" />
+              Synthesis failed for this segment. Displaying raw activity stream.
+            </div>
+          )}
+
           <div className="prose prose-invert prose-p:text-muted-foreground prose-p:leading-relaxed prose-p:font-bold prose-strong:text-foreground prose-strong:font-black prose-sm max-w-none prose-headings:text-foreground prose-headings:font-black prose-li:text-muted-foreground prose-li:font-bold">
             <ReactMarkdown>
               {content || "_System currently indexing updates for this sector..._"}
@@ -79,3 +86,4 @@ export function BriefingSection({ type, title, content, className }: BriefingSec
     </div>
   );
 }
+

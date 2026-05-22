@@ -16,6 +16,15 @@ interface UsageStats {
   briefings: { this_month: number };
 }
 
+interface BriefingContent {
+  calendar?: string;
+  emails?: string;
+  docs?: string;
+  knowledge?: string;
+  section_status?: Record<string, 'ok' | 'failed' | 'no_data'>;
+  [key: string]: any;
+}
+
 /* ── Design-kit atoms ───────────────────────────────────── */
 
 function IconTile({ icon: I, size = 44, tone = 'primary' }: { icon: React.ElementType; size?: number; tone?: 'primary' | 'amber' | 'honey' }) {
@@ -47,7 +56,6 @@ function Chip({ kind = 'outline', dot, children }: { kind?: 'primary' | 'amber' 
 }
 
 /* ── Types ──────────────────────────────────────────────── */
-interface BriefingContent { calendar?: string; emails?: string; docs?: string; knowledge?: string; [key: string]: string | undefined; }
 interface Briefing { id: string; org_id: string; user_id: string; content: BriefingContent; summary: string; generated_at: string; calendar_items?: number; email_items?: number; doc_items?: number; }
 
 /* ── Page ───────────────────────────────────────────────── */
@@ -337,12 +345,36 @@ export default function BriefingPage() {
           </div>
         )
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <BriefingSection type="calendar" title="Calendar & Strategic Alignment"   content={briefing.content?.calendar ?? ''} className="stagger-1" />
-          <BriefingSection type="emails"   title="High-Priority Communications"     content={briefing.content?.emails ?? ''}   className="stagger-2" />
-          <BriefingSection type="docs"     title="Knowledge & Document Evolution"   content={briefing.content?.docs ?? ''}     className="stagger-3" />
+        <div className="grid gap-12 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+          <BriefingSection
+            type="calendar"
+            title="Calendar & Strategic Alignment"
+            content={briefing.content?.calendar ?? ""}
+            status={briefing.content?.section_status?.calendar}
+            className="stagger-1"
+          />
+          <BriefingSection
+            type="emails"
+            title="High-Priority Communications"
+            content={briefing.content?.emails ?? ""}
+            status={briefing.content?.section_status?.emails}
+            className="stagger-2"
+          />
+          <BriefingSection
+            type="docs"
+            title="Knowledge & Document Evolution"
+            content={briefing.content?.docs ?? ""}
+            status={briefing.content?.section_status?.docs}
+            className="stagger-3"
+          />
           {briefing.content?.knowledge && (
-            <BriefingSection type="knowledge" title="Executive Summary" content={briefing.content.knowledge} className="stagger-4" />
+            <BriefingSection
+              type="knowledge"
+              title="Executive Summary"
+              content={briefing.content.knowledge}
+              status={briefing.content?.section_status?.knowledge}
+              className="stagger-4"
+            />
           )}
         </div>
       )}

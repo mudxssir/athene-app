@@ -282,6 +282,25 @@ export default function IntegrationsPage() {
     setTimeout(fetchIntegrations, 1500);
   }, [integrations, fetchIntegrations]);
 
+  const handleCheckStatus = useCallback(async (integration: Integration) => {
+    try {
+      const res = await fetch(`/api/admin/integrations/${integration.connectionId}/check`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: integration.provider }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        setToast({ msg: `${integration.displayName} connection is healthy.`, type: "success" });
+      } else {
+        setToast({ msg: `Connection issue for ${integration.displayName}: ${data.error || "reconnect required."}`, type: "error" });
+      }
+      fetchIntegrations();
+    } catch (e: any) {
+      setToast({ msg: `Check status failed: ${e.message}`, type: "error" });
+    }
+  }, [fetchIntegrations]);
+
   const filteredIntegrations = integrations.filter(i => {
     const meta = getProvider(i.provider as any);
     const searchStr = (meta?.displayName || i.displayName || "").toLowerCase();
@@ -454,6 +473,7 @@ export default function IntegrationsPage() {
                 onDisconnect={(i) => setDisconnecting(i)}
                 onIndex={handleIndex}
                 onConfigureSync={(i) => setConfiguringSync(i)}
+                onCheckStatus={handleCheckStatus}
               />
             );
           })

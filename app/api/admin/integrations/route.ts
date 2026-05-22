@@ -79,7 +79,16 @@ export async function GET(_req: NextRequest) {
         resources: config?.resources ?? [],
         status: (() => {
           const raw = meta?.status || conn.sync_status || (conn.errors?.length ? 'error' : 'connected')
-          if (raw === 'active' || raw === 'connected') return 'connected'
+          if (raw === 'active' || raw === 'connected') {
+            if (conn.last_synced_at) {
+              const lastSynced = new Date(conn.last_synced_at)
+              const diffHours = (Date.now() - lastSynced.getTime()) / (1000 * 60 * 60)
+              if (diffHours > 24) {
+                return 'stale'
+              }
+            }
+            return 'connected'
+          }
           if (raw === 'syncing') return 'syncing'
           if (raw === 'error' || raw === 'failed') return 'error'
           return 'connected'

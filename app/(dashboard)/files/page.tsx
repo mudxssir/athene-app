@@ -476,20 +476,6 @@ export default function FilesPage() {
                                     </Button>
                                   )}
 
-                                  {/* Fix #5 / #13: share disabled with "Coming soon" tooltip */}
-                                  <TooltipProvider>
-                                     <Tooltip>
-                                        <TooltipTrigger asChild>
-                                           <Button
-                                            disabled
-                                            variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-slate-400 disabled:opacity-40 disabled:cursor-not-allowed">
-                                              <Share2 className="w-4 h-4" />
-                                           </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent className="bg-black text-white border-white/10 text-[10px] font-bold uppercase tracking-widest">Coming soon</TooltipContent>
-                                     </Tooltip>
-                                  </TooltipProvider>
-
                                   <Button
                                     onClick={() => handleDownload(file.name)}
                                     variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-white/5 text-slate-400">

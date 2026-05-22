@@ -46,6 +46,7 @@ interface BriefingContent {
   emails?: string
   docs?: string
   knowledge?: string
+  section_status?: Record<string, 'ok' | 'failed' | 'no_data'>
 }
 
 // ---- Helpers ------------------------------------------------
@@ -88,7 +89,7 @@ function chunksToContext(chunks: FetchedChunk[], limit = 40): string {
 
 // ---- LLM Synthesis ------------------------------------------
 
-const SECTION_PROMPTS: Record<keyof BriefingContent, string> = {
+const SECTION_PROMPTS: Record<Exclude<keyof BriefingContent, 'section_status'>, string> = {
   calendar: `You are a strategic executive assistant. Below are the user's upcoming calendar events for today and the next 7 days.
 Write a concise 3–5 sentence narrative briefing covering: key meetings, conflicts or back-to-backs, any prep required, and strategic priorities implied by the schedule.
 Focus on what matters most — be direct and action-oriented. Do not list every event verbatim.
@@ -125,12 +126,12 @@ DOCS:
 
 async function synthesizeSection(
   orgId: string,
-  key: keyof BriefingContent,
+  key: Exclude<keyof BriefingContent, 'section_status'>,
   context: string,
   extraContext?: Record<string, string>
-): Promise<string> {
+): Promise<{ text: string; status: 'ok' | 'failed' | 'no_data' }> {
   if (!context && !Object.values(extraContext ?? {}).some(Boolean)) {
-    return ''
+    return { text: '', status: 'no_data' }
   }
 
   const llm = await resolveModelClient('medium', orgId)
@@ -144,10 +145,11 @@ async function synthesizeSection(
 
   try {
     const response = await llm.invoke(prompt)
-    return typeof response.content === 'string' ? response.content : String(response.content)
+    const text = typeof response.content === 'string' ? response.content : String(response.content)
+    return { text, status: 'ok' }
   } catch (err) {
     logger.warn({ orgId, key, err: err instanceof Error ? err.message : String(err) }, '[morning-briefing] LLM synthesis failed for section')
-    return ''
+    return { text: '', status: 'failed' }
   }
 }
 
@@ -247,27 +249,33 @@ export async function POST(request: Request): Promise<Response> {
   const emailCtx = chunksToContext(emailChunks, 30)
   const docsCtx = chunksToContext(driveChunks, 20)
 
-  const [calendarText, emailsText, docsText] = await Promise.all([
+  const [calendarResult, emailsResult, docsResult] = await Promise.all([
     synthesizeSection(internalOrgId, 'calendar', calendarCtx),
     synthesizeSection(internalOrgId, 'emails', emailCtx),
     synthesizeSection(internalOrgId, 'docs', docsCtx),
   ])
 
-  const knowledgeText = await synthesizeSection(internalOrgId, 'knowledge', '', {
+  const knowledgeResult = await synthesizeSection(internalOrgId, 'knowledge', '', {
     calendarContext: calendarCtx,
     emailContext: emailCtx,
     docsContext: docsCtx,
   })
 
   const content: BriefingContent = {
-    calendar: calendarText || undefined,
-    emails: emailsText || undefined,
-    docs: docsText || undefined,
-    knowledge: knowledgeText || undefined,
+    calendar: calendarResult.text || undefined,
+    emails: emailsResult.text || undefined,
+    docs: docsResult.text || undefined,
+    knowledge: knowledgeResult.text || undefined,
+    section_status: {
+      calendar: calendarResult.status,
+      emails: emailsResult.status,
+      docs: docsResult.status,
+      knowledge: knowledgeResult.status,
+    }
   }
 
   // One-line summary for history sidebar: first sentence of knowledge or emails
-  const rawSummary = knowledgeText || emailsText || calendarText || ''
+  const rawSummary = knowledgeResult.text || emailsResult.text || calendarResult.text || ''
   const summary = rawSummary.split(/[.!?]/)[0]?.trim() ?? ''
 
   // ── 4. Persist briefing ───────────────────────────────────
@@ -296,6 +304,6 @@ export async function POST(request: Request): Promise<Response> {
     calendar_items: calendarChunks.length,
     email_items: emailChunks.length,
     doc_items: driveChunks.length,
-    sections: Object.keys(content).filter(k => !!content[k as keyof BriefingContent]),
+    sections: Object.keys(content).filter(k => k !== 'section_status' && !!content[k as keyof BriefingContent]),
   })
 }
