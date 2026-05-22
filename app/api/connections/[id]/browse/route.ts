@@ -15,9 +15,10 @@ interface Params { params: Promise<{ id: string }> }
  * select which ones to sync.
  *
  * Query params:
- *   - parentId: ID of the parent resource to list children of (optional, null = root)
- *   - pageToken: pagination token from a previous response (optional)
- *   - limit: max number of results per page (optional, default 50)
+ *   - parentId:   ID of the parent resource to list children of (optional, null = root)
+ *   - parentPath: Breadcrumb path of the parent node for building full child paths (optional)
+ *   - pageToken:  Pagination token from a previous response (optional)
+ *   - limit:      Max number of results per page (optional, default 50)
  *
  * Admin-only. Connection ownership is verified via org_id.
  */
@@ -29,6 +30,7 @@ export async function GET(request: Request, { params }: Params) {
   const { id: connectionId } = await params;
   const url = new URL(request.url);
   const parentId = url.searchParams.get("parentId") ?? undefined;
+  const parentPath = url.searchParams.get("parentPath") ?? undefined;
   const pageToken = url.searchParams.get("pageToken") ?? undefined;
   const limit = parseInt(url.searchParams.get("limit") ?? "50", 10);
 
@@ -77,7 +79,7 @@ export async function GET(request: Request, { params }: Params) {
       conn.nango_connection_id,
       internalOrgId,
       parentId,
-      { pageToken, limit }
+      { pageToken, limit, parentPath }
     );
 
     return NextResponse.json({

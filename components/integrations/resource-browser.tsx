@@ -8,6 +8,9 @@ import {
   GitBranch,
   Database,
   FileText,
+  Layers,
+  FolderKanban,
+  Box,
   ChevronRight,
   ChevronDown,
   Check,
@@ -61,6 +64,12 @@ function ResourceIcon({ type, className }: { type: string; className?: string })
       return <Database className={cn(iconClass, "text-cyan-400")} />;
     case "page":
       return <FileText className={cn(iconClass, "text-orange-400")} />;
+    case "space":
+      return <Layers className={cn(iconClass, "text-violet-400")} />;
+    case "project":
+      return <FolderKanban className={cn(iconClass, "text-indigo-400")} />;
+    case "object_type":
+      return <Box className={cn(iconClass, "text-teal-400")} />;
     default:
       return <File className={cn(iconClass, "text-muted-foreground")} />;
   }
@@ -134,19 +143,36 @@ export function ResourceBrowser({
     }
   }, [open, loadResources]);
 
-  // Load children for a folder
+  // Load children for a folder.
+  // Accepts the full parent resource so we can forward its path to the API
+  // for accurate breadcrumb construction on child nodes.
   const loadChildren = useCallback(
-    async (parentId: string) => {
-      if (childrenMap.has(parentId)) return;
+    async (parent: BrowsableResource) => {
+      const parentId = parent.id;
 
-      setChildrenLoading((prev) => new Set(prev).add(parentId));
+      // Skip if already loaded or currently loading
+      setChildrenMap((prev) => {
+        if (prev.has(parentId)) return prev;
+        return prev; // not yet loaded — proceed below
+      });
+
+      setChildrenLoading((prev) => {
+        if (prev.has(parentId)) return prev;
+        const next = new Set(prev);
+        next.add(parentId);
+        return next;
+      });
+
       try {
-        const res = await fetch(
-          `/api/connections/${connectionId}/browse?parentId=${encodeURIComponent(parentId)}`
-        );
+        const qs = new URLSearchParams({ parentId });
+        if (parent.path) qs.set("parentPath", parent.path);
+        const res = await fetch(`/api/connections/${connectionId}/browse?${qs}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        setChildrenMap((prev) => new Map(prev).set(parentId, data.resources ?? []));
+        setChildrenMap((prev) => {
+          if (prev.has(parentId)) return prev; // guard double-fetch
+          return new Map(prev).set(parentId, data.resources ?? []);
+        });
       } catch (err) {
         console.error("Failed to load children:", err);
       } finally {
@@ -157,10 +183,10 @@ export function ResourceBrowser({
         });
       }
     },
-    [connectionId, childrenMap]
+    [connectionId]  // childrenMap removed — reads via functional setState
   );
 
-  // Toggle expand/collapse
+  // Toggle expand/collapse — passes the full resource so loadChildren can forward its path
   const toggleExpanded = useCallback(
     (resource: BrowsableResource) => {
       setExpanded((prev) => {
@@ -169,7 +195,7 @@ export function ResourceBrowser({
           next.delete(resource.id);
         } else {
           next.add(resource.id);
-          if (resource.hasChildren) loadChildren(resource.id);
+          if (resource.hasChildren) loadChildren(resource);
         }
         return next;
       });
@@ -337,17 +363,6 @@ export function ResourceBrowser({
                 All available resources will be synced automatically.
               </p>
             </div>
-          ) : mode === "all" ? (
-            <div className="text-center py-16">
-              <Database className="w-10 h-10 text-muted-foreground/20 mx-auto mb-4" />
-              <p className="text-sm font-bold text-muted-foreground">
-                All resources will be synced
-              </p>
-              <p className="text-xs text-muted-foreground/60 mt-2 max-w-sm mx-auto">
-                Switch to "Select Resources" to choose specific folders, channels, or
-                repositories to sync.
-              </p>
-            </div>
           ) : (
             <>
               {/* Search */}
@@ -377,6 +392,16 @@ export function ResourceBrowser({
                   Clear
                 </button>
               </div>
+
+              {/* All-mode banner */}
+              {mode === "all" && (
+                <div className="flex items-center gap-3 px-4 py-3 mb-3 rounded-xl bg-secondary/5 border border-secondary/15">
+                  <Database className="w-4 h-4 text-secondary shrink-0" />
+                  <p className="text-[11px] font-bold text-muted-foreground">
+                    All resources shown below will be synced. Switch to <span className="text-primary">Select Resources</span> to pick specific items.
+                  </p>
+                </div>
+              )}
 
               {/* Resource list */}
               <div className="space-y-1">

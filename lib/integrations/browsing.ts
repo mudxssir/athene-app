@@ -31,6 +31,7 @@ import { tableauSignIn, tableauFetch } from './tableau/client'
 import { metabaseFetch } from './metabase/client'
 import { dbtFetch, dbtAccountId } from './dbt/client'
 import type { ProviderKey } from './providers'
+import { BROWSABLE_PROVIDERS } from './providers'
 
 // ---- Types --------------------------------------------------
 
@@ -74,7 +75,12 @@ export type ProviderBrowser = (
   connectionId: string,
   orgId: string,
   parentId?: string | null,
-  options?: { pageToken?: string; limit?: number }
+  options?: {
+    pageToken?: string
+    limit?: number
+    /** Breadcrumb path of the parent node, used to build full paths for children. */
+    parentPath?: string
+  }
 ) => Promise<BrowseResult>
 
 // ---- Provider Implementations --------------------------------
@@ -88,7 +94,7 @@ async function browseDrive(
   connectionId: string,
   orgId: string,
   parentId?: string | null,
-  options?: { pageToken?: string; limit?: number }
+  options?: { pageToken?: string; limit?: number; parentPath?: string }
 ): Promise<BrowseResult> {
   const parent = parentId ?? 'root'
   const pageSize = Math.min(options?.limit ?? 50, 100)
@@ -115,6 +121,7 @@ async function browseDrive(
     nextPageToken?: string
   }>(connectionId, orgId, url)
 
+  const parentPath = options?.parentPath ?? ''
   const resources: BrowsableResource[] = listing.files.map((file) => {
     const isFolder = file.mimeType === 'application/vnd.google-apps.folder'
     return {
@@ -122,7 +129,7 @@ async function browseDrive(
       name: file.name,
       type: isFolder ? 'folder' as const : 'file' as const,
       hasChildren: isFolder,
-      path: parent === 'root' ? `/${file.name}` : `/${file.name}`,
+      path: `${parentPath}/${file.name}`,
       metadata: {
         mimeType: file.mimeType,
         modifiedTime: file.modifiedTime,
@@ -194,9 +201,45 @@ async function browseSlack(
 async function browseNotion(
   connectionId: string,
   orgId: string,
-  _parentId?: string | null,
+  parentId?: string | null,
   options?: { pageToken?: string; limit?: number }
 ): Promise<BrowseResult> {
+  // When drilling into a page, list its children via /blocks/{id}/children
+  if (parentId) {
+    const res = await notionFetch(connectionId, orgId, `/blocks/${parentId}/children`, {
+      page_size: Math.min(options?.limit ?? 50, 100),
+      ...(options?.pageToken ? { start_cursor: options.pageToken } : {}),
+    })
+    const resources: BrowsableResource[] = []
+    for (const block of res.results ?? []) {
+      if (block.type === 'child_page') {
+        const title = block.child_page?.title || 'Untitled Page'
+        resources.push({
+          id: block.id,
+          name: title,
+          type: 'page',
+          hasChildren: block.has_children === true,
+          path: `/${title}`,
+          metadata: { url: `https://notion.so/${block.id.replace(/-/g, '')}` },
+        })
+      } else if (block.type === 'child_database') {
+        const title = block.child_database?.title || 'Untitled Database'
+        resources.push({
+          id: block.id,
+          name: title,
+          type: 'database',
+          hasChildren: true,
+          path: `/${title}`,
+          metadata: { url: `https://notion.so/${block.id.replace(/-/g, '')}` },
+        })
+      }
+    }
+    return {
+      resources,
+      nextPageToken: res.has_more ? res.next_cursor : undefined,
+    }
+  }
+
   const searchBody: Record<string, unknown> = {
     page_size: Math.min(options?.limit ?? 50, 100),
   }
@@ -228,7 +271,7 @@ async function browseNotion(
         id: item.id,
         name: title,
         type: 'page',
-        hasChildren: false,
+        hasChildren: item.has_children === true,
         path: `/${title}`,
         metadata: {
           lastEdited: item.last_edited_time,
@@ -441,7 +484,7 @@ async function browseOneDrive(
   connectionId: string,
   orgId: string,
   parentId?: string | null,
-  options?: { pageToken?: string; limit?: number }
+  options?: { pageToken?: string; limit?: number; parentPath?: string }
 ): Promise<BrowseResult> {
   const pageSize = Math.min(options?.limit ?? 50, 100)
   const select = '$select=id,name,folder,file,webUrl,lastModifiedDateTime'
@@ -454,6 +497,7 @@ async function browseOneDrive(
     : endpoint
 
   const res = await graphFetch(connectionId, orgId, fullEndpoint)
+  const parentPath = options?.parentPath ?? ''
   const resources: BrowsableResource[] = (res.value ?? []).map((item: any) => {
     const isFolder = !!item.folder
     return {
@@ -461,7 +505,7 @@ async function browseOneDrive(
       name: item.name,
       type: isFolder ? 'folder' as const : 'file' as const,
       hasChildren: isFolder,
-      path: `/${item.name}`,
+      path: `${parentPath}/${item.name}`,
       metadata: { webUrl: item.webUrl, lastModified: item.lastModifiedDateTime },
     }
   })
@@ -479,10 +523,10 @@ async function browseSharePoint(
   connectionId: string,
   orgId: string,
   parentId?: string | null,
-  options?: { pageToken?: string; limit?: number }
+  options?: { pageToken?: string; limit?: number; parentPath?: string }
 ): Promise<BrowseResult> {
   if (!parentId) {
-    // Root: list SharePoint sites
+    // Root: list SharePoint sites — paths are absolute at this level
     const res = await graphFetch(
       connectionId,
       orgId,
@@ -499,8 +543,10 @@ async function browseSharePoint(
     return { resources }
   }
 
+  const parentPath = options?.parentPath ?? ''
+
   if (parentId.startsWith('site:')) {
-    // List document libraries (drives) for a site
+    // List document libraries (drives) under a site
     const siteId = parentId.slice('site:'.length)
     const res = await graphFetch(connectionId, orgId, `/sites/${siteId}/drives?$select=id,name,webUrl`)
     const resources: BrowsableResource[] = (res.value ?? []).map((drive: any) => ({
@@ -508,7 +554,7 @@ async function browseSharePoint(
       name: drive.name,
       type: 'folder' as const,
       hasChildren: true,
-      path: `/${drive.name}`,
+      path: `${parentPath}/${drive.name}`,
       metadata: { webUrl: drive.webUrl },
     }))
     return { resources }
@@ -526,18 +572,43 @@ async function browseSharePoint(
     const resources: BrowsableResource[] = (res.value ?? []).map((item: any) => {
       const isFolder = !!item.folder
       return {
-        id: item.id,
+        // Prefix folder IDs with "item:{driveId}:" so nested drills carry the drive context
+        id: isFolder ? `item:${driveId}:${item.id}` : item.id,
         name: item.name,
         type: isFolder ? 'folder' as const : 'file' as const,
         hasChildren: isFolder,
-        path: `/${item.name}`,
+        path: `${parentPath}/${item.name}`,
         metadata: { webUrl: item.webUrl },
       }
     })
     return { resources }
   }
 
-  // Generic folder children (sub-folders after drilling in)
+  // Generic SharePoint item children — parentId carries driveId as "item:{driveId}:{itemId}"
+  // Must use /drives/{driveId}/items/{itemId}/children, NOT /me/drive (personal OneDrive).
+  if (parentId.startsWith('item:')) {
+    const [, driveId, itemId] = parentId.split(':')
+    const pageSize = Math.min(options?.limit ?? 50, 100)
+    const res = await graphFetch(
+      connectionId,
+      orgId,
+      `/drives/${driveId}/items/${itemId}/children?$select=id,name,folder,file,webUrl&$top=${pageSize}`
+    )
+    const resources: BrowsableResource[] = (res.value ?? []).map((item: any) => {
+      const isFolder = !!item.folder
+      return {
+        id: isFolder ? `item:${driveId}:${item.id}` : item.id,
+        name: item.name,
+        type: isFolder ? 'folder' as const : 'file' as const,
+        hasChildren: isFolder,
+        path: `${parentPath}/${item.name}`,
+        metadata: { webUrl: item.webUrl },
+      }
+    })
+    return { resources }
+  }
+
+  // Fallback: personal OneDrive item (shouldn't reach here from SharePoint)
   return browseOneDrive(connectionId, orgId, parentId, options)
 }
 
@@ -712,8 +783,12 @@ async function browseMetabase(connectionId: string, orgId: string): Promise<Brow
 }
 
 async function browseDbt(connectionId: string, orgId: string): Promise<BrowseResult> {
-  const accountId = await dbtAccountId(connectionId, orgId)
-  const res = await dbtFetch<{ data?: any[] }>(connectionId, orgId, '/jobs/')
+  // dbtFetch internally resolves accountId from metadata to build the URL.
+  // We also surface it per-job so the fetcher can reference it without re-fetching.
+  const [res, accountId] = await Promise.all([
+    dbtFetch<{ data?: any[] }>(connectionId, orgId, '/jobs/'),
+    dbtAccountId(connectionId, orgId),
+  ])
   const jobs: any[] = res?.data ?? []
   const resources: BrowsableResource[] = jobs.map((job: any) => ({
     id: String(job.id),
@@ -773,8 +848,26 @@ export function getProviderBrowser(provider: ProviderKey): ProviderBrowser | nul
 }
 
 /**
- * Returns true if the provider supports granular resource browsing.
+ * Single source of truth lives in providers.ts (client-safe).
+ * Re-exported here so server-side callers only need one import.
+ *
+ * Dev guard: warn if providerBrowserMap and BROWSABLE_PROVIDERS drift out of sync.
  */
-export function isBrowsable(provider: ProviderKey): boolean {
-  return provider in providerBrowserMap
+export { isBrowsable } from './providers'
+
+if (process.env.NODE_ENV !== 'production') {
+  for (const key of Object.keys(providerBrowserMap) as ProviderKey[]) {
+    if (!BROWSABLE_PROVIDERS.has(key)) {
+      console.error(
+        `[browsing] "${key}" is registered in providerBrowserMap but missing from BROWSABLE_PROVIDERS in providers.ts — add it there.`
+      )
+    }
+  }
+  for (const key of BROWSABLE_PROVIDERS) {
+    if (!(key in providerBrowserMap)) {
+      console.error(
+        `[browsing] "${key}" is in BROWSABLE_PROVIDERS but has no browser in providerBrowserMap — add a browse function or remove it.`
+      )
+    }
+  }
 }
