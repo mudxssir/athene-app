@@ -91,7 +91,7 @@ export async function PUT(request: Request, { params }: Params) {
   // Verify connection ownership
   const { data: conn, error: connErr } = await supabaseAdmin
     .from("connections")
-    .select("id, provider, source_type, department_id")
+    .select("id, provider, source_type, department_id, nango_connection_id")
     .eq("id", connectionId)
     .eq("org_id", internalOrgId)
     .single();
@@ -129,6 +129,7 @@ export async function PUT(request: Request, { params }: Params) {
         body: {
           orgId: internalOrgId,
           connectionId,
+          nangoConnectionId: conn.nango_connection_id,  // Nango string — for provider API calls
           provider: conn.provider,
           sourceType: conn.source_type,
           departmentId: conn.department_id ?? null,

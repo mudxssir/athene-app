@@ -86,7 +86,11 @@ export async function POST(request: Request) {
   );
 
   // Providers that require user file/table selection before first sync
-  const CONFIGURABLE_PROVIDERS = new Set(['google_drive', 'snowflake', 'bigquery', 'redshift']);
+  // Providers that require the user to select resources before a first sync can run.
+  // Adding a provider here suppresses the auto-dispatch on initial connect so the user
+  // goes through the resource browser first.
+  // 'github' requires repo selection — no owner/repo in Nango metadata at connect time.
+  const CONFIGURABLE_PROVIDERS = new Set(['google_drive', 'snowflake', 'bigquery', 'redshift', 'github']);
   const requiresConfiguration = CONFIGURABLE_PROVIDERS.has(provider.toLowerCase());
 
   let dispatched = false;
@@ -97,7 +101,7 @@ export async function POST(request: Request) {
       orgId: internalOrgId,
       sourceType,
       url: workerUrl,
-      body: { orgId: internalOrgId, connectionId: conn.id, provider, sourceType, departmentId: departmentId ?? null },
+      body: { orgId: internalOrgId, connectionId: conn.id, nangoConnectionId, provider, sourceType, departmentId: departmentId ?? null },
     }));
   }
 

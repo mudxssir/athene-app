@@ -233,6 +233,8 @@ interface NangoFetchJobBody {
   sourceType: string
   departmentId?: string | null
   since?: string
+  /** If provided, overrides the DB-stored sync_config for this job (used by delta re-indexer). */
+  syncConfigOverride?: SyncConfig
 }
 
 // ---- POST handler -----------------------------------------------
@@ -248,7 +250,7 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const { orgId, connectionId, nangoConnectionId, provider, sourceType, departmentId, since } = body
+  const { orgId, connectionId, nangoConnectionId, provider, sourceType, departmentId, since, syncConfigOverride } = body
 
   if (!orgId || !connectionId || !provider) {
     return NextResponse.json(
@@ -273,22 +275,26 @@ export async function POST(request: Request): Promise<Response> {
   let allChunks: FetchedChunk[] = []
   let workerErr: unknown = null
 
-  // ---- Read sync_config from the connections table ----
-  let syncConfig: SyncConfig = { mode: 'all' }
-  try {
-    const { data: conn } = await supabaseAdmin
-      .from('connections')
-      .select('sync_config')
-      .eq('id', connectionId)
-      .single()
-    if (conn?.sync_config) {
-      syncConfig = parseSyncConfig(conn.sync_config)
+  // ---- Resolve sync_config: caller override takes precedence over DB value ----
+  // syncConfigOverride is set by the delta re-indexer (worker/index) to scope a job to
+  // specific external IDs without touching the connection's stored sync config.
+  let syncConfig: SyncConfig = syncConfigOverride ?? { mode: 'all' }
+  if (!syncConfigOverride) {
+    try {
+      const { data: conn } = await supabaseAdmin
+        .from('connections')
+        .select('sync_config')
+        .eq('id', connectionId)
+        .single()
+      if (conn?.sync_config) {
+        syncConfig = parseSyncConfig(conn.sync_config)
+      }
+    } catch (configErr) {
+      logger.warn(
+        { connectionId, err: configErr instanceof Error ? configErr.message : String(configErr) },
+        '[nango-fetch] Failed to read sync_config — falling back to full sync'
+      )
     }
-  } catch (configErr) {
-    logger.warn(
-      { connectionId, err: configErr instanceof Error ? configErr.message : String(configErr) },
-      '[nango-fetch] Failed to read sync_config — falling back to full sync'
-    )
   }
 
   try {

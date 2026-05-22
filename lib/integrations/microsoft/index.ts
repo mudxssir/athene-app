@@ -2,7 +2,6 @@ import { fetchUnreadEmails, fetchEmailBody, type OutlookEmail } from './outlook-
 import { fetchEvents } from './calendar-fetcher'
 import { listOneDriveDocs, fetchOneDriveDocContent } from './onedrive-fetcher'
 import { listSharePointDocs, fetchDocContent as fetchSharePointDocContent } from './sharepoint-fetcher'
-import { registerProvider, registerSearcher } from '../registry'
 import { FetchedChunk } from '../base'
 import { microsoftSearch } from './searcher'
 import { graphFetch } from './graph-client'
@@ -45,9 +44,15 @@ export async function microsoftFetcher(
 
   // Separate selected IDs by type so each section can scope independently.
   // browseOutlook returns mail folder IDs, browseMsCalendar returns calendar IDs,
-  // browseOneDrive returns drive item IDs, browseSharePoint returns site:/drive: prefixed IDs.
+  // browseOneDrive returns drive item IDs, browseSharePoint returns site:/drive:/item: prefixed IDs.
   const selectedFolderIds = selectedIds
-    ? [...selectedIds].filter(id => !id.startsWith('site:') && !id.startsWith('drive:'))
+    ? [...selectedIds].filter(id =>
+        !id.startsWith('site:') && !id.startsWith('drive:') && !id.startsWith('item:'))
+    : null
+  // item:{driveId}:{itemId} — SharePoint subfolder selections from browseSharePoint drill-down.
+  // These must NOT flow into email/calendar sections (they are not folder GUIDs).
+  const selectedItemIds = selectedIds
+    ? [...selectedIds].filter(id => id.startsWith('item:'))
     : null
   // Only consider IDs that look like mail folder IDs (non-prefixed GUIDs) for email filtering.
   // Calendar IDs also look like GUIDs but are used in section 2 below.
@@ -242,9 +247,13 @@ export async function microsoftFetcher(
             if (!driveId) continue
             // Per-doc drive filter: skip if user made a selection but this drive isn't in it.
             // A whole-site selection ("site:ID") passes all docs in that site.
+            // An item: selection (subfolder drill-down) is scoped by the driveId embedded in its prefix.
+            const hasItemSelectionForDrive = selectedItemIds && selectedItemIds.length > 0
+              && selectedItemIds.some(itemId => itemId.startsWith(`item:${driveId}:`))
             if (selectedIds && selectedIds.size > 0 &&
                 !selectedIds.has(`site:${site.id}`) &&
-                !selectedIds.has(`drive:${driveId}`)) {
+                !selectedIds.has(`drive:${driveId}`) &&
+                !hasItemSelectionForDrive) {
               continue
             }
             const content = await fetchSharePointDocContent(connectionId, orgId, driveId, doc.id)
@@ -272,8 +281,3 @@ export async function microsoftFetcher(
   return chunks
 }
 
-// Register
-registerProvider('microsoft', microsoftFetcher)
-registerSearcher('microsoft', microsoftSearch)
-registerProvider('microsoft-graph', microsoftFetcher)
-registerSearcher('microsoft-graph', microsoftSearch)

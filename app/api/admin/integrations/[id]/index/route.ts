@@ -39,17 +39,34 @@ export async function POST(
     }
     const internalOrgId = orgData.id as string
 
+    // Resolve the Supabase connections row from the Nango connection string.
+    // The worker needs both:
+    //   connectionId      = Supabase UUID  → FK for documents.connection_id
+    //   nangoConnectionId = Nango string   → used by all provider API fetchers
+    const { data: connRow } = await supabaseAdmin
+      .from('connections')
+      .select('id, source_type, department_id')
+      .eq('org_id', internalOrgId)
+      .eq('nango_connection_id', nangoConnectionId)
+      .maybeSingle()
+
+    if (!connRow) {
+      return NextResponse.json({ error: 'Connection not found' }, { status: 404 })
+    }
+
     const workerUrl = `${getServerBaseUrl()}/api/worker/nango-fetch`
 
     const { dispatched, msgId } = await dispatchThrottled({
       orgId: internalOrgId,
-      sourceType: provider.toLowerCase(),
+      sourceType: connRow.source_type ?? provider.toLowerCase(),
       url: workerUrl,
       body: {
         orgId: internalOrgId,
-        connectionId: nangoConnectionId,
+        connectionId: connRow.id,              // Supabase UUID — FK for documents table
+        nangoConnectionId: nangoConnectionId,  // Nango string — for provider API calls
         provider: provider.toLowerCase(),
-        sourceType: provider.toLowerCase(),
+        sourceType: connRow.source_type ?? provider.toLowerCase(),
+        departmentId: connRow.department_id ?? null,
       },
     })
 

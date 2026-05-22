@@ -327,6 +327,18 @@ export async function indexDocument(
     throw error
   }
 
+  // 5. Prune stale chunks — if the document shrank, delete high-index rows that are no longer valid.
+  // e.g. doc went from 5 chunks → 3: delete chunk_index >= 3 so searches don't return stale content.
+  const { error: pruneErr } = await supabaseAdmin
+    .from('document_embeddings')
+    .delete()
+    .eq('document_id', documentId)
+    .gte('chunk_index', contentChunks.length)
+
+  if (pruneErr) {
+    logger.warn({ title: chunk.title, err: pruneErr.message }, '[indexing] Failed to prune stale chunks (non-fatal)')
+  }
+
   return documentId
 }
 
@@ -445,12 +457,31 @@ export async function indexDocuments(
       errors += records.length
       return { indexed: 0, errors, documentIds: [] }
     }
+
+    // ---- Phase 5: prune stale chunks per document -------------------
+    // Build documentId → highest new chunk_index so we can delete rows beyond it.
+    // This handles documents that shrank (fewer chunks than before).
+    const docToMaxChunk = new Map<string, number>()
+    for (const r of records) {
+      const cur = docToMaxChunk.get(r.document_id) ?? -1
+      if (r.chunk_index > cur) docToMaxChunk.set(r.document_id, r.chunk_index)
+    }
+    for (const [docId, maxIdx] of docToMaxChunk) {
+      const { error: pruneErr } = await supabaseAdmin
+        .from('document_embeddings')
+        .delete()
+        .eq('document_id', docId)
+        .gt('chunk_index', maxIdx)
+      if (pruneErr) {
+        logger.warn({ docId, err: pruneErr.message }, '[indexing] Failed to prune stale chunks (non-fatal)')
+      }
+    }
   }
 
-  return { 
-    indexed: prepared.length, 
-    errors, 
-    documentIds: [...new Set(prepared.map(p => p.documentId))] 
+  return {
+    indexed: prepared.length,
+    errors,
+    documentIds: [...new Set(prepared.map(p => p.documentId))]
   }
 }
 
