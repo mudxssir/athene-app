@@ -10,7 +10,7 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'lcov', 'json-summary'],
       include: ['lib/**'],
-      exclude: ['lib/**/__tests__/**', 'lib/**/*.test.ts', 'lib/**/*.d.ts', 'lib/**/*.md'],
+      exclude: ['lib/**/__tests__/**', 'lib/**/*.test.ts', 'lib/**/*.d.ts', 'lib/**/*.md', 'lib/scripts/**', 'lib/**/*.gitkeep'],
       thresholds: {
         lines: 50,
         functions: 50,
@@ -22,6 +22,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './'),
+      'server-only': path.resolve(__dirname, './__tests__/mocks/server-only.ts'),
     },
   },
 });
