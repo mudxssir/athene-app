@@ -507,49 +507,16 @@ export default function ChatPage() {
           {/* Input Bar */}
           <div className="bg-card/50 p-3 sm:p-4 md:p-5 rounded-[2rem] sm:rounded-[3rem] md:rounded-[3.5rem] border border-border flex flex-col gap-3 shadow-2xl shadow-black/40 relative z-10 mx-2 sm:mx-6 lg:mx-10 mb-4 sm:mb-6 group focus-within:border-primary/50 focus-within:shadow-primary/5 transition-all backdrop-blur-2xl">
             <div className="flex items-center gap-5">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        disabled
-                        className="h-14 w-14 rounded-full text-muted-foreground/30 cursor-not-allowed"
-                        aria-label="File attachment — coming soon"
-                      >
-                        <Paperclip className="w-6 h-6" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>File attachments — coming soon</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                
                 <form onSubmit={handleSubmit} className="flex-1 flex items-center gap-5">
                     <input
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         disabled={isLoading}
                         placeholder={isAnalyticalMode ? "Synthesize department-wide BI patterns..." : "Ask Athene to synthesize anything..."}
-                        className="flex-1 bg-transparent border-none focus:outline-none text-foreground text-base font-bold placeholder:text-muted-foreground/30 placeholder:font-black placeholder:uppercase placeholder:tracking-[0.2em] h-14"
+                        className="flex-1 bg-transparent border-none focus:outline-none text-foreground text-base font-bold placeholder:text-muted-foreground/30 placeholder:font-black placeholder:uppercase placeholder:tracking-[0.2em] h-14 pl-4"
                     />
                     
                     <div className="flex items-center gap-4 pr-3">
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                disabled
-                                className="h-14 w-14 rounded-full text-muted-foreground/30 cursor-not-allowed"
-                                aria-label="Voice input — coming soon"
-                              >
-                                <Mic className="w-6 h-6" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Voice input — coming soon</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
                         <Button 
                             type="submit"
                             disabled={isLoading || !input.trim()}
