@@ -18,10 +18,10 @@ const INTERNAL_TO_CLERK_ROLE: Record<string, string> = {
  */
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { userId, orgId, orgRole } = await auth();
-  const targetMemberId = params.id;
+  const { id: targetMemberId } = await params;
 
   if (!userId || !orgId) {
     return new NextResponse("Unauthorized", { status: 401 });

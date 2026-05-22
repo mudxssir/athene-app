@@ -53,7 +53,11 @@ export async function GET(request: Request) {
         clerk_user_id,
         email,
         display_name,
-        role
+        role,
+        active,
+        last_active_at,
+        department_id,
+        departments ( id, name )
       `, { count: "exact" })
       .eq("org_id", orgData.id);
 
