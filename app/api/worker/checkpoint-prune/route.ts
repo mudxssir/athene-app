@@ -26,7 +26,7 @@ export const dynamic = 'force-dynamic';
 // ============================================================
 
 import { NextResponse } from 'next/server';
-import { verifyQStashSignature } from '@/lib/qstash/verify';
+import { verifyQStashSignature, checkIdempotency } from '@/lib/qstash/verify';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 
@@ -37,6 +37,15 @@ const BATCH_SIZE = 200;
 export async function POST(request: Request): Promise<Response> {
   const isValid = await verifyQStashSignature(request);
   if (!isValid) return new Response('Invalid QStash signature', { status: 401 });
+
+  // Idempotency guard (5C.3): this cron runs daily, and the Redis TTL is 24h.
+  // If QStash re-delivers after a slow response or timeout, the second call
+  // will be a no-op rather than re-running the potentially expensive batch delete.
+  const isFirstDelivery = await checkIdempotency(request);
+  if (!isFirstDelivery) {
+    logger.warn({}, '[checkpoint-prune] Duplicate delivery detected — skipping');
+    return NextResponse.json({ skipped: true, reason: 'duplicate' });
+  }
 
   const now = new Date();
   const checkpointCutoff = new Date(now.getTime() - CHECKPOINT_STALE_DAYS * 86400_000).toISOString();

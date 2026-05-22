@@ -22,7 +22,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { verifyQStashSignature } from '@/lib/qstash/verify'
+import { verifyQStashSignature, checkIdempotency } from '@/lib/qstash/verify'
 import { supabaseAdmin } from '@/lib/supabase/server'
 import { resolveModelClient } from '@/lib/langgraph/llm-factory'
 import { logger } from '@/lib/logger'
@@ -162,6 +162,15 @@ async function synthesizeSection(
 export async function POST(request: Request): Promise<Response> {
   const isValid = await verifyQStashSignature(request)
   if (!isValid) return new Response('Invalid QStash signature', { status: 401 })
+
+  // Idempotency guard: briefing rows are non-idempotent inserts.
+  // If QStash re-delivers this job (e.g. timeout before 200), skip the
+  // duplicate rather than inserting a second briefing for the same user.
+  const isFirstDelivery = await checkIdempotency(request)
+  if (!isFirstDelivery) {
+    logger.warn({}, '[morning-briefing] Duplicate delivery detected — skipping')
+    return NextResponse.json({ skipped: true, reason: 'duplicate' })
+  }
 
   let raw: unknown
   try { raw = await request.json() } catch {
