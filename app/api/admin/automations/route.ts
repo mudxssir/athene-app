@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase/server'
 import { withRLS, type RLSContext } from '@/lib/supabase/rls-client'
 import { qstash } from '@/lib/qstash/client'
 import { logger } from '@/lib/logger'
+import { rateLimit } from '@/lib/redis/client'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? ''
 
@@ -85,6 +86,10 @@ export async function GET() {
 export async function POST(req: Request) {
   const context = await resolveAutomationContext()
   if (context instanceof Response) return context
+
+  // Rate limit: 20 automation creates per org per hour
+  const { allowed } = await rateLimit(`automations:post:${context.org_id}`, 20, 3600)
+  if (!allowed) return NextResponse.json({ error: 'Rate limit exceeded — try again later' }, { status: 429 })
 
   try {
     const body = await req.json()

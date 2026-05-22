@@ -69,12 +69,13 @@ export async function GET(req: NextRequest) {
     }
 
     if (search?.trim()) {
-      const sanitizedSearch = search.trim().replace(/[%_*{}",.\\()[\]]/g, "");
-      if (sanitizedSearch) {
-        query = query.or(
-          `label.ilike.%${sanitizedSearch}%,description.ilike.%${sanitizedSearch}%`
-        );
-      }
+      // Escape ilike wildcard chars (%_\) so user queries like "50% growth" are
+      // treated as literal text, not patterns. Escape, not strip — stripping
+      // would silently return wrong results for queries containing these chars.
+      const sanitizedSearch = search.trim().replace(/[%_\\]/g, '\\$&')
+      query = query.or(
+        `label.ilike.%${sanitizedSearch}%,description.ilike.%${sanitizedSearch}%`
+      );
     }
 
     if (entityType) {

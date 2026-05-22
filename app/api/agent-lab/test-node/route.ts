@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { supervisor } from "@/lib/langgraph/nodes/supervisor";
 import { logger } from "@/lib/logger";
+import { rateLimit } from "@/lib/redis/client";
 import { retrievalAgent } from "@/lib/langgraph/nodes/retrieval-agent";
 import { emailAgentNode } from "@/lib/langgraph/nodes/email-agent";
 import { calendarAgentNode } from "@/lib/langgraph/nodes/calendar-agent";
@@ -21,6 +22,10 @@ export async function POST(req: NextRequest) {
   try {
     const { userId, orgId } = await auth();
     if (!userId || !orgId) return new NextResponse("Unauthorized", { status: 401 });
+
+    // Rate limit: 30 node test executions per user per hour (each invokes a live LLM node)
+    const { allowed } = await rateLimit(`agent-lab:test-node:${userId}`, 30, 3600);
+    if (!allowed) return NextResponse.json({ error: "Rate limit exceeded — try again later" }, { status: 429 });
 
     const { nodeName, mockState } = await req.json();
 
@@ -43,6 +48,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     logger.error({ err: error?.message ?? String(error) }, "[test-node] Error");
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Node execution failed" }, { status: 500 });
   }
 }

@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase/server'
 import { getContextFromHeaders } from '@/lib/supabase/rls-client'
 import { assertAdminRole } from '@/lib/auth/rbac'
 import { logger } from '@/lib/logger'
+import { rateLimit } from '@/lib/redis/client'
 
 export async function GET(req: Request) {
   const context = getContextFromHeaders(req.headers)
@@ -35,6 +36,10 @@ export async function POST(req: Request) {
   if (!isAdmin) {
      return new Response('Forbidden: Only admin can grant BI access', { status: 403 })
   }
+
+  // Rate limit: 50 grant mutations per org per hour
+  const { allowed } = await rateLimit(`bi-grants:post:${context.org_id}`, 50, 3600)
+  if (!allowed) return NextResponse.json({ error: 'Rate limit exceeded — try again later' }, { status: 429 })
 
   const body = await req.json()
   const { resource_id, resource_type } = body

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
 import { requireAdmin } from '@/lib/auth/admin'
 import { supabaseAdmin } from '@/lib/supabase/server'
 import { logger } from '@/lib/logger'
@@ -47,13 +46,6 @@ export async function GET() {
  */
 export async function POST(req: NextRequest) {
   try {
-    // Rate limit before expensive auth — 10 key mutations per org per hour
-    const { orgId: clerkOrgId } = await auth()
-    if (clerkOrgId) {
-      const { allowed } = await rateLimit(`admin:keys:post:${clerkOrgId}`, 10, 3600)
-      if (!allowed) return NextResponse.json({ error: 'Rate limit exceeded — try again later' }, { status: 429 })
-    }
-
     const { provider, key, label } = await req.json()
 
     if (!provider || !key) {
@@ -61,6 +53,10 @@ export async function POST(req: NextRequest) {
     }
 
     return await requireAdmin(async (_supabase, { orgId, userId }) => {
+      // Rate limit inside requireAdmin so we reuse the already-resolved clerkOrgId
+      // (requireAdmin calls auth() once — no second remote call needed).
+      const { allowed } = await rateLimit(`admin:keys:post:${orgId}`, 10, 3600)
+      if (!allowed) return NextResponse.json({ error: 'Rate limit exceeded — try again later' }, { status: 429 })
       const context = await resolveInternalAdminContext(orgId, userId)
       // Derive a per-org encryption key — leaked master key alone can't
       // decrypt any org's data without the org's internal UUID.

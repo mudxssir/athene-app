@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { mapRole } from "@/lib/auth/clerk";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { dispatchThrottled } from "@/lib/qstash/client";
+import { rateLimit } from "@/lib/redis/client";
 
 interface Params { params: Promise<{ id: string }> }
 
@@ -16,6 +17,11 @@ export async function POST(request: Request, { params }: Params) {
   const { userId, orgId, orgRole } = await auth();
   if (!userId || !orgId) return new NextResponse("Unauthorized", { status: 401 });
   if (mapRole(orgRole ?? undefined) !== "admin") return new NextResponse("Forbidden", { status: 403 });
+
+  // Rate limit: 10 manual sync triggers per org per hour (each dispatches a
+  // full fetch worker — too many would flood QStash and exhaust concurrency slots)
+  const { allowed } = await rateLimit(`connections:sync:${orgId}`, 10, 3600);
+  if (!allowed) return NextResponse.json({ error: "Rate limit exceeded — try again later" }, { status: 429 });
 
   const { id: connectionId } = await params;
 

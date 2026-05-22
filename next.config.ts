@@ -31,6 +31,16 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Cap incoming request body at 4 MB.
+  // Without this Next.js has no built-in body size limit, so a single
+  // authenticated request could send an arbitrarily large payload and exhaust
+  // serverless function memory. Files are uploaded via multipart to /api/files/upload
+  // which streams directly to Supabase Storage; 4 MB covers all JSON API routes.
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "4mb",
+    },
+  },
   images: {
     // SVG is intentionally excluded — use <img> tags for SVG assets to avoid XSS risk
     formats: ["image/avif", "image/webp"],
