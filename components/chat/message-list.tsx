@@ -93,7 +93,7 @@ export function MessageList({ messages, awaitingApproval }: MessageListProps) {
           <Tooltip key={`cite-${docId}-${match.index}`}>
             <TooltipTrigger asChild>
               <span
-                className="inline-flex items-center px-2 py-0.5 mx-0.5 bg-[#EEF6FC]/10 border border-[#C2DCF0]/20 rounded text-[10px] font-bold uppercase tracking-wider text-[#5290B8] cursor-pointer hover:bg-[#EEF6FC]/20 transition-colors"
+                className="inline-flex items-center px-2 py-0.5 mx-0.5 bg-secondary/10 border border-secondary/20 rounded text-[10px] font-bold uppercase tracking-wider text-secondary cursor-pointer hover:bg-secondary/20 transition-colors"
                 onClick={() => {
                   if (source.external_url) {
                     window.open(source.external_url, "_blank");
@@ -110,7 +110,7 @@ export function MessageList({ messages, awaitingApproval }: MessageListProps) {
                   Type: {source.source_type}
                 </p>
                 {source.external_url && (
-                  <p className="text-[#5290B8] flex items-center gap-1">
+                  <p className="text-secondary flex items-center gap-1">
                     <ExternalLink className="w-3 h-3" />
                     Open document
                   </p>
@@ -164,8 +164,8 @@ export function MessageList({ messages, awaitingApproval }: MessageListProps) {
                 className={cn(
                   "h-11 w-11 shrink-0 rounded-2xl flex items-center justify-center border shadow-sm",
                   msg.role === "assistant"
-                    ? "bg-[#EEF6FC]/10 border-[#C2DCF0]/20 text-[#5290B8]"
-                    : "bg-[#D96FAB]/10 border-[#F7DDE9]/20 text-[#D96FAB]"
+                    ? "bg-muted border-border text-muted-foreground"
+                    : "bg-primary/10 border-primary/20 text-primary"
                 )}
               >
                 {msg.role === "assistant" ? (
@@ -184,8 +184,8 @@ export function MessageList({ messages, awaitingApproval }: MessageListProps) {
                   className={cn(
                     "p-6 rounded-[2rem] text-[15px] leading-relaxed font-medium shadow-sm transition-all hover:shadow-md",
                     msg.role === "assistant"
-                      ? "bg-card border border-white/5 text-foreground"
-                      : "bg-[#D96FAB] text-white border-none shadow-pink-900/20"
+                      ? "bg-card border border-border text-foreground"
+                      : "bg-primary text-white border-none shadow-[var(--shadow-2)]"
                   )}
                 >
                   {msg.isQuotaError ? (
@@ -216,7 +216,7 @@ export function MessageList({ messages, awaitingApproval }: MessageListProps) {
                   ) : (
                     <>
                       {msg.isAnalytical && msg.role === "assistant" && (
-                        <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.2em] font-bold text-[#D96FAB] mb-4 border-b border-white/5 pb-3 w-fit">
+                        <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.2em] font-bold text-secondary mb-4 border-b border-border/30 pb-3 w-fit">
                           <Database className="w-4 h-4" />
                           Business Intelligence Synthesis
                         </div>
@@ -224,7 +224,7 @@ export function MessageList({ messages, awaitingApproval }: MessageListProps) {
 
                       {msg.isLoading && !msg.content ? (
                         <div className="flex items-center gap-4 py-2">
-                          <Loader2 className="w-5 h-5 animate-spin text-[#D96FAB]" />
+                          <Loader2 className="w-5 h-5 animate-spin text-primary" />
                           <span className="text-muted-foreground animate-pulse text-[12px] font-bold uppercase tracking-widest">
                             Athene is Synthesizing...
                           </span>
@@ -246,9 +246,9 @@ export function MessageList({ messages, awaitingApproval }: MessageListProps) {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 data-testid="cited-source"
-                                className="inline-flex items-center gap-3 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-[11px] font-bold uppercase tracking-widest text-muted-foreground hover:text-[#D96FAB] hover:border-[#D96FAB]/30 transition-all duration-200"
+                                className="inline-flex items-center gap-3 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-[11px] font-bold uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/30 transition-all duration-200"
                               >
-                                <ExternalLink className="w-3.5 h-3.5 text-[#7AADCF]" />
+                                <ExternalLink className="w-3.5 h-3.5 text-secondary" />
                                 {source.source_type || "Source"}
                               </a>
                             ) : (
@@ -256,7 +256,7 @@ export function MessageList({ messages, awaitingApproval }: MessageListProps) {
                                 data-testid="cited-source"
                                 className="inline-flex items-center gap-3 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-[11px] font-bold uppercase tracking-widest text-muted-foreground"
                               >
-                                <ExternalLink className="w-3.5 h-3.5 text-[#7AADCF]" />
+                                <ExternalLink className="w-3.5 h-3.5 text-secondary" />
                                 {source.source_type || "Source"}
                               </span>
                             )}

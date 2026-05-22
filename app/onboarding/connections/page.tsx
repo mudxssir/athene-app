@@ -80,12 +80,12 @@ export default function OnboardingConnectionsPage() {
   return (
     <div className="min-h-screen bg-[#06080c] text-white flex flex-col font-['Space_Grotesk'] overflow-hidden">
       {/* Background Ambience */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[600px] bg-[#66ADE4]/5 blur-[160px] -z-10 rounded-full opacity-50" />
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-[#D96FAB]/5 blur-[120px] -z-10 rounded-full" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[600px] bg-secondary/5 blur-[160px] -z-10 rounded-full opacity-50" />
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-primary/3 -z-10 rounded-full" />
 
       {/* Progress Bar — step 2 of 4 */}
       <div className="h-1.5 w-full bg-white/5 fixed top-0 left-0 z-50">
-         <div className="h-full bg-gradient-to-r from-[#D96FAB] to-[#66ADE4] transition-all duration-1000" style={{ width: '50%' }} />
+         <div className="h-full bg-primary transition-all duration-1000" style={{ width: '50%' }} />
       </div>
 
       <main className="flex-1 container max-w-5xl mx-auto flex flex-col items-center justify-center p-6 pt-20">
@@ -93,12 +93,12 @@ export default function OnboardingConnectionsPage() {
         <div className="w-full text-center space-y-6 mb-16 animate-in fade-in slide-in-from-bottom-8 duration-700">
            <div className="flex items-center justify-center gap-4 mb-4">
               <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
-                 <Blocks className="w-6 h-6 text-[#66ADE4]" />
+                 <Blocks className="w-6 h-6 text-secondary" />
               </div>
            </div>
 
            <div className="flex items-center justify-center gap-2 mb-2">
-             <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#66ADE4]">Step 2 of 4 — Connect Sources</span>
+             <span className="text-[10px] font-black uppercase tracking-[0.3em] text-secondary">Step 2 of 4 — Connect Sources</span>
            </div>
            <h1 className="text-4xl md:text-5xl font-black tracking-tighter">
              Connect your <span className="text-gradient">Neural Grid</span>
@@ -127,7 +127,7 @@ export default function OnboardingConnectionsPage() {
            {topProviders.map((provider) => (
               <div
                 key={provider.key}
-                className="group relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-[2rem] p-8 flex flex-col items-center text-center transition-all duration-500 hover:border-[#66ADE4]/30 hover:bg-white/10"
+                className="group relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-[2rem] p-8 flex flex-col items-center text-center transition-all duration-500 hover:border-secondary/30 hover:bg-white/10"
               >
                  <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center mb-6 shadow-xl transition-transform duration-500 group-hover:scale-110">
                     <img src={provider.icon} alt={provider.displayName} className="w-10 h-10 object-contain" />
@@ -177,7 +177,7 @@ export default function OnboardingConnectionsPage() {
               >
                 Skip for now
               </Link>
-              <Button asChild size="lg" className="h-14 px-10 rounded-2xl bg-[#66ADE4] text-black hover:bg-[#599bc9] font-black uppercase tracking-widest text-[10px] gap-3 shadow-xl shadow-blue-500/20 group">
+              <Button asChild size="lg" className="h-14 px-10 rounded-2xl bg-secondary text-black hover:bg-[#599bc9] font-black uppercase tracking-widest text-[10px] gap-3 shadow-xl shadow-blue-500/20 group">
                 <Link href={connectedCount > 0 ? "/onboarding/syncing" : "/dashboard"}>
                   {connectedCount > 0 ? "Watch Sync Progress" : "Initialize Athene"}
                   <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />

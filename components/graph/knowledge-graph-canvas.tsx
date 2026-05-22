@@ -22,15 +22,15 @@ import { Loader2, Network, RefreshCw, Filter } from "lucide-react";
 
 // ── Entity colour map ───────────────────────────────────────
 export const ENTITY_COLORS: Record<string, string> = {
-  service: "#3b82f6",   // blue
-  person: "#22c55e",    // green
-  project: "#f97316",   // orange
-  concept: "#a855f7",   // purple
-  team: "#14b8a6",      // teal
-  technology: "#ec4899", // pink
-  process: "#eab308",   // yellow
-  organization: "#6366f1", // indigo
-  product: "#ef4444",   // red
+  service:      "#A04A1B",  // sienna-500   — brand primary
+  person:       "#4F7A2E",  // olive-green   — universal person signal
+  project:      "#D97A2E",  // amber-500    — supporting orange
+  concept:      "#E6B928",  // honey-400    — yellow-gold
+  team:         "#6B2E0E",  // sienna-700   — dark earth
+  technology:   "#BF7038",  // sienna-400   — mid orange-brown
+  process:      "#8B6D45",  // coffee-300   — tan
+  organization: "#5A4225",  // coffee-500   — darker tan
+  product:      "#B23A1A",  // danger       — warm red-orange
 };
 export type EntityColorKey = keyof typeof ENTITY_COLORS;
 

@@ -19,12 +19,12 @@ export async function GET(request: Request) {
       // This query is now RLS-protected by the session headers set in the wrapper
       const { data: user } = await supabase
         .from('org_members')
-        .select('*')
+        .select('id, org_id, role, email, display_name, created_at')
         .eq('id', context.user_id)
-      
+
       const { data: org } = await supabase
         .from('organizations')
-        .select('*')
+        .select('id, clerk_org_id, name, slug, created_at')
         .eq('id', context.org_id)
 
       return {

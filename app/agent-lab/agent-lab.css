@@ -2,10 +2,10 @@
 
 @theme {
   --color-fusion-obsidian: #050505;
-  --color-fusion-pink: #DA88B6;
-  --color-fusion-blue: #66ADE4;
+  --color-fusion-sienna: var(--primary);    /* was: #DA88B6 pink → sienna primary */
+  --color-fusion-amber: var(--secondary);   /* was: #66ADE4 blue → amber secondary */
   --color-fusion-slate: #1e293b;
-  
+
   --font-space-grotesk: var(--font-space-grotesk), sans-serif;
 }
 

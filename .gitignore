@@ -52,3 +52,6 @@ supabase/.temp/
 # playwright reports and test results
 /test-results/
 /tests/e2e/playwright-report/
+
+# stale worker backups
+/.worker-backup/

@@ -75,6 +75,17 @@ export async function dispatchThrottled({
       return { dispatched: false };
     }
 
+    // Dev bypass: QStash can't reach localhost, so call the worker directly
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? '';
+    if (appUrl.startsWith('http://localhost') || appUrl.startsWith('http://127.0.0.1')) {
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }).catch(err => logger.warn({ err: err.message, url }, '[QStash] Dev direct call failed'));
+      return { dispatched: true, msgId: 'dev-direct' };
+    }
+
     try {
       const response = await qstash.publishJSON({ url, body });
       return { dispatched: true, msgId: response.messageId };

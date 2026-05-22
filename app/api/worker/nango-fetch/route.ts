@@ -91,19 +91,19 @@ const providerFetcherMap: Record<string, FetcherFn[]> = {
   // ── Google Workspace ─────────────────────────────────────────
   google_drive:     [(cid, oid, opts) => fetchDriveChunks(cid, oid, undefined, opts?.syncConfig)],
   // Use indexEmailChunks (full body, chunked) for background indexing — NOT searchEmailChunks
-  gmail:            [(cid, oid, opts) => indexEmailChunks(cid, oid, { limit: opts?.limit ?? 200 })],
-  google_calendar:  [(cid, oid) => {
+  gmail:            [(cid, oid, opts) => indexEmailChunks(cid, oid, { limit: opts?.limit ?? 200, syncConfig: opts?.syncConfig })],
+  google_calendar:  [(cid, oid, opts) => {
     const now = new Date()
     const future = new Date()
     future.setDate(future.getDate() + 30)
-    return fetchCalendarChunks(cid, oid, now, future)
+    return fetchCalendarChunks(cid, oid, now, future, opts?.syncConfig)
   }],
 
   // ── Microsoft 365 ────────────────────────────────────────────
-  sharepoint:   [microsoftFetcher],
-  onedrive:     [microsoftFetcher],
-  outlook:      [microsoftFetcher],
-  ms_calendar:  [microsoftFetcher],
+  sharepoint:   [(cid, oid, opts) => microsoftFetcher(cid, oid, opts)],
+  onedrive:     [(cid, oid, opts) => microsoftFetcher(cid, oid, opts)],
+  outlook:      [(cid, oid, opts) => microsoftFetcher(cid, oid, opts)],
+  ms_calendar:  [(cid, oid, opts) => microsoftFetcher(cid, oid, opts)],
 
   // ── Communication ────────────────────────────────────────────
   slack: [(cid, oid, opts) => fetchSlackMessages(cid, oid, opts?.syncConfig)],
@@ -113,63 +113,88 @@ const providerFetcherMap: Record<string, FetcherFn[]> = {
 
   // ── CRM ──────────────────────────────────────────────────────
   hubspot: [
-    fetchHubSpotCompanies,
-    fetchHubSpotContacts,
-    fetchHubSpotDeals,
-    fetchHubSpotNotes,
+    async (connectionId, orgId, opts) => {
+      const selected = opts?.syncConfig ? new Set(opts.syncConfig.selectedResources?.map((r) => r.id) ?? []) : new Set<string>()
+      const all = selected.size === 0
+      const chunks = await Promise.all([
+        all || selected.has('companies') ? fetchHubSpotCompanies(connectionId, orgId) : Promise.resolve([]),
+        all || selected.has('contacts') ? fetchHubSpotContacts(connectionId, orgId) : Promise.resolve([]),
+        all || selected.has('deals') ? fetchHubSpotDeals(connectionId, orgId) : Promise.resolve([]),
+        all || selected.has('notes') ? fetchHubSpotNotes(connectionId, orgId) : Promise.resolve([]),
+      ])
+      return chunks.flat()
+    },
   ],
   salesforce: [
-    async (connectionId, orgId) => {
+    async (connectionId, orgId, opts) => {
       const metadata = await getProviderMetadata(connectionId, 'salesforce', orgId)
       const instanceUrl = metadata.instance_url
       if (!instanceUrl) throw new Error(`Salesforce instance_url not found for connection ${connectionId}`)
-      const [accounts, cases, opportunities] = await Promise.all([
-        fetchSalesforceAccounts(connectionId, instanceUrl, orgId),
-        fetchSalesforceCases(connectionId, instanceUrl, orgId),
-        fetchSalesforceOpportunities(connectionId, instanceUrl, orgId),
+      const selected = opts?.syncConfig ? new Set(opts.syncConfig.selectedResources?.map((r) => r.id) ?? []) : new Set<string>()
+      const all = selected.size === 0
+      const chunks = await Promise.all([
+        all || selected.has('accounts') ? fetchSalesforceAccounts(connectionId, instanceUrl, orgId) : Promise.resolve([]),
+        all || selected.has('cases') ? fetchSalesforceCases(connectionId, instanceUrl, orgId) : Promise.resolve([]),
+        all || selected.has('opportunities') ? fetchSalesforceOpportunities(connectionId, instanceUrl, orgId) : Promise.resolve([]),
       ])
-      return [...accounts, ...cases, ...opportunities]
+      return chunks.flat()
     },
   ],
   zendesk: [
-    async (connectionId, orgId) => {
+    async (connectionId, orgId, opts) => {
       const metadata = await getProviderMetadata(connectionId, 'zendesk', orgId)
       const subdomain = metadata.subdomain
       if (!subdomain) throw new Error(`Zendesk subdomain not found for connection ${connectionId}`)
-      const [tickets, articles] = await Promise.all([
-        fetchZendeskTickets(connectionId, orgId, subdomain),
-        fetchZendeskArticles(connectionId, orgId, subdomain),
+      const selected = opts?.syncConfig ? new Set(opts.syncConfig.selectedResources?.map((r) => r.id) ?? []) : new Set<string>()
+      const all = selected.size === 0
+      const chunks = await Promise.all([
+        all || selected.has('tickets') ? fetchZendeskTickets(connectionId, orgId, subdomain) : Promise.resolve([]),
+        all || selected.has('articles') ? fetchZendeskArticles(connectionId, orgId, subdomain) : Promise.resolve([]),
       ])
-      return [...tickets, ...articles]
+      return chunks.flat()
     },
   ],
 
   // ── Dev Tools ────────────────────────────────────────────────
   github: [
-    async (connectionId, orgId) => {
+    async (connectionId, orgId, opts) => {
       const metadata = await getProviderMetadata(connectionId, 'github', orgId)
-      const { owner, repo } = metadata
-      if (!owner || !repo) throw new Error(`GitHub owner or repo not found for connection ${connectionId}`)
-      const [issues, prs, wiki] = await Promise.all([
-        githubIssuesFetcher(connectionId, orgId, owner, repo),
-        githubPrsFetcher(connectionId, orgId, owner, repo),
-        githubWikiFetcher(connectionId, orgId, owner, repo),
-      ])
-      return [...issues, ...prs, ...wiki]
+      // If sync_config has selected repos, iterate them; otherwise fall back to metadata.owner/repo
+      const selectedRepos = opts?.syncConfig?.selectedResources?.map((r) => r.id) ?? []
+      const repos: Array<{ owner: string; repo: string }> = selectedRepos.length > 0
+        ? selectedRepos.map((fullName) => {
+            const [owner, repo] = String(fullName).split('/')
+            return { owner, repo }
+          })
+        : metadata.owner && metadata.repo
+          ? [{ owner: metadata.owner as string, repo: metadata.repo as string }]
+          : []
+      if (repos.length === 0) throw new Error(`GitHub: no repos configured for connection ${connectionId}`)
+      const allChunks = await Promise.all(
+        repos.map(({ owner, repo }) =>
+          Promise.all([
+            githubIssuesFetcher(connectionId, orgId, owner, repo),
+            githubPrsFetcher(connectionId, orgId, owner, repo),
+            githubWikiFetcher(connectionId, orgId, owner, repo),
+          ]).then((results) => results.flat())
+        )
+      )
+      return allChunks.flat()
     },
   ],
   linear: [
-    async (connectionId, orgId) => {
+    async (connectionId, orgId, opts) => {
       const [issues, cycles, projects] = await Promise.all([
-        linearIssuesFetcher(connectionId, orgId),
+        // Issues support team filtering via syncConfig; cycles/projects are cross-team.
+        linearIssuesFetcher(connectionId, orgId, opts?.syncConfig),
         linearCyclesFetcher(connectionId, orgId),
         linearProjectsFetcher(connectionId, orgId),
       ])
       return [...issues, ...cycles, ...projects]
     },
   ],
-  jira:       [fetchJiraIssues],
-  confluence: [fetchConfluencePages],
+  jira:       [(cid, oid, opts) => fetchJiraIssues(cid, oid, opts)],
+  confluence: [(cid, oid, opts) => fetchConfluencePages(cid, oid, opts)],
 
   // ── Data Warehouse ───────────────────────────────────────────
   snowflake: [fetchSnowflakeSamples],
@@ -177,25 +202,25 @@ const providerFetcherMap: Record<string, FetcherFn[]> = {
   redshift:  [fetchRedshiftTables],
 
   // ── BI Tools ─────────────────────────────────────────────────
-  looker:   [fetchLookerContent],
-  tableau:  [fetchTableauWorkbooks],
-  metabase: [fetchMetabaseContent],
-  dbt:      [fetchDbtContent],
+  looker:   [(cid, oid, opts) => fetchLookerContent(cid, oid, opts?.syncConfig)],
+  tableau:  [(cid, oid, opts) => fetchTableauWorkbooks(cid, oid, opts?.syncConfig)],
+  metabase: [(cid, oid, opts) => fetchMetabaseContent(cid, oid, opts?.syncConfig)],
+  dbt:      [(cid, oid, opts) => fetchDbtContent(cid, oid, opts?.syncConfig)],
   powerbi:  [(cid, oid, opts) => fetchPowerBIContent(cid, oid, opts?.syncConfig)],
 
   // ── Legacy umbrella keys (backwards compatibility) ───────────
   google: [
     (cid, oid, opts) => fetchDriveChunks(cid, oid, undefined, opts?.syncConfig),
-    (cid, oid, opts) => indexEmailChunks(cid, oid, { limit: opts?.limit ?? 200 }),
-    (cid, oid) => {
+    (cid, oid, opts) => indexEmailChunks(cid, oid, { limit: opts?.limit ?? 200, syncConfig: opts?.syncConfig }),
+    (cid, oid, opts) => {
       const now = new Date()
       const future = new Date()
       future.setDate(future.getDate() + 30)
-      return fetchCalendarChunks(cid, oid, now, future)
+      return fetchCalendarChunks(cid, oid, now, future, opts?.syncConfig)
     },
   ],
-  microsoft:        [microsoftFetcher],
-  'microsoft-graph':[microsoftFetcher],
+  microsoft:        [(cid, oid, opts) => microsoftFetcher(cid, oid, opts)],
+  'microsoft-graph':[(cid, oid, opts) => microsoftFetcher(cid, oid, opts)],
 }
 
 // ---- Request body type ------------------------------------------

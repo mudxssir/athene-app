@@ -24,6 +24,10 @@ const receiver =
 export async function verifyQStashSignature(req: Request): Promise<boolean> {
   // ── Dev bypass: allow direct in-process calls when QStash is not configured ──
   if (!receiver) {
+    if (process.env.NODE_ENV === 'production') {
+      logger.error({}, '[QStash] Signature verification skipped in production: QSTASH_CURRENT_SIGNING_KEY / QSTASH_NEXT_SIGNING_KEY not set');
+      return false;
+    }
     const bypass = req.headers.get('x-dev-internal-bypass');
     if (bypass === '1') {
       logger.warn({}, '[QStash] QSTASH signing keys absent — accepting x-dev-internal-bypass (local dev only)');

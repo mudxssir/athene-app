@@ -1,4 +1,4 @@
-import { getToolsForRole, getToolNamesForRole, getToolByName } from './lib/tools/registry';
+import { getToolsForRole, getToolNamesForRole, getToolByName } from '../lib/tools/registry';
 
 async function verify() {
   console.log("=== 1. Testing Null Role Guard ===");

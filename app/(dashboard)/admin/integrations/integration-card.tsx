@@ -15,6 +15,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { isBrowsable } from "@/lib/integrations/browsing";
+import type { ProviderKey } from "@/lib/integrations/providers";
 
 export interface Integration {
   connectionId: string;
@@ -46,19 +48,9 @@ interface IntegrationCardProps {
   onConfigureSync: (integration: Integration) => void;
 }
 
-const CONFIGURABLE = new Set(["google_drive", "snowflake", "bigquery", "redshift", "powerbi"]);
-
 function needsConfiguration(integration: Integration): boolean {
-  const { provider, metadata, sync_config } = integration;
-  if (!CONFIGURABLE.has(provider)) return false;
-  
-  // Power BI and Google Drive now use sync_config.selected_resources
-  if (provider === "google_drive" || provider === "powerbi") {
-    return !sync_config?.selected_resources?.length;
-  }
-  
-  if (provider === "google_drive") return !metadata?.selected_folder_ids?.length;
-  return !metadata?.allowlist?.length;
+  if (!isBrowsable(integration.provider as ProviderKey)) return false;
+  return !integration.sync_config?.selected_resources?.length;
 }
 
 export function IntegrationCard({
@@ -113,7 +105,7 @@ export function IntegrationCard({
       "group relative rounded-[2rem] sm:rounded-[2.5rem] bg-card border p-4 sm:p-6 md:p-8 transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl",
       isError
         ? "border-amber-400/25 hover:border-amber-400/40 hover:shadow-amber-500/5"
-        : "border-white/5 hover:border-white/10 hover:shadow-[#D96FAB]/5"
+        : "border-border hover:border-border-strong hover:shadow-[var(--shadow-2)]"
     )}>
       <div className="absolute top-0 right-0 p-8 flex flex-col items-end gap-2">
         <Badge className={cn("rounded-full px-3 py-1 font-black text-[9px] uppercase tracking-widest border", config.color)}>
@@ -140,7 +132,7 @@ export function IntegrationCard({
             />
         </div>
         <div className="pt-1">
-           <h3 className="text-xl font-black text-foreground tracking-tight group-hover:text-[#D96FAB] transition-colors">{integration.displayName}</h3>
+           <h3 className="text-xl font-black text-foreground tracking-tight group-hover:text-primary transition-colors">{integration.displayName}</h3>
            <span className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-widest">{integration.category}</span>
         </div>
       </div>
@@ -152,14 +144,14 @@ export function IntegrationCard({
       <div className="grid grid-cols-2 gap-4 mb-8">
          <div className="p-3 rounded-2xl bg-white/5 border border-white/5">
             <div className="flex items-center gap-2 mb-1">
-               <Database className="w-3 h-3 text-[#7AADCF]" />
+               <Database className="w-3 h-3 text-secondary" />
                <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Knowledge</span>
             </div>
             <span className="text-sm font-black text-foreground">{(integration.totalDocs || 0).toLocaleString()} <span className="text-[10px] opacity-40">Docs</span></span>
          </div>
          <div className="p-3 rounded-2xl bg-white/5 border border-white/5">
             <div className="flex items-center gap-2 mb-1">
-               <Calendar className="w-3 h-3 text-[#D96FAB]" />
+               <Calendar className="w-3 h-3 text-primary" />
                <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Last Sync</span>
             </div>
             <span className="text-sm font-black text-foreground">
@@ -178,7 +170,7 @@ export function IntegrationCard({
               "h-10 px-4 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all gap-2",
               isError
                 ? "text-amber-400 hover:bg-amber-400/10"
-                : "text-foreground hover:bg-[#7AADCF]/10 hover:text-[#7AADCF]"
+                : "text-foreground hover:bg-secondary/10 hover:text-secondary"
             )}
           >
             {indexing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
@@ -192,7 +184,7 @@ export function IntegrationCard({
               "h-10 px-4 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all gap-2",
               needsConfig
                 ? "text-amber-400 hover:bg-amber-400/10"
-                : "text-foreground hover:bg-[#D96FAB]/10 hover:text-[#D96FAB]"
+                : "text-foreground hover:bg-primary/10 hover:text-primary"
             )}
           >
             <Settings2 className="w-3 h-3" />

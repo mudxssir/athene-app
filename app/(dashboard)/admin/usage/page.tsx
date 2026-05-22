@@ -33,8 +33,8 @@ function StatCard({
   label,
   value,
   sub,
-  color = "text-[#66ADE4]",
-  bg = "bg-[#66ADE4]/10",
+  color = "text-secondary",
+  bg = "bg-secondary/10",
 }: {
   icon: React.ElementType;
   label: string;
@@ -90,8 +90,8 @@ export default function UsagePage() {
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-2xl bg-[#66ADE4]/10 flex items-center justify-center">
-              <BarChart2 className="w-5 h-5 text-[#66ADE4]" />
+            <div className="w-10 h-10 rounded-2xl bg-secondary/10 flex items-center justify-center">
+              <BarChart2 className="w-5 h-5 text-secondary" />
             </div>
             <h1 className="text-3xl font-black tracking-tight">Usage</h1>
           </div>
@@ -109,7 +109,7 @@ export default function UsagePage() {
 
       {loading && !data && (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 text-[#66ADE4] animate-spin" />
+          <Loader2 className="w-8 h-8 text-secondary animate-spin" />
         </div>
       )}
 
@@ -128,8 +128,8 @@ export default function UsagePage() {
               icon={Database}
               label="Total Documents"
               value={data.docs.total.toLocaleString()}
-              color="text-[#66ADE4]"
-              bg="bg-[#66ADE4]/10"
+              color="text-secondary"
+              bg="bg-secondary/10"
             />
             <StatCard
               icon={Activity}
@@ -144,8 +144,8 @@ export default function UsagePage() {
               label="Total Queries"
               value={data.queries.total_messages.toLocaleString()}
               sub={`${data.queries.active_threads_7d} threads active (7d)`}
-              color="text-[#D96FAB]"
-              bg="bg-[#D96FAB]/10"
+              color="text-primary"
+              bg="bg-primary/10"
             />
             <StatCard
               icon={Sun}
@@ -159,8 +159,8 @@ export default function UsagePage() {
               label="HITL Decisions"
               value={data.hitl.total}
               sub={`${data.hitl.approved} approved · ${data.hitl.rejected} rejected`}
-              color="text-purple-400"
-              bg="bg-purple-400/10"
+              color="text-primary"
+              bg="bg-primary/10"
             />
           </div>
 
@@ -186,7 +186,7 @@ export default function UsagePage() {
                           </div>
                           <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
                             <div
-                              className="h-full bg-gradient-to-r from-[#66ADE4] to-[#D96FAB] rounded-full"
+                              className="h-full bg-primary rounded-full"
                               style={{ width: `${pct}%` }}
                             />
                           </div>

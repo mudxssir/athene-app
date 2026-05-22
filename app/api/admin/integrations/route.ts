@@ -49,11 +49,11 @@ export async function GET(_req: NextRequest) {
     const { data: connRows } = internalOrgId
       ? await supabaseAdmin
           .from('connections')
-          .select('id, nango_connection_id, metadata, status, documents(count)')
+          .select('id, nango_connection_id, metadata, status, sync_config, documents(count)')
           .eq('org_id', internalOrgId)
       : { data: null }
 
-    const metaByNangoId: Record<string, { id: string; metadata: Record<string, unknown>; status: string | null; docCount: number }> = {}
+    const metaByNangoId: Record<string, { id: string; metadata: Record<string, unknown>; status: string | null; docCount: number; syncConfig: Record<string, unknown> }> = {}
     for (const row of connRows ?? []) {
       const count = Array.isArray(row.documents) ? (row.documents[0] as any)?.count ?? 0 : 0
       metaByNangoId[row.nango_connection_id] = {
@@ -61,6 +61,7 @@ export async function GET(_req: NextRequest) {
         metadata: (row.metadata as Record<string, unknown>) ?? {},
         status: (row as any).status ?? null,
         docCount: Number(count),
+        syncConfig: ((row as any).sync_config as Record<string, unknown>) ?? {},
       }
     }
 
@@ -86,6 +87,7 @@ export async function GET(_req: NextRequest) {
         lastSyncedAt: conn.last_synced_at ?? null,
         totalDocs: meta?.docCount ?? 0,
         metadata: meta?.metadata ?? {},
+        sync_config: meta?.syncConfig ?? {},
         createdAt: conn.created_at ?? null,
       }
     })
@@ -186,21 +188,23 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'connectionId and provider are required' }, { status: 400 })
     }
 
-    await deleteConnection(connectionId, provider, orgId)
-
-    // Resolve internal org UUID and invalidate KG prompt cache so the removed
-    // integration's module addendum no longer contributes to extraction
+    // Resolve Clerk orgId → internal UUID before lookup (nango_connections stores internal UUIDs)
     const { data: orgData } = await supabaseAdmin
       .from('organizations')
       .select('id')
       .eq('clerk_org_id', orgId)
       .maybeSingle()
+
+    const internalOrgId = orgData?.id ?? orgId
+
+    await deleteConnection(connectionId, provider, internalOrgId)
+
     if (orgData?.id) void invalidatePromptCache(orgData.id)
 
     return NextResponse.json({ success: true })
   } catch (err: any) {
     if (err.message === 'Unauthorized') return new NextResponse('Unauthorized', { status: 401 })
     if (err.message === 'Forbidden') return new NextResponse('Forbidden', { status: 403 })
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return NextResponse.json({ error: err.message }, { status: err.status || 500 })
   }
 }

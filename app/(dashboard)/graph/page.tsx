@@ -147,7 +147,7 @@ export default function GraphPage() {
       <div className="graph-page__header">
         <div>
           <h1 className="graph-page__title">
-            <Network className="h-7 w-7 inline-block mr-2 text-purple-400" />
+            <Network className="h-7 w-7 inline-block mr-2 text-primary" />
             Knowledge Graph
           </h1>
           <p className="graph-page__subtitle">

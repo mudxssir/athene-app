@@ -39,8 +39,8 @@ import { toast } from "sonner";
 const INTELLIGENCE_LAYERS = [
   { label: "Financial Records", color: "text-emerald-500" },
   { label: "Legal Discovery", color: "text-amber-500" },
-  { label: "Internal Wiki", color: "text-[#66ADE4]" },
-  { label: "Audit Logs", color: "text-[#66ADE4]" },
+  { label: "Internal Wiki", color: "text-secondary" },
+  { label: "Audit Logs", color: "text-secondary" },
 ] as const;
 
 type IntelligenceLayer = (typeof INTELLIGENCE_LAYERS)[number]["label"];
@@ -250,11 +250,11 @@ export default function FilesPage() {
       {/* Page Header */}
       <section className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-white/5 pb-10">
         <div className="space-y-4">
-          <Badge className="bg-[#66ADE4]/10 text-[#66ADE4] border-none px-3 py-1 text-[10px] uppercase tracking-widest font-bold">
+          <Badge className="bg-secondary/10 text-secondary border-none px-3 py-1 text-[10px] uppercase tracking-widest font-bold">
             Knowledge Base
           </Badge>
           <h1 className="text-4xl lg:text-5xl font-black tracking-tight text-white">
-            Enterprise <span className="text-[#66ADE4]">Files</span>
+            Enterprise <span className="text-secondary">Files</span>
           </h1>
           <p className="text-slate-400 text-lg max-w-xl font-medium leading-relaxed">
             Secure, centralized management of your organization's unstructured data repository.
@@ -265,12 +265,12 @@ export default function FilesPage() {
            <Button
             onClick={handleUpload}
             variant="outline" className="h-14 px-8 rounded-2xl border-white/10 text-slate-300 font-bold uppercase tracking-widest text-[10px] gap-3 hover:bg-white/5 transition-all">
-              <Upload className="w-5 h-5 text-[#66ADE4]" />
+              <Upload className="w-5 h-5 text-secondary" />
               Upload Data
            </Button>
            <button
             onClick={handleNewRepo}
-            className="h-14 px-10 rounded-2xl bg-gradient-to-r from-[#DA88B6] to-[#66ADE4] text-white font-bold uppercase tracking-widest text-[10px] gap-3 shadow-lg shadow-blue-500/10 transition-all active:scale-95 flex items-center justify-center relative overflow-visible">
+            className="h-14 px-10 rounded-2xl bg-primary text-white font-bold uppercase tracking-widest text-[10px] gap-3 shadow-lg shadow-[var(--shadow-2)] transition-all active:scale-95 flex items-center justify-center relative overflow-visible">
               <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full border-2 border-[#06080c] bg-white flex items-center justify-center shadow-lg">
                  <img src="/logo.png" alt="Logo" className="w-4 h-4 object-contain" />
               </div>
@@ -288,16 +288,16 @@ export default function FilesPage() {
                  {/* Fix #7: real file count instead of hardcoded 84% */}
                  <div className="space-y-4">
                     <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-widest">
-                       <span className="flex items-center gap-2 text-slate-300"><HardDrive className="w-4 h-4 text-[#66ADE4]" /> Capacity</span>
-                       <span className="text-[#66ADE4]">{files.length} files</span>
+                       <span className="flex items-center gap-2 text-slate-300"><HardDrive className="w-4 h-4 text-secondary" /> Capacity</span>
+                       <span className="text-secondary">{files.length} files</span>
                     </div>
                     <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                       <div className="h-full bg-[#66ADE4]" style={{ width: `${capacityPct}%` }} />
+                       <div className="h-full bg-secondary" style={{ width: `${capacityPct}%` }} />
                     </div>
                  </div>
                  <div className="space-y-4">
                     <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-widest">
-                       <span className="flex items-center gap-2 text-slate-300"><Cloud className="w-4 h-4 text-[#66ADE4]" /> AI Sync</span>
+                       <span className="flex items-center gap-2 text-slate-300"><Cloud className="w-4 h-4 text-secondary" /> AI Sync</span>
                        <span className="text-emerald-500">Stable</span>
                     </div>
                     <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
@@ -318,7 +318,7 @@ export default function FilesPage() {
                       onClick={() => setSelectedLayer(isSelected ? null : cat.label)}
                       className={`w-full flex items-center justify-between p-3.5 rounded-xl border transition-all group text-left ${
                         isSelected
-                          ? "bg-white/10 border-[#66ADE4]/30"
+                          ? "bg-white/10 border-secondary/30"
                           : "border-transparent hover:bg-white/5 hover:border-white/10"
                       }`}
                     >
@@ -328,7 +328,7 @@ export default function FilesPage() {
                           <Layers className={`w-4 h-4 ${cat.color}`} />
                           {cat.label}
                        </span>
-                       <Badge className="bg-white/5 text-slate-500 border-none text-[10px] font-bold group-hover:text-[#66ADE4] transition-colors">{layerCounts[cat.label]}</Badge>
+                       <Badge className="bg-white/5 text-slate-500 border-none text-[10px] font-bold group-hover:text-secondary transition-colors">{layerCounts[cat.label]}</Badge>
                     </button>
                     );
                  })}
@@ -355,11 +355,11 @@ export default function FilesPage() {
 
            <div className="flex items-center justify-between bg-white/5 backdrop-blur-xl border border-white/10 p-5 rounded-2xl shadow-sm">
               <div className="relative group w-80">
-                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-500 group-focus-within:text-[#66ADE4] transition-colors" />
+                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-500 group-focus-within:text-secondary transition-colors" />
                  <Input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search organizational data..." className="h-12 pl-12 rounded-xl bg-black/20 border-white/5 text-[13px] text-white focus:ring-[#66ADE4]/20 placeholder:text-slate-600" />
+                  placeholder="Search organizational data..." className="h-12 pl-12 rounded-xl bg-black/20 border-white/5 text-[13px] text-white focus:ring-secondary/20 placeholder:text-slate-600" />
               </div>
               <div className="flex items-center gap-4">
                  <Button
@@ -373,7 +373,7 @@ export default function FilesPage() {
                  <div className="h-8 w-px bg-white/10" />
                  <Button
                   onClick={handleBulkDownload}
-                  variant="ghost" size="icon" className="h-12 w-12 rounded-xl hover:bg-[#66ADE4]/10 text-[#66ADE4]">
+                  variant="ghost" size="icon" className="h-12 w-12 rounded-xl hover:bg-secondary/10 text-secondary">
                     <Download className="w-5 h-5" />
                  </Button>
               </div>
@@ -428,14 +428,14 @@ export default function FilesPage() {
                                <div className="flex items-center gap-4">
                                   <div className="h-11 w-11 rounded-xl bg-black/20 flex items-center justify-center border border-white/5 shadow-sm group-hover:scale-105 transition-transform">
                                      <FileText className={`w-5 h-5 ${
-                                        file.type === 'PDF' ? 'text-[#66ADE4]' :
+                                        file.type === 'PDF' ? 'text-secondary' :
                                         file.type === 'XLSX' ? 'text-emerald-500' :
-                                        file.type === 'DOCX' ? 'text-[#66ADE4]' :
-                                        'text-[#66ADE4]'
+                                        file.type === 'DOCX' ? 'text-secondary' :
+                                        'text-secondary'
                                      }`} />
                                   </div>
                                   <div className="flex flex-col">
-                                     <span className="text-[14px] font-bold text-white group-hover:text-[#66ADE4] transition-colors">{file.name}</span>
+                                     <span className="text-[14px] font-bold text-white group-hover:text-secondary transition-colors">{file.name}</span>
                                      <span className="text-[11px] font-medium text-slate-500 mt-0.5">{file.date}</span>
                                   </div>
                                </div>
@@ -444,7 +444,7 @@ export default function FilesPage() {
                             <TableCell>
                                <Badge className={`text-[10px] font-bold tracking-widest px-3 py-1 h-6 border-none ${
                                   file.status === 'Indexed' ? 'bg-emerald-500/10 text-emerald-400' :
-                                  file.status === 'Indexing' ? 'bg-[#66ADE4]/10 text-[#66ADE4] animate-pulse' :
+                                  file.status === 'Indexing' ? 'bg-secondary/10 text-secondary animate-pulse' :
                                   'bg-rose-500/10 text-rose-400'
                                }`}>
                                   {file.status}

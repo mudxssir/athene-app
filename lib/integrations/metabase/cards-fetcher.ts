@@ -1,6 +1,7 @@
 import { metabaseFetch } from './client'
 import { FetchedChunk } from '../base'
 import { logger } from '@/lib/logger'
+import { type SyncConfig, getSelectedResourceIds } from '../sync-config'
 
 interface MetabaseCard {
   id: number
@@ -16,15 +17,25 @@ interface MetabaseDashboard {
   description: string | null
 }
 
-export async function fetchMetabaseContent(connectionId: string, orgId: string): Promise<FetchedChunk[]> {
+export async function fetchMetabaseContent(
+  connectionId: string,
+  orgId: string,
+  syncConfig?: SyncConfig
+): Promise<FetchedChunk[]> {
   const meta = await import('../base').then((m) => m.getProviderMetadata(connectionId, 'metabase', orgId))
   const instanceUrl = (meta.instance_url as string | undefined)?.replace(/\/$/, '') ?? ''
   const chunks: FetchedChunk[] = []
+
+  // browseMetabase returns IDs prefixed with "card:{id}" and "dashboard:{id}".
+  const selectedIds = syncConfig ? getSelectedResourceIds(syncConfig) : null
+  const shouldInclude = (prefix: string, id: number) =>
+    !selectedIds || selectedIds.size === 0 || selectedIds.has(`${prefix}:${id}`)
 
   // Fetch Questions (Cards)
   try {
     const cards = await metabaseFetch<MetabaseCard[]>(connectionId, orgId, '/card')
     for (const card of cards ?? []) {
+      if (!shouldInclude('card', card.id)) continue
       // Run the card query to get sample data
       let sampleData = ''
       try {
@@ -59,6 +70,7 @@ export async function fetchMetabaseContent(connectionId: string, orgId: string):
   try {
     const dashboards = await metabaseFetch<MetabaseDashboard[]>(connectionId, orgId, '/dashboard')
     for (const dash of dashboards ?? []) {
+      if (!shouldInclude('dashboard', dash.id)) continue
       chunks.push({
         chunk_id: `metabase_dashboard_${dash.id}`,
         title: `Metabase Dashboard: ${dash.name}`,

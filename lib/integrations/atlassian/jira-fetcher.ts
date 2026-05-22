@@ -2,6 +2,7 @@ import { getAtlassianResources, atlassianFetch } from "./client";
 import { extractTextFromADF } from "./adf-to-text";
 import type { FetchedChunk } from "../base";
 import { assertSafeMetadata } from "../base";
+import { type SyncConfig, getSelectedResourceIds } from "../sync-config";
 
 /**
  * Fetches Jira issues for the given connection and org.
@@ -10,7 +11,7 @@ import { assertSafeMetadata } from "../base";
 export async function fetchJiraIssues(
   connectionId: string,
   orgId: string,
-  options?: { since?: string; limit?: number }
+  options?: { since?: string; limit?: number; syncConfig?: SyncConfig }
 ): Promise<FetchedChunk[]> {
   const resources = await getAtlassianResources(connectionId, "jira", orgId);
   if (!resources || resources.length === 0) {
@@ -25,9 +26,18 @@ export async function fetchJiraIssues(
   let startAt = 0;
   let total = Infinity;
 
-  const jql = options?.since
-    ? `updated >= "${options.since}" ORDER BY updated DESC`
-    : "ORDER BY updated DESC";
+  // browseJira stores the project key (e.g. "PROJ") as the resource ID.
+  const selectedProjectKeys = options?.syncConfig
+    ? getSelectedResourceIds(options.syncConfig)
+    : null
+
+  // Build JQL: scope to selected projects if any, and optional since filter.
+  const projectClause = selectedProjectKeys && selectedProjectKeys.size > 0
+    ? `project IN (${Array.from(selectedProjectKeys).map(k => `"${k}"`).join(',')})`
+    : null
+  const sinceClause = options?.since ? `updated >= "${options.since}"` : null
+  const whereClauses = [projectClause, sinceClause].filter(Boolean).join(' AND ')
+  const jql = whereClauses ? `${whereClauses} ORDER BY updated DESC` : 'ORDER BY updated DESC';
 
   while (startAt < total) {
     const data = await atlassianFetch<{

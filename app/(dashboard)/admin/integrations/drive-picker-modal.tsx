@@ -250,7 +250,7 @@ export function DrivePickerModal({ open, connectionId, onClose, onSuccess }: Dri
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search your Drive..."
-              className="w-full h-11 pl-11 pr-4 bg-white/5 border border-white/10 rounded-2xl text-sm font-bold placeholder:text-muted-foreground/30 text-foreground outline-none focus:border-[#D96FAB]/30 transition-colors"
+              className="w-full h-11 pl-11 pr-4 bg-white/5 border border-white/10 rounded-2xl text-sm font-bold placeholder:text-muted-foreground/30 text-foreground outline-none focus:border-primary/30 transition-colors"
             />
             {search && (
               <button
@@ -337,16 +337,16 @@ export function DrivePickerModal({ open, connectionId, onClose, onSuccess }: Dri
                     isFolder
                       ? "hover:bg-white/5 cursor-pointer"
                       : "opacity-40 cursor-default"
-                  } ${isSelected ? "bg-[#D96FAB]/10 border border-[#D96FAB]/20" : "border border-transparent"}`}
+                  } ${isSelected ? "bg-primary/10 border border-primary/20" : "border border-transparent"}`}
                 >
                   {/* Checkbox — only for folders */}
                   {isFolder ? (
                     <button
                       onClick={() => toggleFolder(file.id)}
-                      className="flex-shrink-0 text-muted-foreground/60 hover:text-[#D96FAB] transition-colors"
+                      className="flex-shrink-0 text-muted-foreground/60 hover:text-primary transition-colors"
                     >
                       {isSelected
-                        ? <CheckSquare className="w-4 h-4 text-[#D96FAB]" />
+                        ? <CheckSquare className="w-4 h-4 text-primary" />
                         : <Square className="w-4 h-4" />}
                     </button>
                   ) : (
@@ -355,7 +355,7 @@ export function DrivePickerModal({ open, connectionId, onClose, onSuccess }: Dri
 
                   {/* Icon */}
                   {isFolder
-                    ? <Folder className="w-4 h-4 text-[#7AADCF] flex-shrink-0" />
+                    ? <Folder className="w-4 h-4 text-secondary flex-shrink-0" />
                     : <FileText className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />}
 
                   {/* Name */}
@@ -425,7 +425,7 @@ export function DrivePickerModal({ open, connectionId, onClose, onSuccess }: Dri
             <Button
               onClick={handleSave}
               disabled={saving || selectedFolderIds.size === 0}
-              className="h-10 px-6 rounded-xl bg-[#D96FAB] hover:bg-[#D96FAB]/90 text-white font-black text-sm gap-2 shadow-lg shadow-[#D96FAB]/20"
+              className="h-10 px-6 rounded-xl bg-primary hover:bg-primary/90 text-white font-black text-sm gap-2 shadow-lg shadow-primary/20"
             >
               {saving && <Loader2 className="w-3 h-3 animate-spin" />}
               Start Syncing

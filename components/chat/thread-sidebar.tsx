@@ -93,7 +93,7 @@ export function ThreadSidebar() {
       <div className="p-4 border-b border-white/5">
         <Button
           onClick={createThread}
-          className="w-full bg-[#D96FAB] hover:bg-[#ECA8CC] text-white"
+          className="w-full bg-primary hover:bg-[var(--primary-hover)] text-white"
         >
           <Plus className="w-4 h-4 mr-2" />
           New chat
@@ -125,8 +125,8 @@ export function ThreadSidebar() {
               className={cn(
                 "group flex items-center justify-between p-3 rounded-xl cursor-pointer transition-colors",
                 activeThreadId === thread.id
-                  ? "bg-[#D96FAB]/10 border-[#D96FAB]/30"
-                  : "hover:bg-white/5 border-transparent"
+                  ? "bg-primary/10 border border-primary/30"
+                  : "hover:bg-muted/50 border border-transparent"
               )}
             >
               <div className="flex items-center gap-3 min-w-0">

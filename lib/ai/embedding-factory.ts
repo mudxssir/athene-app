@@ -23,9 +23,18 @@ import { deriveOrgKey, getMasterKey } from "@/lib/auth/kms"
 /** Must match document_embeddings.embedding vector(N) in the DB schema */
 export const EMBEDDING_DIMS = parseInt(process.env.EMBEDDING_DIMS ?? "768")
 
+/**
+ * Hint that lets the Google embedding provider select the optimal task type.
+ * Only google (text-embedding-004) uses this; other providers ignore it.
+ * - "document"   → RETRIEVAL_DOCUMENT (default, best for long-form prose)
+ * - "structured" → SEMANTIC_SIMILARITY (best for CRM key-value records)
+ * - "query"      → RETRIEVAL_QUERY (used at search time, not indexing)
+ */
+export type EmbeddingHint = "document" | "structured" | "query"
+
 // ---- Provider config types ---------------------------------------------
 
-type EmbeddingProviderName = "openai" | "jina" | "together" | "nomic"
+type EmbeddingProviderName = "openai" | "jina" | "together" | "nomic" | "google"
 
 interface EmbeddingConfig {
   provider: EmbeddingProviderName
@@ -38,6 +47,14 @@ interface EmbeddingConfig {
 // ---- System default resolution -----------------------------------------
 
 function resolveSystemConfig(): EmbeddingConfig | null {
+  if (process.env.GOOGLE_API_KEY) {
+    return {
+      provider: "google",
+      model: "text-embedding-004",
+      dims: EMBEDDING_DIMS,
+      apiKey: process.env.GOOGLE_API_KEY,
+    }
+  }
   if (process.env.JINA_API_KEY) {
     return {
       provider: "jina",
@@ -173,6 +190,33 @@ async function embedWithOpenAICompat(
   return res.data.sort((a, b) => a.index - b.index).map((d) => d.embedding)
 }
 
+async function embedWithGoogle(
+  texts: string[],
+  config: EmbeddingConfig,
+  hint?: EmbeddingHint
+): Promise<number[][]> {
+  const { GoogleGenerativeAI, TaskType } = await import("@google/generative-ai")
+  const genAI = new GoogleGenerativeAI(config.apiKey)
+  const model = genAI.getGenerativeModel({ model: config.model })
+  const taskType =
+    hint === "query" ? TaskType.RETRIEVAL_QUERY
+    : hint === "structured" ? TaskType.SEMANTIC_SIMILARITY
+    : TaskType.RETRIEVAL_DOCUMENT
+  const BATCH = 96
+  const results: number[][] = []
+  for (let i = 0; i < texts.length; i += BATCH) {
+    const slice = texts.slice(i, i + BATCH)
+    const res = await model.batchEmbedContents({
+      requests: slice.map((text) => ({
+        content: { parts: [{ text }], role: "user" },
+        taskType,
+      })),
+    })
+    res.embeddings.forEach((emb) => results.push(emb.values))
+  }
+  return results
+}
+
 async function embedWithJina(
   texts: string[],
   config: EmbeddingConfig
@@ -206,12 +250,15 @@ const MAX_PROVIDER_RETRIES = 2
 
 async function callProviderWithRetry(
   texts: string[],
-  config: EmbeddingConfig
+  config: EmbeddingConfig,
+  hint?: EmbeddingHint
 ): Promise<number[][]> {
   let lastErr: unknown
   for (let attempt = 0; attempt <= MAX_PROVIDER_RETRIES; attempt++) {
     try {
       switch (config.provider) {
+        case "google":
+          return await embedWithGoogle(texts, config, hint)
         case "openai":
           return await embedWithOpenAI(texts, config)
         case "jina":
@@ -234,7 +281,8 @@ async function callProviderWithRetry(
 
 async function embedTexts(
   texts: string[],
-  orgId?: string
+  orgId?: string,
+  hint?: EmbeddingHint
 ): Promise<number[][]> {
   if (texts.length === 0) return []
 
@@ -252,6 +300,7 @@ async function embedTexts(
 
   // Add remaining system providers not already in the chain
   const systemFallbacks: Array<() => EmbeddingConfig | null> = [
+    () => process.env.GOOGLE_API_KEY ? { provider: "google", model: "text-embedding-004", dims: EMBEDDING_DIMS, apiKey: process.env.GOOGLE_API_KEY! } : null,
     () => process.env.JINA_API_KEY ? { provider: "jina", model: "jina-embeddings-v3", dims: EMBEDDING_DIMS, apiKey: process.env.JINA_API_KEY! } : null,
     () => process.env.TOGETHER_API_KEY ? { provider: "together", model: "togethercomputer/m2-bert-80M-8k-base", dims: EMBEDDING_DIMS, apiKey: process.env.TOGETHER_API_KEY!, baseUrl: "https://api.together.xyz/v1" } : null,
     () => process.env.NOMIC_API_KEY ? { provider: "nomic", model: "nomic-embed-text-v1.5", dims: EMBEDDING_DIMS, apiKey: process.env.NOMIC_API_KEY!, baseUrl: "https://api-atlas.nomic.ai/v1" } : null,
@@ -268,7 +317,7 @@ async function embedTexts(
   let lastErr: unknown
   for (const config of candidates) {
     try {
-      return await callProviderWithRetry(texts, config)
+      return await callProviderWithRetry(texts, config, hint)
     } catch (err) {
       lastErr = err
       logger.warn(
@@ -306,8 +355,8 @@ function assertDims(vec: number[]): void {
 // ---- Public API --------------------------------------------------------
 
 /** Embed a single text string. Uses org BYOK if orgId provided. */
-export async function embed(text: string, orgId?: string): Promise<number[]> {
-  const results = await embedTexts([text], orgId)
+export async function embed(text: string, orgId?: string, hint?: EmbeddingHint): Promise<number[]> {
+  const results = await embedTexts([text], orgId, hint)
   assertDims(results[0])
   return results[0]
 }
@@ -315,9 +364,10 @@ export async function embed(text: string, orgId?: string): Promise<number[]> {
 /** Embed multiple texts in one API call. Uses org BYOK if orgId provided. */
 export async function embedBatch(
   texts: string[],
-  orgId?: string
+  orgId?: string,
+  hint?: EmbeddingHint
 ): Promise<number[][]> {
-  const results = await embedTexts(texts, orgId)
+  const results = await embedTexts(texts, orgId, hint)
   if (results.length > 0) assertDims(results[0])
   return results
 }

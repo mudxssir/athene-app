@@ -62,12 +62,12 @@ function DecisionCard({ decision }: { decision: Decision }) {
     <Card className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-2xl space-y-4 hover:border-white/20 transition-all">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-xl bg-[#66ADE4]/10 flex items-center justify-center shrink-0">
-            <GitBranch className="w-4 h-4 text-[#66ADE4]" />
+          <div className="h-9 w-9 rounded-xl bg-secondary/10 flex items-center justify-center shrink-0">
+            <GitBranch className="w-4 h-4 text-secondary" />
           </div>
           <h3 className="text-[14px] font-bold text-white leading-snug">{decision.label}</h3>
         </div>
-        <Badge className="bg-[#66ADE4]/10 text-[#66ADE4] border-none text-[9px] font-bold uppercase tracking-widest shrink-0 mt-0.5">
+        <Badge className="bg-secondary/10 text-secondary border-none text-[9px] font-bold uppercase tracking-widest shrink-0 mt-0.5">
           Decision
         </Badge>
       </div>
@@ -225,11 +225,11 @@ export default function DecisionsPage() {
     <div className="max-w-5xl mx-auto space-y-10 pb-20 animate-in fade-in duration-700">
       {/* Page Header */}
       <section className="flex flex-col gap-4 border-b border-white/5 pb-10">
-        <Badge className="bg-[#66ADE4]/10 text-[#66ADE4] border-none px-3 py-1 text-[10px] uppercase tracking-widest font-bold w-fit">
+        <Badge className="bg-secondary/10 text-secondary border-none px-3 py-1 text-[10px] uppercase tracking-widest font-bold w-fit">
           Organizational Memory
         </Badge>
         <h1 className="text-4xl lg:text-5xl font-black tracking-tight text-white">
-          Decision <span className="text-[#66ADE4]">Timeline</span>
+          Decision <span className="text-secondary">Timeline</span>
         </h1>
         <p className="text-slate-400 text-lg max-w-xl font-medium leading-relaxed">
           Every resolved choice extracted from your documents — who decided, when, and what alternatives were considered.
@@ -245,7 +245,7 @@ export default function DecisionsPage() {
             className={cn(
               "px-6 py-3 rounded-xl text-[11px] font-bold uppercase tracking-widest transition-all",
               view === v
-                ? "bg-[#66ADE4] text-white shadow-lg shadow-blue-500/20"
+                ? "bg-secondary text-white shadow-lg shadow-[var(--shadow-2)]"
                 : "text-slate-400 hover:text-white hover:bg-white/5"
             )}
           >
@@ -302,7 +302,7 @@ export default function DecisionsPage() {
 
           {timelineLoading ? (
             <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-6 h-6 text-[#66ADE4] animate-spin" />
+              <Loader2 className="w-6 h-6 text-secondary animate-spin" />
             </div>
           ) : decisions.length === 0 ? (
             <EmptyState message="No decisions indexed yet — connect document sources to begin extracting decisions" />
@@ -330,7 +330,7 @@ export default function DecisionsPage() {
             <Button
               onClick={fetchEntityTimeline}
               disabled={!entityQuery.trim() || timelineQuerying}
-              className="h-12 px-8 rounded-2xl bg-[#66ADE4] text-white font-bold text-[11px] uppercase tracking-widest hover:bg-[#66ADE4]/90 disabled:opacity-40"
+              className="h-12 px-8 rounded-2xl bg-secondary text-white font-bold text-[11px] uppercase tracking-widest hover:bg-secondary/90 disabled:opacity-40"
             >
               {timelineQuerying ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight className="w-4 h-4" />}
             </Button>
@@ -349,7 +349,7 @@ export default function DecisionsPage() {
                 <h2 className="text-[13px] font-bold text-slate-300 uppercase tracking-widest">
                   Decisions applied to
                 </h2>
-                <Badge className="bg-[#66ADE4]/10 text-[#66ADE4] border-none text-[12px] font-bold">
+                <Badge className="bg-secondary/10 text-secondary border-none text-[12px] font-bold">
                   {entityName}
                 </Badge>
                 <span className="text-[11px] text-slate-600 font-bold">
@@ -387,7 +387,7 @@ export default function DecisionsPage() {
             <Button
               onClick={fetchSearch}
               disabled={!searchQuery.trim() || searchLoading}
-              className="h-12 px-8 rounded-2xl bg-[#66ADE4] text-white font-bold text-[11px] uppercase tracking-widest hover:bg-[#66ADE4]/90 disabled:opacity-40"
+              className="h-12 px-8 rounded-2xl bg-secondary text-white font-bold text-[11px] uppercase tracking-widest hover:bg-secondary/90 disabled:opacity-40"
             >
               {searchLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Search"}
             </Button>

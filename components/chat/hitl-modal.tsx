@@ -83,7 +83,7 @@ export function HitlModal({ isOpen, onClose, threadId, pendingAction, onDecision
           <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Target Action</span>
-              <Badge variant="outline" className="bg-[#66ADE4]/10 text-[#66ADE4] border-[#66ADE4]/20 uppercase tracking-widest text-[10px]">
+              <Badge variant="outline" className="bg-secondary/10 text-secondary border-secondary/20 uppercase tracking-widest text-[10px]">
                 {pendingAction.tool}
               </Badge>
             </div>
@@ -98,7 +98,7 @@ export function HitlModal({ isOpen, onClose, threadId, pendingAction, onDecision
 
           {isEditing && (
             <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
-              <span className="text-[11px] font-bold text-[#66ADE4] uppercase tracking-widest flex items-center gap-2">
+              <span className="text-[11px] font-bold text-secondary uppercase tracking-widest flex items-center gap-2">
                 <Edit3 className="w-3.5 h-3.5" />
                 Apply Modifications (JSON)
               </span>
@@ -106,7 +106,7 @@ export function HitlModal({ isOpen, onClose, threadId, pendingAction, onDecision
                 value={editedPayload}
                 onChange={(e) => setEditedPayload(e.target.value)}
                 placeholder='{ "key": "new value" }'
-                className="bg-black/50 border-white/10 text-emerald-400 font-mono text-[13px] min-h-[120px] focus:border-[#66ADE4]/50 rounded-xl"
+                className="bg-black/50 border-white/10 text-emerald-400 font-mono text-[13px] min-h-[120px] focus:border-secondary/50 rounded-xl"
               />
             </div>
           )}

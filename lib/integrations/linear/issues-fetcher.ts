@@ -1,6 +1,8 @@
 import { linearFetch } from './client'
 import { FetchedChunk } from '../base'
+import { type SyncConfig, getSelectedResourceIds } from '../sync-config'
 
+// Query without team filter — used when all teams are synced.
 const ISSUES_QUERY = `
   query GetIssues($cursor: String) {
     issues(first: 50, after: $cursor) {
@@ -52,13 +54,71 @@ const PRIORITY_LABELS: Record<number, string> = {
   4: 'Low',
 }
 
-export async function linearIssuesFetcher(connectionId: string, orgId: string): Promise<FetchedChunk[]> {
+// Query with team filter — used when specific teams are selected.
+// Linear GraphQL supports `filter: { team: { id: { in: $teamIds } } }`.
+const ISSUES_QUERY_FILTERED = `
+  query GetIssuesFiltered($cursor: String, $teamIds: [ID!]!) {
+    issues(first: 50, after: $cursor, filter: { team: { id: { in: $teamIds } } }) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      nodes {
+        id
+        identifier
+        title
+        description
+        url
+        priority
+        createdAt
+        updatedAt
+        state {
+          name
+          type
+        }
+        assignee {
+          name
+        }
+        team {
+          name
+          key
+        }
+        labels {
+          nodes {
+            name
+          }
+        }
+        comments(first: 20) {
+          nodes {
+            body
+            createdAt
+          }
+        }
+      }
+    }
+  }
+`
+
+export async function linearIssuesFetcher(
+  connectionId: string,
+  orgId: string,
+  syncConfig?: SyncConfig
+): Promise<FetchedChunk[]> {
   const chunks: FetchedChunk[] = []
   let hasNextPage = true
   let cursor: string | null = null
 
+  // browseLinear stores team UUIDs as resource IDs.
+  const selectedTeamIds = syncConfig ? getSelectedResourceIds(syncConfig) : null
+  const teamIds = selectedTeamIds && selectedTeamIds.size > 0
+    ? Array.from(selectedTeamIds)
+    : null
+
+  const query = teamIds ? ISSUES_QUERY_FILTERED : ISSUES_QUERY
+  const baseVars = teamIds ? { teamIds } : {}
+
   while (hasNextPage) {
-    const data: any = await linearFetch(connectionId, orgId, ISSUES_QUERY, { cursor })
+    const data: any = await linearFetch(connectionId, orgId, query, { cursor, ...baseVars })
 
     const issuesResult = data.data?.issues
     if (!issuesResult) break

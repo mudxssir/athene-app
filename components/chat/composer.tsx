@@ -67,7 +67,7 @@ export function Composer({
   const isNearLimit = charCount > MAX_LENGTH * 0.9;
 
   return (
-    <div className="bg-card p-4 rounded-[3rem] border border-white/5 flex flex-col gap-3 shadow-2xl shadow-black/20 relative z-10 mx-6 mb-4 group focus-within:border-[#D96FAB]/50 transition-all">
+    <div className="bg-card p-[10px_12px_10px_18px] rounded-[32px] border border-border flex flex-col gap-3 shadow-[var(--shadow-3)] relative z-10 mx-6 mb-4 group focus-within:border-primary/40 transition-all">
       {error && (
         <div className="px-4 text-xs text-red-400 font-medium">
           {error}
@@ -80,7 +80,7 @@ export function Composer({
           disabled={isLoading}
           aria-label="Attach file"
           title="Attach file"
-          className="h-12 w-12 rounded-full hover:bg-[#EEF6FC]/10 text-[#7AADCF] transition-all shrink-0 disabled:opacity-50"
+          className="h-12 w-12 rounded-full hover:bg-primary/5 text-muted-foreground hover:text-secondary transition-all shrink-0 disabled:opacity-50"
         >
           <Paperclip className="w-5.5 h-5.5" />
         </Button>
@@ -105,14 +105,14 @@ export function Composer({
               disabled={isLoading}
               aria-label="Voice input"
               title="Voice input"
-              className="h-12 w-12 rounded-full hover:bg-[#EEF6FC]/10 text-[#7AADCF] transition-all disabled:opacity-50"
+              className="h-12 w-12 rounded-full hover:bg-primary/5 text-muted-foreground hover:text-secondary transition-all disabled:opacity-50"
             >
               <Mic className="w-5.5 h-5.5" />
             </Button>
             <Button
               onClick={sendMessage}
               disabled={isLoading || !input.trim()}
-              className="h-12 w-12 rounded-full bg-[#D96FAB] text-white hover:bg-[#ECA8CC] shadow-lg shadow-pink-900/20 transition-all active:scale-95 flex items-center justify-center disabled:opacity-50"
+              className="h-11 w-11 rounded-full bg-primary text-white hover:bg-[var(--primary-hover)] disabled:bg-muted disabled:text-muted-foreground shadow-[var(--shadow-2)] transition-all active:scale-95 flex items-center justify-center"
             >
               {isLoading ? (
                 <Loader2 className="w-6 h-6 animate-spin" />

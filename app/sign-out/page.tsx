@@ -21,7 +21,7 @@ export default function SignOutPage() {
     return (
         <div className="flex min-h-screen items-center justify-center bg-[#06080c] text-white">
             <div className="flex flex-col items-center gap-4">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#66ADE4] border-t-transparent" />
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-secondary border-t-transparent" />
                 <p className="text-sm font-black uppercase tracking-[0.2em]">Signing out of Athene...</p>
             </div>
         </div>

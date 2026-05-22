@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { mapRole } from "@/lib/auth/clerk";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
+import { rateLimit } from "@/lib/redis/client";
 import { HumanMessage } from "@langchain/core/messages";
 import { z } from "zod";
 
@@ -158,6 +159,12 @@ export async function GET(_req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const { userId, orgId: clerkOrgId, role } = await ensureAdminOrAnalyst();
+
+    const { allowed } = await rateLimit(`insights:${userId}`, 30, 3600);
+    if (!allowed) {
+      return new NextResponse("Rate limited", { status: 429 });
+    }
+
     const { orgId, memberId } = await resolveContext(userId, clerkOrgId);
 
     let body: any;

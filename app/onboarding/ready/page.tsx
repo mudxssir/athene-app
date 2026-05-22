@@ -12,16 +12,16 @@ const NEXT_STEPS = [
     title: "Ask Athene anything",
     desc: "Query your indexed knowledge in natural language.",
     href: "/chat",
-    color: "text-[#66ADE4]",
-    bg: "bg-[#66ADE4]/10 border-[#66ADE4]/20",
+    color: "text-secondary",
+    bg: "bg-secondary/10 border-secondary/20",
   },
   {
     icon: Sun,
     title: "Read your morning briefing",
     desc: "Your daily AI-generated digest lands every morning at 7 AM.",
     href: "/briefing",
-    color: "text-[#D96FAB]",
-    bg: "bg-[#D96FAB]/10 border-[#D96FAB]/20",
+    color: "text-primary",
+    bg: "bg-primary/10 border-primary/20",
   },
 ];
 
@@ -36,12 +36,12 @@ export default function OnboardingReadyPage() {
   return (
     <div className="min-h-screen bg-[#06080c] text-white flex flex-col font-['Space_Grotesk'] overflow-hidden">
       {/* Background */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[600px] bg-[#D96FAB]/5 blur-[180px] -z-10 rounded-full opacity-50" />
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-[#66ADE4]/5 blur-[120px] -z-10 rounded-full" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[600px] bg-primary/3 -z-10 rounded-full opacity-50" />
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-primary/3 -z-10 rounded-full" />
 
       {/* Progress Bar — step 4 of 4 (complete) */}
       <div className="h-1.5 w-full bg-white/5 fixed top-0 left-0 z-50">
-        <div className="h-full bg-gradient-to-r from-[#D96FAB] to-[#66ADE4] transition-all duration-1000" style={{ width: "100%" }} />
+        <div className="h-full bg-primary transition-all duration-1000" style={{ width: "100%" }} />
       </div>
 
       <main className="flex-1 container max-w-2xl mx-auto flex flex-col items-center justify-center p-6 pt-20 pb-16">
@@ -63,14 +63,14 @@ export default function OnboardingReadyPage() {
           </div>
 
           <div className="flex items-center justify-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#D96FAB]" />
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#D96FAB]">Step 4 of 4 — Complete</span>
-            <Sparkles className="w-4 h-4 text-[#D96FAB]" />
+            <Sparkles className="w-4 h-4 text-primary" />
+            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Step 4 of 4 — Complete</span>
+            <Sparkles className="w-4 h-4 text-primary" />
           </div>
 
           <h1 className="text-5xl md:text-6xl font-black tracking-tighter leading-none">
             You're all{" "}
-            <span className="bg-gradient-to-r from-[#66ADE4] to-[#D96FAB] bg-clip-text text-transparent">
+            <span className="text-primary">
               set.
             </span>
           </h1>
@@ -118,7 +118,7 @@ export default function OnboardingReadyPage() {
           <Button
             asChild
             size="lg"
-            className="h-16 px-14 rounded-2xl bg-gradient-to-r from-[#66ADE4] to-[#D96FAB] text-white hover:opacity-90 font-black uppercase tracking-widest text-[11px] gap-3 shadow-2xl group"
+            className="h-16 px-14 rounded-2xl bg-primary text-white hover:bg-[var(--primary-hover)] font-black uppercase tracking-widest text-[11px] gap-3 shadow-[var(--shadow-3)] group"
           >
             <Link href="/chat">
               Start Chatting
@@ -131,7 +131,7 @@ export default function OnboardingReadyPage() {
       {/* Step indicator — all filled */}
       <div className="pb-8 flex items-center justify-center gap-2">
         {[1, 2, 3, 4].map((step) => (
-          <div key={step} className="w-6 h-2 rounded-full bg-gradient-to-r from-[#D96FAB] to-[#66ADE4]" />
+          <div key={step} className="w-6 h-2 rounded-full bg-primary" />
         ))}
       </div>
     </div>

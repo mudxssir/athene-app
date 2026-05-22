@@ -48,9 +48,9 @@ const SidebarItem = ({ icon: Icon, label, href = "#", active = false, onClick }:
     <div 
       onClick={onClick}
       className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-200 group relative ${
-      active ? 'text-[#66ADE4]' : 'text-slate-400 hover:text-white hover:bg-white/5'
+      active ? 'text-secondary' : 'text-slate-400 hover:text-white hover:bg-white/5'
     }`}>
-      {active && <div className="absolute left-0 top-3 bottom-3 w-0.5 bg-[#66ADE4] shadow-[0_0_10px_#66ADE4]" />}
+      {active && <div className="absolute left-0 top-3 bottom-3 w-0.5 bg-secondary shadow-[0_0_10px_var(--secondary)]" />}
       <Icon size={18} className={active ? 'drop-shadow-[0_0_8px_rgba(102,173,228,0.5)]' : ''} />
       <span className="text-xs font-bold tracking-wide uppercase font-space-grotesk">{label}</span>
     </div>
@@ -61,14 +61,14 @@ const ModelCard = ({ name, provider, active = false, icon: Icon, onClick }: { na
   <div 
     onClick={onClick}
     className={`p-4 rounded-xl border transition-all duration-300 cursor-pointer ${
-    active ? 'border-[#66ADE4] bg-[#66ADE4]/10 shadow-[0_0_20px_rgba(102,173,228,0.1)]' : 'border-white/5 bg-white/5 hover:border-white/10'
+    active ? 'border-secondary bg-secondary/10 shadow-[0_0_20px_rgba(102,173,228,0.1)]' : 'border-white/5 bg-white/5 hover:border-white/10'
   }`}>
     <div className="flex justify-between items-start mb-4">
-      <div className={`p-2 rounded-lg ${active ? 'bg-[#66ADE4]/20 border-[#66ADE4]/30' : 'bg-black/40 border-white/5'} border`}>
-        <Icon size={20} className={active ? 'text-[#66ADE4]' : 'text-slate-400'} />
+      <div className={`p-2 rounded-lg ${active ? 'bg-secondary/20 border-secondary/30' : 'bg-black/40 border-white/5'} border`}>
+        <Icon size={20} className={active ? 'text-secondary' : 'text-slate-400'} />
       </div>
       {active ? (
-        <CheckCircle2 size={16} className="text-[#66ADE4]" fill="currentColor" fillOpacity="0.1" />
+        <CheckCircle2 size={16} className="text-secondary" fill="currentColor" fillOpacity="0.1" />
       ) : (
         <Circle size={16} className="text-white/10" />
       )}
@@ -92,7 +92,7 @@ const Slider = ({ label, value, min, max, unit = "", onChange }: { label: string
           <label className="text-xs text-slate-400 uppercase tracking-widest">{label}</label>
           <span className="text-[10px] text-slate-600 cursor-help">ⓘ</span>
         </div>
-        <span className="text-sm font-bold text-[#66ADE4] font-mono tracking-wider">{value.toFixed(2)}{unit}</span>
+        <span className="text-sm font-bold text-secondary font-mono tracking-wider">{value.toFixed(2)}{unit}</span>
       </div>
       <div className="relative h-1 bg-white/5 rounded-full overflow-visible group">
         <input 
@@ -105,7 +105,7 @@ const Slider = ({ label, value, min, max, unit = "", onChange }: { label: string
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
         />
         <div 
-          className="absolute h-full bg-[#66ADE4] rounded-full shadow-[0_0_10px_rgba(102,173,228,0.6)] transition-all"
+          className="absolute h-full bg-secondary rounded-full shadow-[0_0_10px_rgba(102,173,228,0.6)] transition-all"
           style={{ width: `${percentage}%` }}
         />
         <div 
@@ -125,7 +125,7 @@ const GradientButton = ({ children, onClick, disabled, className = "" }: { child
   <button 
     onClick={onClick}
     disabled={disabled}
-    className={cn("relative h-14 bg-gradient-to-r from-[#DA88B6] to-[#66ADE4] text-white font-black uppercase tracking-[0.2em] text-[10px] rounded-2xl flex items-center justify-center gap-3 transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98] disabled:opacity-50 overflow-visible", className)}>
+    className={cn("relative h-14 bg-primary text-white font-black uppercase tracking-[0.2em] text-[10px] rounded-2xl flex items-center justify-center gap-3 transition-all shadow-lg shadow-[var(--shadow-2)] active:scale-[0.98] disabled:opacity-50 overflow-visible", className)}>
     <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full border-2 border-[#06080c] bg-white flex items-center justify-center shadow-lg">
        <img src="/logo.png" alt="A" className="w-7 h-7 object-contain" />
     </div>

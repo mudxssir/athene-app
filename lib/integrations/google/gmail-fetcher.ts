@@ -1,6 +1,7 @@
 import { googleFetch, googleFetchRaw } from './api-client'
 import type { FetchedChunk } from '@/lib/integrations/base'
 import { assertSafeMetadata } from '@/lib/integrations/base'
+import { type SyncConfig, getSelectedResourceIds } from '@/lib/integrations/sync-config'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -260,18 +261,43 @@ const CHUNK_OVERLAP = 200
 export async function indexEmailChunks(
   connectionId: string,
   orgId: string,
-  options?: { limit?: number },
+  options?: { limit?: number; syncConfig?: SyncConfig },
 ): Promise<FetchedChunk[]> {
   const limit = options?.limit ?? 200
-  const listUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=newer_than:6m&maxResults=${limit}`
-  const list = await googleFetch<{ messages?: GmailMessageRef[] }>(connectionId, orgId, listUrl)
-  if (!list.messages || list.messages.length === 0) return []
+
+  // browseGmail returns Gmail label IDs (e.g. "Label_123", "INBOX").
+  // If the user selected specific labels, only fetch messages from those labels.
+  const selectedLabelIds = options?.syncConfig
+    ? getSelectedResourceIds(options.syncConfig)
+    : null
+
+  let messageRefs: GmailMessageRef[] = []
+
+  if (selectedLabelIds && selectedLabelIds.size > 0) {
+    // Fetch per-label and deduplicate (label filter uses AND, so query each separately)
+    const seen = new Set<string>()
+    for (const labelId of selectedLabelIds) {
+      if (messageRefs.length >= limit) break
+      const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=${encodeURIComponent(labelId)}&maxResults=${limit}`
+      const list = await googleFetch<{ messages?: GmailMessageRef[] }>(connectionId, orgId, url).catch(() => ({ messages: [] }))
+      for (const msg of list.messages ?? []) {
+        if (!seen.has(msg.id)) { seen.add(msg.id); messageRefs.push(msg) }
+        if (messageRefs.length >= limit) break
+      }
+    }
+  } else {
+    const listUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=newer_than:6m&maxResults=${limit}`
+    const list = await googleFetch<{ messages?: GmailMessageRef[] }>(connectionId, orgId, listUrl)
+    messageRefs = list.messages ?? []
+  }
+
+  if (messageRefs.length === 0) return []
 
   const BATCH_SIZE = 10
   const chunks: FetchedChunk[] = []
 
-  for (let i = 0; i < list.messages.length; i += BATCH_SIZE) {
-    const batch = list.messages.slice(i, i + BATCH_SIZE)
+  for (let i = 0; i < messageRefs.length; i += BATCH_SIZE) {
+    const batch = messageRefs.slice(i, i + BATCH_SIZE)
     const results = await Promise.all(
       batch.map(async (msg) => {
         try {

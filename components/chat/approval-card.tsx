@@ -51,9 +51,9 @@ export function ApprovalCard({ threadId, action, onComplete, onError }: Approval
   }
 
   const toolIcon = action.tool.toLowerCase().includes("email") ? (
-    <Mail className="w-5 h-5 text-[#D96FAB]" />
+    <Mail className="w-5 h-5 text-primary" />
   ) : (
-    <Calendar className="w-5 h-5 text-[#5290B8]" />
+    <Calendar className="w-5 h-5 text-secondary" />
   );
 
   async function handleApprove() {

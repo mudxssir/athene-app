@@ -1,108 +1,71 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import {
-  Activity,
-  Cpu,
-  Database,
-  ChevronRight,
-  Zap,
-  Link2,
-  MessageSquare,
-  Upload,
-  AlertCircle,
-  FileText,
-  Info,
-} from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import React, { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { Activity, Cpu, Database, ChevronRight, Zap, Link2, MessageSquare, Upload, AlertCircle, FileText, Info } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { fetchWithTimeout } from "@/lib/fetch-timeout";
 
-// --- Shared UI Components ---
+/* ── Design-kit atoms (match components.jsx exactly) ─────── */
 
-interface GlassCardProps {
-  children: React.ReactNode;
-  className?: string;
+function Icon({ icon: I, size = 18 }: { icon: React.ElementType; size?: number }) {
+  return <I size={size} strokeWidth={1.7} />;
 }
 
-const GlassCard = ({ children, className = "" }: GlassCardProps) => (
-  <div className={`bg-card/50 backdrop-blur-xl border border-border rounded-2xl shadow-xl transition-all duration-300 ${className}`}>
-    {children}
-  </div>
-);
-
-interface MetricCardProps {
-  icon: React.ElementType;
-  label: string;
-  value: string;
-  status?: string;
-  subtext?: string;
-  tooltip?: string;
-  actionLabel?: string;
-  onAction?: () => void;
+function IconTile({ icon: I, size = 44, tone = "primary" }: { icon: React.ElementType; size?: number; tone?: "primary" | "amber" | "honey" }) {
+  const t = {
+    primary: { bg: "rgba(160,74,27,.10)", border: "rgba(160,74,27,.20)", color: "var(--primary)" },
+    amber:   { bg: "rgba(217,122,46,.12)", border: "rgba(217,122,46,.22)", color: "var(--secondary)" },
+    honey:   { bg: "rgba(230,185,40,.18)", border: "rgba(230,185,40,.32)", color: "#9E780E" },
+  }[tone];
+  return (
+    <div style={{ width: size, height: size, borderRadius: Math.round(size * 0.32), background: t.bg, border: `1px solid ${t.border}`, display: "inline-flex", alignItems: "center", justifyContent: "center", color: t.color, flexShrink: 0 }}>
+      <I size={Math.round(size * 0.5)} strokeWidth={1.7} />
+    </div>
+  );
 }
 
-const MetricCard = ({ icon: Icon, label, value, status, subtext, tooltip, actionLabel, onAction }: MetricCardProps) => (
-  <GlassCard className="p-6 hover:border-primary/20 transition-all cursor-default group flex flex-col h-full">
-    <div className="flex justify-between items-start mb-4">
-      <div className="p-3 rounded-xl bg-primary/10 border border-primary/10 group-hover:bg-primary/20 transition-colors">
-        <Icon size={22} className="text-primary" />
+function Chip({ kind = "outline", dot, children }: { kind?: "primary" | "amber" | "honey" | "outline" | "success"; dot?: boolean; children: React.ReactNode }) {
+  const k = {
+    primary: { background: "rgba(160,74,27,.10)", color: "var(--primary)", border: "1px solid rgba(160,74,27,.22)" },
+    amber:   { background: "rgba(217,122,46,.12)", color: "var(--secondary)", border: "1px solid rgba(217,122,46,.22)" },
+    honey:   { background: "rgba(230,185,40,.18)", color: "#9E780E", border: "1px solid rgba(230,185,40,.32)" },
+    outline: { background: "transparent", color: "var(--fg-muted)", border: "1px solid var(--border-strong)" },
+    success: { background: "rgba(79,122,46,.12)", color: "#4F7A2E", border: "1px solid rgba(79,122,46,.25)" },
+  }[kind];
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 24, padding: "0 12px", borderRadius: 999, fontFamily: "var(--font-sans)", fontWeight: 800, fontSize: 9, letterSpacing: "0.3em", textTransform: "uppercase", ...k }}>
+      {dot && <span style={{ width: 6, height: 6, borderRadius: 99, background: "currentColor" }} />}
+      {children}
+    </span>
+  );
+}
+
+function MetricCard({ icon: I, label, value, tone = "primary", status }: {
+  icon: React.ElementType; label: string; value: string; tone?: "primary" | "amber" | "honey"; status?: string;
+}) {
+  const [hov, setHov] = useState(false);
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      className="reveal"
+      style={{ background: "var(--bg-elevated)", border: `1px solid ${hov ? "var(--border-strong)" : "var(--border)"}`, borderRadius: 22, padding: 22, transition: "all .25s var(--ease-out)", boxShadow: hov ? "var(--shadow-3)" : "none", cursor: "default" }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+        <IconTile icon={I} size={42} tone={tone} />
+        {status && <Chip kind={tone === "primary" ? "primary" : tone === "amber" ? "amber" : "honey"}>{status}</Chip>}
       </div>
-      {status && (
-        <span className={cn("text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border shadow-sm",
-          status === 'Autonomous' 
-            ? "text-secondary bg-secondary/5 border-secondary/10" 
-            : "text-primary bg-primary/5 border-primary/10"
-        )}>
-          {status}
-        </span>
-      )}
+      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.32em", textTransform: "uppercase", color: "var(--fg-muted)", marginBottom: 6 }}>{label}</div>
+      <div style={{ fontFamily: "var(--font-sans)", fontSize: 36, fontWeight: 800, letterSpacing: "-0.04em", color: "var(--fg)" }}>{value}</div>
     </div>
-    <div className="flex items-center gap-2 mb-1">
-      <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-black opacity-60">{label}</div>
-      {tooltip && (
-        <Tooltip>
-          <TooltipTrigger className="cursor-help" onClick={(e) => e.preventDefault()}>
-            <Info size={12} className="text-muted-foreground/40 hover:text-primary transition-colors" />
-          </TooltipTrigger>
-          <TooltipContent side="top">
-            <p className="max-w-[200px] text-xs font-medium leading-relaxed">{tooltip}</p>
-          </TooltipContent>
-        </Tooltip>
-      )}
-    </div>
-    <div className="text-3xl font-black text-foreground tracking-tighter mb-2">{value}</div>
-    <div className="mt-auto pt-2">
-      {subtext && (
-        <p className="text-[11px] font-bold text-muted-foreground/60 leading-snug mb-3">
-          {subtext}
-        </p>
-      )}
-      {actionLabel && onAction && (
-        <Button 
-          variant="secondary" 
-          size="sm" 
-          onClick={onAction}
-          className="w-full h-8 text-[10px] uppercase font-black tracking-widest bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition-all shadow-sm"
-        >
-          {actionLabel}
-        </Button>
-      )}
-    </div>
-  </GlassCard>
-);
+  );
+}
 
-// --- Dashboard Page ---
+/* ── Page ───────────────────────────────────────────────── */
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -120,7 +83,6 @@ export default function DashboardPage() {
       setOrchestrations(data.recent_orchestrations);
       setFetchError(null);
     } catch (error: any) {
-      console.error("[dashboard] fetchStats failed:", error);
       setFetchError(error.message ?? "Failed to load stats");
     } finally {
       setLoading(false);
@@ -133,269 +95,141 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, [fetchStats]);
 
+  const statusKind: Record<string, "primary" | "amber" | "outline"> = {
+    Success: "primary", Failed: "outline", Edited: "amber",
+  };
+
   return (
-    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20 font-['Space_Grotesk'] transition-colors duration-300">
+    <div style={{ maxWidth: 1320, margin: "0 auto", padding: "36px 40px 80px" }}>
+
       {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
+      <div className="reveal reveal-1" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 36, flexWrap: "wrap", gap: 24 }}>
         <div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-3 rounded-2xl bg-gradient-to-br from-primary/10 to-secondary/10 border border-border shadow-lg">
-              <Zap className="w-7 h-7 text-primary" />
-            </div>
-            <h1 className="text-4xl font-black tracking-tighter text-foreground uppercase">
-              System <span className="text-primary">Overview</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
+            <IconTile icon={Zap} size={48} tone="primary" />
+            <h1 style={{ fontFamily: "var(--font-sans)", fontSize: 44, fontWeight: 800, letterSpacing: "-0.04em", textTransform: "uppercase", margin: 0, color: "var(--fg)" }}>
+              System <span style={{ color: "var(--primary)" }}>Overview</span>
             </h1>
           </div>
-          <p className="text-muted-foreground text-lg max-w-2xl font-medium leading-relaxed">
+          <p style={{ color: "var(--fg-muted)", fontSize: 15, fontWeight: 500, margin: 0 }}>
             Real-time health monitoring of the Athene knowledge pipeline.
           </p>
         </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <button className="flex items-center gap-2 px-6 py-3 bg-muted/20 border border-border rounded-2xl cursor-pointer hover:bg-muted/40 transition-all shadow-sm">
-              <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-              <span className="text-[11px] font-black text-foreground uppercase tracking-widest">Pipeline Active</span>
-            </button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md border-border bg-card/95 backdrop-blur-xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-foreground font-black uppercase tracking-widest text-sm">
-                <Activity className="w-5 h-5 text-accent" />
-                Pipeline Health
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-6 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <span className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black">Uptime</span>
-                  <div className="text-3xl font-black text-foreground tracking-tighter">99.9%</div>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black">Error Rate</span>
-                  <div className="text-3xl font-black text-accent tracking-tighter">0.01%</div>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <span className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black">Last Sync Time</span>
-                <div className="text-sm font-bold text-foreground">{new Date().toLocaleString()}</div>
-              </div>
-              <div className="pt-4 border-t border-border">
-                <Button variant="outline" className="w-full text-xs font-black uppercase tracking-widest h-12 rounded-xl border-border hover:bg-muted/50 text-foreground" onClick={() => router.push('/admin/audit')}>
-                  View Pipeline Logs
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Chip kind="success" dot>Pipeline active</Chip>
       </div>
 
-      {/* Error banner */}
+      {/* Error */}
       {fetchError && (
-        <div className="flex items-center gap-3 px-6 py-4 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive text-sm font-bold">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>Could not load stats: {fetchError}</span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={fetchStats}
-            className="ml-auto text-destructive hover:text-destructive hover:bg-destructive/10 rounded-xl"
-          >
-            Retry
-          </Button>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", borderRadius: 16, background: "rgba(178,58,26,.10)", border: "1px solid rgba(178,58,26,.25)", color: "var(--danger)", marginBottom: 24 }}>
+          <AlertCircle size={16} />
+          <span style={{ fontSize: 13, fontWeight: 700 }}>Could not load stats: {fetchError}</span>
+          <button onClick={fetchStats} style={{ marginLeft: "auto", fontSize: 11, fontWeight: 800, letterSpacing: "0.2em", textTransform: "uppercase", background: "none", border: "none", color: "var(--danger)", cursor: "pointer" }}>Retry</button>
         </div>
       )}
 
-      {/* 5 metric cards — all from real API */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 xl:gap-6">
-        <MetricCard icon={Database}  label="Indexed Documents"   value={loading ? "—" : `${stats.documents}`}       status="Indexed"    />
-        <MetricCard 
-          icon={Cpu}       
-          label="Knowledge Entities"  
-          value={loading ? "—" : `${stats.knowledge_nodes}`} 
-          status="Networked"
-          tooltip="People, organisations, concepts, and relationships extracted from your documents."
-          subtext={!loading && stats.knowledge_nodes === 0 ? (stats.documents > 0 ? "Entities not yet extracted from your indexed documents." : "Index documents first to build the knowledge graph.") : undefined}
-          actionLabel={!loading && stats.knowledge_nodes === 0 && stats.documents > 0 ? "Start Extraction" : undefined}
-          onAction={!loading && stats.knowledge_nodes === 0 && stats.documents > 0 ? () => router.push('/graph') : undefined}
-        />
-        <MetricCard 
-          icon={Activity}  
-          label="HITL Decisions"      
-          value={loading ? "—" : `${stats.actions}`}         
-          status={!loading && stats.actions === 0 ? "Autonomous" : "Audited"}
-          tooltip="Human-in-the-loop approvals, rejections, and edits for agent-drafted actions."
-          subtext={!loading && stats.actions === 0 ? "No decisions pending — agents are running autonomously." : undefined}
-        />
-        <MetricCard icon={Link2}     label="Active Connectors"   value={loading ? "—" : `${stats.integrations}`}    status="Live"       />
-        <MetricCard 
-          icon={FileText}     
-          label="Briefings This Month"   
-          value={loading ? "—" : `${stats.briefings_this_month}`}    
-          status="Synthesized"
-          tooltip="AI-synthesized morning briefings combining calendar, email, and document updates."
-          subtext={!loading && stats.briefings_this_month === 0 ? "No briefings generated yet this month." : undefined}
-          actionLabel={!loading && stats.briefings_this_month === 0 ? "Generate Now" : undefined}
-          onAction={!loading && stats.briefings_this_month === 0 ? () => router.push('/briefing') : undefined}
-        />
+      {/* 4-col metric grid */}
+      <div className="reveal reveal-2" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 18, marginBottom: 32 }}>
+        <MetricCard icon={Database}  label="Indexed Documents"   value={loading ? "—" : String(stats.documents)}       tone="primary" status="Indexed" />
+        <MetricCard icon={Cpu}       label="Knowledge Entities"  value={loading ? "—" : String(stats.knowledge_nodes)} tone="amber"   status="Networked" />
+        <MetricCard icon={Activity}  label="HITL Decisions"      value={loading ? "—" : String(stats.actions)}         tone="honey"   status="Audited" />
+        <MetricCard icon={Link2}     label="Active Connectors"   value={loading ? "—" : String(stats.integrations)}    tone="primary" status="Live" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Orchestrations — real HITL decisions from DB */}
-        <div className="lg:col-span-2">
-          <GlassCard className="p-8">
-            <div className="flex justify-between items-center mb-8">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Recent Agent Decisions</h3>
-              {orchestrations.length > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => router.push('/admin/audit-log')}
-                  className="text-[10px] text-muted-foreground hover:text-primary uppercase font-black tracking-widest transition-colors rounded-xl h-8 px-4"
+      {/* 2-col detail grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 18 }}>
+
+        {/* Recent agent decisions */}
+        <div className="reveal reveal-3" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 28, padding: 28 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 22 }}>
+            <span className="eyebrow">Recent agent decisions</span>
+            <button onClick={() => router.push("/admin/audit")} style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.28em", textTransform: "uppercase", color: "var(--fg-muted)", background: "none", border: "none", cursor: "pointer" }}>
+              View all →
+            </button>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {loading ? (
+              [...Array(3)].map((_, i) => (
+                <div key={i} style={{ height: 64, borderRadius: 18, background: "var(--bg-muted)", opacity: 0.5 }} />
+              ))
+            ) : orchestrations.length === 0 ? (
+              <div style={{ padding: "48px 0", textAlign: "center", border: "1px dashed var(--border-strong)", borderRadius: 22 }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: "var(--fg-muted)" }}>No agent decisions yet.</p>
+                <p style={{ fontSize: 11, fontWeight: 500, color: "var(--fg-subtle)", marginTop: 4 }}>HITL approvals and rejections will appear here.</p>
+              </div>
+            ) : (
+              orchestrations.map((item, i) => (
+                <div key={i} onClick={() => router.push("/admin/audit")}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderRadius: 18, background: "var(--bg-muted)", border: "1px solid var(--border)", cursor: "pointer", transition: "all .2s var(--ease-out)" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--border-strong)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"; }}
                 >
-                  View All →
-                </Button>
-              )}
-            </div>
-            <div className="space-y-4">
-              {loading ? (
-                [...Array(3)].map((_, i) => (
-                  <div key={i} className="h-20 rounded-[2rem] bg-muted/20 animate-pulse border border-border" />
-                ))
-              ) : orchestrations.length === 0 ? (
-                <div className="py-8 text-center bg-muted/5 rounded-[2rem] border border-dashed border-border flex flex-col items-center justify-center">
-                  <div className="w-12 h-12 mb-3 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
-                    <Activity className="w-6 h-6 text-primary" />
+                  <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+                    <IconTile icon={Activity} size={36} tone="primary" />
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: "-0.01em", color: "var(--fg)" }}>{item.label}</div>
+                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.28em", textTransform: "uppercase", color: "var(--fg-subtle)", marginTop: 4 }}>
+                        {item.id} · {new Date(item.time).toLocaleString()}
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-sm text-foreground font-bold">No agent decisions yet.</p>
-                  <p className="text-xs text-muted-foreground mt-1 mb-4">HITL approvals and rejections will appear here once an agent runs.</p>
-                  <Button 
-                    onClick={() => router.push('/chat')} 
-                    className="h-9 px-5 rounded-xl text-[11px] font-bold uppercase tracking-widest transition-all shadow-sm"
-                  >
-                    Deploy Your First Agent
-                  </Button>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <Chip kind={statusKind[item.status] ?? "outline"}>{item.status}</Chip>
+                    <ChevronRight size={14} style={{ color: "var(--fg-subtle)", opacity: 0.5 }} />
+                  </div>
                 </div>
-              ) : (
-                orchestrations.map((item, i) => (
-                  <div
-                    key={i}
-                    onClick={() => router.push('/admin/audit-log')}
-                    className="flex items-center justify-between p-5 rounded-2xl bg-muted/10 border border-border hover:border-primary/20 hover:bg-muted/20 transition-all group cursor-pointer shadow-sm"
-                  >
-                    <div className="flex items-center gap-5">
-                      <div className="p-3 rounded-xl bg-background border border-border group-hover:border-primary/20 shadow-sm transition-colors">
-                        <Activity size={20} className="text-muted-foreground group-hover:text-primary transition-colors" />
-                      </div>
-                      <div>
-                        <div className="text-base font-black text-foreground tracking-tight">{item.label}</div>
-                        <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold opacity-60">
-                          ID: {item.id} · {new Date(item.time).toLocaleString()}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className={cn(
-                        "px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-sm",
-                        item.status === 'Success' ? 'bg-accent/10 text-accent border border-accent/20' :
-                        item.status === 'Failed'  ? 'bg-destructive/10 text-destructive border border-destructive/20' :
-                        item.status === 'Edited'  ? 'bg-secondary/10 text-secondary border border-secondary/20' :
-                                                    'bg-primary/10 text-primary border border-primary/20'
-                      )}>
-                        {item.status}
-                      </span>
-                      <ChevronRight size={18} className="text-muted-foreground/30 group-hover:translate-x-1 transition-transform" />
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </GlassCard>
+              ))
+            )}
+          </div>
         </div>
 
-        {/* Right column — real quick-action shortcuts */}
-        <div className="space-y-6">
-          {/* Quick Actions */}
-          <GlassCard className="p-8">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] mb-6 text-muted-foreground">Quick Actions</h3>
-            <div className="space-y-3">
+        {/* Right column */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+
+          {/* Quick actions */}
+          <div className="reveal reveal-4" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 28, padding: 28 }}>
+            <div className="eyebrow" style={{ marginBottom: 18 }}>Quick actions</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {[
-                {
-                  icon: MessageSquare,
-                  label: "New Chat Session",
-                  sub: "Ask Athene anything",
-                  href: "/chat",
-                },
-                {
-                  icon: Link2,
-                  label: "Manage Connectors",
-                  sub: `${stats.integrations} active`,
-                  href: "/admin/integrations",
-                },
-                {
-                  icon: Upload,
-                  label: "Upload Files",
-                  sub: `${stats.documents} docs indexed`,
-                  href: "/files",
-                },
-              ].map((action) => (
-                <button
-                  key={action.href}
-                  onClick={() => router.push(action.href)}
-                  className="w-full flex items-center gap-4 p-4 rounded-2xl bg-muted/10 border border-border hover:border-primary/20 hover:bg-muted/20 transition-all group text-left shadow-sm"
+                { icon: MessageSquare, label: "New chat",          sub: "Ask Athene anything",                    href: "/chat" },
+                { icon: Link2,         label: "Manage connectors", sub: `${stats.integrations} active`,           href: "/admin/integrations" },
+                { icon: Upload,        label: "Upload files",      sub: `${stats.documents} docs indexed`,        href: "/files" },
+              ].map((a) => (
+                <button key={a.href} onClick={() => router.push(a.href)}
+                  style={{ display: "flex", alignItems: "center", gap: 12, padding: 14, borderRadius: 18, background: "var(--bg-muted)", border: "1px solid var(--border)", cursor: "pointer", textAlign: "left", transition: "all .2s var(--ease-out)", width: "100%" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--border-strong)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"; }}
                 >
-                  <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/10 group-hover:bg-primary/20 transition-colors shrink-0">
-                    <action.icon size={18} className="text-primary" />
+                  <IconTile icon={a.icon} size={36} tone="primary" />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--fg)" }}>{a.label}</div>
+                    <div style={{ fontSize: 10, color: "var(--fg-subtle)", fontWeight: 700, marginTop: 3 }}>{a.sub}</div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[12px] font-black text-foreground uppercase tracking-tight">{action.label}</p>
-                    <p className="text-[10px] text-muted-foreground/60 font-bold mt-0.5">{action.sub}</p>
-                  </div>
-                  <ChevronRight size={14} className="text-muted-foreground/30 group-hover:text-primary group-hover:translate-x-1 transition-all shrink-0" />
+                  <ChevronRight size={14} style={{ color: "var(--fg-subtle)", opacity: 0.5 }} />
                 </button>
               ))}
             </div>
-          </GlassCard>
+          </div>
 
-          {/* Pipeline status — derived from real stats */}
-          <GlassCard className="p-8">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] mb-6 text-muted-foreground">Pipeline Status</h3>
-            <div className="space-y-4">
-              {[
-                {
-                  label: "Document Index",
-                  ok: stats.documents > 0,
-                  detail: stats.documents > 0 ? `${stats.documents} docs` : "No docs indexed yet",
-                },
-                {
-                  label: "Knowledge Graph",
-                  ok: stats.knowledge_nodes > 0,
-                  detail: stats.knowledge_nodes > 0 ? `${stats.knowledge_nodes} entities` : "Empty — index docs first",
-                },
-                {
-                  label: "Connectors",
-                  ok: stats.integrations > 0,
-                  detail: stats.integrations > 0 ? `${stats.integrations} connected` : "No connectors active",
-                },
-              ].map((row) => (
-                <div key={row.label} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={cn(
-                      "w-2 h-2 rounded-full shrink-0",
-                      loading ? "bg-muted-foreground/20 animate-pulse" :
-                      row.ok ? "bg-accent" : "bg-muted-foreground/30"
-                    )} />
-                    <span className="text-[11px] font-bold text-muted-foreground">{row.label}</span>
-                  </div>
-                  <span className={cn(
-                    "text-[10px] font-mono font-bold tracking-tight",
-                    row.ok ? "text-accent" : "text-muted-foreground/40"
-                  )}>
-                    {loading ? "—" : row.detail}
-                  </span>
+          {/* Pipeline status */}
+          <div className="reveal reveal-5" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 28, padding: 28 }}>
+            <div className="eyebrow" style={{ marginBottom: 18 }}>Pipeline status</div>
+            {[
+              { label: "Document index",  ok: stats.documents > 0,       detail: stats.documents > 0 ? `${stats.documents} docs` : "No docs yet" },
+              { label: "Knowledge graph", ok: stats.knowledge_nodes > 0, detail: stats.knowledge_nodes > 0 ? `${stats.knowledge_nodes} entities` : "Empty" },
+              { label: "Connectors",      ok: stats.integrations > 0,    detail: stats.integrations > 0 ? `${stats.integrations} connected` : "None active" },
+              { label: "BYOK rotation",   ok: false, detail: "Due in 14 days" },
+            ].map((r) => (
+              <div key={r.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px dashed var(--border)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 99, background: r.ok ? "#4F7A2E" : "var(--secondary)", flexShrink: 0 }} />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--fg)" }}>{r.label}</span>
                 </div>
-              ))}
-            </div>
-          </GlassCard>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 600, color: r.ok ? "#4F7A2E" : "var(--secondary)" }}>
+                  {loading ? "—" : r.detail}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

@@ -10,6 +10,7 @@ import {
   Plus,
   WifiOff,
   Search,
+  RefreshCw,
 } from "lucide-react";
 import Nango from "@nangohq/frontend";
 import { IntegrationCard, type Integration } from "./integration-card";
@@ -23,13 +24,12 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { VERTICAL_MODULES } from "@/lib/knowledge-graph/modules/registry";
 import { ResourceBrowser } from "@/components/integrations/resource-browser";
+import { isBrowsable } from "@/lib/integrations/browsing";
 
 // Reverse map: Nango integration ID (e.g. "google-drive") → internal key (e.g. "google_drive")
 const NANGO_KEY_MAP: Record<string, string> = Object.fromEntries(
   Object.values(PROVIDER_REGISTRY).map((p) => [p.nangoIntegrationId, p.key])
 );
-
-const CONFIGURABLE = new Set(["google_drive", "snowflake", "bigquery", "redshift", "powerbi"]);
 
 function ConfirmDialog({
   open,
@@ -98,7 +98,7 @@ export default function IntegrationsPage() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [configuringSync, setConfiguringSync] = useState<Integration | null>(null);
-
+  const [syncingAll, setSyncingAll] = useState(false);
 
   // Queue of configurable providers connected during a single Nango session.
   const pendingConfigureQueue = useRef<Array<{ internalConnectionId: string; provider: string }>>([]);
@@ -200,7 +200,7 @@ export default function IntegrationsPage() {
               setToast({ msg: `${displayName} connected successfully.`, type: "success" });
               const saveData = await saveRes.json().catch(() => ({}));
 
-              if (CONFIGURABLE.has(internalKey) && saveData.internalConnectionId) {
+              if (isBrowsable(internalKey as any) && saveData.internalConnectionId) {
                 pendingConfigureQueue.current.push({
                   internalConnectionId: saveData.internalConnectionId,
                   provider: internalKey,
@@ -244,17 +244,43 @@ export default function IntegrationsPage() {
 
   const handleIndex = useCallback(async (integration: Integration) => {
     try {
-      const res = await fetch(`/api/admin/integrations/${integration.connectionId}/index`, {
+      const res = await fetch(`/api/connections/${integration.internalConnectionId}/sync`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: integration.provider }),
+        body: JSON.stringify({ force: false }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setToast({ msg: `Knowledge indexing started for ${integration.displayName}.`, type: "success" });
+      setToast({ msg: `Sync queued for ${integration.displayName}.`, type: "success" });
+      setTimeout(fetchIntegrations, 1500);
     } catch (e: any) {
       setToast({ msg: `Manual sync failed: ${e.message}`, type: "error" });
     }
-  }, []);
+  }, [fetchIntegrations]);
+
+  const handleSyncAll = useCallback(async () => {
+    setSyncingAll(true);
+    const results = await Promise.allSettled(
+      integrations.map((i) =>
+        fetch(`/api/connections/${i.internalConnectionId}/sync`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ force: false }),
+        })
+      )
+    );
+    // fetch() only rejects on network error — check .ok for HTTP 4xx/5xx too
+    const failed = results.filter(
+      (r) => r.status === "rejected" || (r.status === "fulfilled" && !r.value.ok)
+    ).length;
+    setToast({
+      msg: failed === 0
+        ? `All ${integrations.length} integrations queued for sync.`
+        : `${integrations.length - failed} synced, ${failed} failed.`,
+      type: failed === 0 ? "success" : "error",
+    });
+    setSyncingAll(false);
+    setTimeout(fetchIntegrations, 1500);
+  }, [integrations, fetchIntegrations]);
 
   const filteredIntegrations = integrations.filter(i => {
     const meta = getProvider(i.provider as any);
@@ -353,7 +379,16 @@ export default function IntegrationsPage() {
                 <span className="text-xs font-bold text-foreground tracking-tight">{integrations.length} Active Feeds</span>
               </div>
            </div>
-           <Button 
+           <Button
+            onClick={handleSyncAll}
+            disabled={syncingAll || integrations.length === 0}
+            variant="outline"
+            className="h-14 px-8 rounded-2xl border-white/10 font-black uppercase tracking-widest text-[11px] gap-3 hover:bg-white/5"
+           >
+             {syncingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+             Sync All
+           </Button>
+           <Button
             onClick={() => setShowAddDialog(true)}
             className="h-14 px-8 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-widest text-[11px] gap-3 shadow-xl shadow-primary/10 group"
            >

@@ -56,15 +56,15 @@ export function InsightCard({ insight, currentMemberId, isAdmin, isConfirmingDel
   };
 
   return (
-    <div className="group relative rounded-[2.5rem] bg-card border border-white/5 p-8 flex flex-col gap-6 transition-all duration-500 hover:scale-[1.02] hover:border-white/10 hover:shadow-2xl hover:shadow-[#D96FAB]/5">
+    <div className="group relative rounded-[2.5rem] bg-card border border-white/5 p-8 flex flex-col gap-6 transition-all duration-500 hover:scale-[1.02] hover:border-white/10 hover:shadow-2xl hover:shadow-[var(--shadow-3)]">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="shrink-0 h-10 w-10 rounded-2xl bg-gradient-to-br from-[#D96FAB]/10 to-[#7AADCF]/10 border border-white/5 flex items-center justify-center">
-            <BarChart3 className="w-5 h-5 text-[#D96FAB]" />
+          <div className="shrink-0 h-10 w-10 rounded-2xl bg-primary/10 border border-white/5 flex items-center justify-center">
+            <BarChart3 className="w-5 h-5 text-primary" />
           </div>
           <div className="min-w-0">
-            <h3 className="text-base font-black text-foreground tracking-tight truncate group-hover:text-[#D96FAB] transition-colors">
+            <h3 className="text-base font-black text-foreground tracking-tight truncate group-hover:text-primary transition-colors">
               {insight.title}
             </h3>
             <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">
@@ -80,7 +80,7 @@ export function InsightCard({ insight, currentMemberId, isAdmin, isConfirmingDel
             size="icon"
             onClick={handleRefresh}
             disabled={refreshing}
-            className="h-9 w-9 rounded-xl text-muted-foreground/40 hover:bg-[#7AADCF]/10 hover:text-[#7AADCF] transition-all"
+            className="h-9 w-9 rounded-xl text-muted-foreground/40 hover:bg-secondary/10 hover:text-secondary transition-all"
           >
             <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
           </Button>
@@ -124,7 +124,7 @@ export function InsightCard({ insight, currentMemberId, isAdmin, isConfirmingDel
                       href={c.url} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="text-[#7AADCF] hover:underline flex items-center gap-2"
+                      className="text-secondary hover:underline flex items-center gap-2"
                     >
                       {c.title || "Untitled source"}
                     </a>
@@ -153,7 +153,7 @@ export function InsightCard({ insight, currentMemberId, isAdmin, isConfirmingDel
         {(insight.result?.citations ?? []).length > 0 && (
           <button 
             onClick={() => setShowCitations(!showCitations)}
-            className="rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest bg-[#7AADCF]/10 text-[#7AADCF] border border-[#7AADCF]/20 hover:bg-[#7AADCF]/20 transition-colors"
+            className="rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest bg-secondary/10 text-secondary border border-secondary/20 hover:bg-secondary/20 transition-colors"
           >
             {(insight.result?.citations ?? []).length} sources
           </button>

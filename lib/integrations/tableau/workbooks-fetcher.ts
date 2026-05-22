@@ -1,6 +1,7 @@
 import { tableauSignIn, tableauFetch } from './client'
 import { FetchedChunk } from '../base'
 import { logger } from '@/lib/logger'
+import { type SyncConfig, getSelectedResourceIds } from '../sync-config'
 
 interface TableauWorkbook {
   id: string
@@ -16,9 +17,16 @@ interface TableauView {
   contentUrl: string
 }
 
-export async function fetchTableauWorkbooks(connectionId: string, orgId: string): Promise<FetchedChunk[]> {
+export async function fetchTableauWorkbooks(
+  connectionId: string,
+  orgId: string,
+  syncConfig?: SyncConfig
+): Promise<FetchedChunk[]> {
   const session = await tableauSignIn(connectionId, orgId)
   const chunks: FetchedChunk[] = []
+
+  // browseTableau returns workbook UUIDs as resource IDs.
+  const selectedIds = syncConfig ? getSelectedResourceIds(syncConfig) : null
 
   let workbooks: TableauWorkbook[] = []
   try {
@@ -30,6 +38,7 @@ export async function fetchTableauWorkbooks(connectionId: string, orgId: string)
   }
 
   for (const wb of workbooks) {
+    if (selectedIds && selectedIds.size > 0 && !selectedIds.has(wb.id)) continue
     // Get views for this workbook
     let views: TableauView[] = []
     try {

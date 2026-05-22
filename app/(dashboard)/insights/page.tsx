@@ -1,167 +1,169 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
-import {
-  BarChart3,
-  Plus,
-  Search,
-  AlertCircle,
-  X,
-  Loader2,
-  CheckCircle2,
-} from "lucide-react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { BarChart3, Plus, Sparkles, AlertCircle, X, CheckCircle2, RefreshCw, Trash2, Search, Loader2 } from "lucide-react";
 import { useAuth } from "@clerk/nextjs";
 import { mapRole } from "@/lib/auth/clerk";
 import { Button } from "@/components/ui/button";
-import { InsightCard, type Insight } from "@/components/insights/insight-card";
+import { type Insight } from "@/components/insights/insight-card";
 import { cn } from "@/lib/utils";
 import { fetchWithTimeout } from "@/lib/fetch-timeout";
 
-// ---------------------------------------------------------------------------
-// Inline "Add Insight" dialog — same pattern as ConfirmDialog in integrations
-// ---------------------------------------------------------------------------
-function AddInsightDialog({
-  open,
-  onClose,
-  onSubmit,
-  submitting,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onSubmit: (title: string, query: string) => void;
-  submitting: boolean;
-}) {
+/* ── Design-kit atoms ───────────────────────────────────── */
+
+function IconTile({ icon: I, size = 42, tone = "primary" }: { icon: React.ElementType; size?: number; tone?: "primary" | "amber" | "honey" }) {
+  const t = {
+    primary: { bg: "rgba(160,74,27,.10)", border: "rgba(160,74,27,.20)", color: "var(--primary)" },
+    amber:   { bg: "rgba(217,122,46,.12)", border: "rgba(217,122,46,.22)", color: "var(--secondary)" },
+    honey:   { bg: "rgba(230,185,40,.18)", border: "rgba(230,185,40,.32)", color: "#9E780E" },
+  }[tone];
+  return (
+    <div style={{ width: size, height: size, borderRadius: Math.round(size * 0.32), background: t.bg, border: `1px solid ${t.border}`, display: "inline-flex", alignItems: "center", justifyContent: "center", color: t.color, flexShrink: 0 }}>
+      <I size={Math.round(size * 0.5)} strokeWidth={1.7} />
+    </div>
+  );
+}
+
+function Chip({ kind = "outline", children }: { kind?: "primary" | "amber" | "honey" | "outline"; children: React.ReactNode }) {
+  const k = {
+    primary: { background: "rgba(160,74,27,.10)", color: "var(--primary)", border: "1px solid rgba(160,74,27,.22)" },
+    amber:   { background: "rgba(217,122,46,.12)", color: "var(--secondary)", border: "1px solid rgba(217,122,46,.22)" },
+    honey:   { background: "rgba(230,185,40,.18)", color: "#9E780E", border: "1px solid rgba(230,185,40,.32)" },
+    outline: { background: "transparent", color: "var(--fg-muted)", border: "1px solid var(--border-strong)" },
+  }[kind];
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 24, padding: "0 12px", borderRadius: 999, fontFamily: "var(--font-sans)", fontWeight: 800, fontSize: 9, letterSpacing: "0.3em", textTransform: "uppercase", ...k }}>
+      {children}
+    </span>
+  );
+}
+
+/* ── Add Insight Dialog ─────────────────────────────────── */
+function AddDialog({ open, onClose, onSubmit, submitting }: { open: boolean; onClose: () => void; onSubmit: (t: string, q: string) => void; submitting: boolean }) {
   const [title, setTitle] = useState("");
   const [query, setQuery] = useState("");
-
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (open) {
-      setTitle("");
-      setQuery("");
-      // ATH-53: Focus trap to first input
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
-  }, [open]);
-
-  // ATH-53: Added keyboard trap and escape handler
+  useEffect(() => { if (open) { setTitle(""); setQuery(""); setTimeout(() => inputRef.current?.focus(), 80); } }, [open]);
   useEffect(() => {
     if (!open) return;
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleEsc);
-    return () => window.removeEventListener("keydown", handleEsc);
+    const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", fn); return () => window.removeEventListener("keydown", fn);
   }, [open, onClose]);
 
   if (!open) return null;
-
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-md animate-in fade-in duration-300"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div 
-        className="bg-card border border-border shadow-2xl p-8 max-w-lg w-full mx-4 rounded-[2rem] animate-in zoom-in-95 duration-300 space-y-6"
-        onKeyDown={(e) => e.key === "Escape" && onClose()}
-      >
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-primary/10 to-secondary/10 border border-border flex items-center justify-center">
-                <BarChart3 className="w-5 h-5 text-primary" />
-              </div>
-              <h3 className="text-xl font-black text-foreground tracking-tight uppercase font-['Space_Grotesk']">New Insight Card</h3>
-            </div>
-            <p className="text-sm text-muted-foreground font-medium leading-relaxed">
-              Save a BI query and its synthesized answer as a reusable card.
-            </p>
-          </div>
-          <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full hover:bg-muted shrink-0">
-            <X className="w-5 h-5 text-muted-foreground" />
-          </Button>
-        </div>
-
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label htmlFor="insight-title" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
-              Card Title
-            </label>
-            <input
-              id="insight-title"
-              ref={inputRef}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Q3 Revenue vs Headcount"
-              className="w-full h-12 px-4 rounded-2xl bg-muted/30 border border-border text-sm font-bold text-foreground placeholder:text-muted-foreground/30 outline-none focus:border-primary/40 transition-colors"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label htmlFor="insight-query" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
-              Analysis Query
-            </label>
-            <textarea
-              id="insight-query"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="What is the correlation between headcount growth and revenue per department in Q3?"
-              rows={4}
-              className="w-full px-4 py-3 rounded-2xl bg-muted/30 border border-border text-sm font-bold text-foreground placeholder:text-muted-foreground/30 outline-none focus:border-secondary/40 transition-colors resize-none"
-            />
+    <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.4)", backdropFilter: "blur(8px)" }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 28, padding: 36, width: "100%", maxWidth: 520, boxShadow: "var(--shadow-4)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 28 }}>
+          <IconTile icon={BarChart3} size={44} tone="primary" />
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.03em", textTransform: "uppercase", color: "var(--fg)" }}>New Insight Card</div>
+            <div className="eyebrow" style={{ marginTop: 4 }}>Save a BI query as a reusable intelligence card</div>
           </div>
         </div>
-
-        <div className="flex gap-3 pt-2">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            className="flex-1 h-12 rounded-xl border-border hover:bg-muted font-bold"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={() => onSubmit(title, query)}
-            disabled={submitting || !title.trim() || !query.trim()}
-            className="flex-[2] h-12 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-widest text-[11px] gap-2 shadow-xl shadow-primary/10"
-          >
-            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-            {submitting ? "Saving..." : "Save Card"}
-          </Button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 24 }}>
+          <div>
+            <label className="eyebrow" style={{ display: "block", marginBottom: 8 }}>Title</label>
+            <input ref={inputRef} value={title} onChange={e => setTitle(e.target.value)} placeholder="Q1 enterprise renewal risk" style={{ width: "100%", padding: "12px 16px", borderRadius: 14, border: "1px solid var(--border)", background: "var(--bg-muted)", color: "var(--fg)", fontSize: 14, fontWeight: 500, outline: "none", fontFamily: "var(--font-sans)", boxSizing: "border-box" }} />
+          </div>
+          <div>
+            <label className="eyebrow" style={{ display: "block", marginBottom: 8 }}>Query</label>
+            <textarea value={query} onChange={e => setQuery(e.target.value)} placeholder="Which enterprise accounts are at renewal risk this quarter?" rows={3} style={{ width: "100%", padding: "12px 16px", borderRadius: 14, border: "1px solid var(--border)", background: "var(--bg-muted)", color: "var(--fg)", fontSize: 14, fontWeight: 500, outline: "none", fontFamily: "var(--font-sans)", resize: "vertical", boxSizing: "border-box" }} />
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+          <button onClick={onClose} style={{ height: 44, padding: "0 20px", borderRadius: 12, background: "var(--bg-muted)", border: "1px solid var(--border)", color: "var(--fg-muted)", fontSize: 11, fontWeight: 800, letterSpacing: "0.2em", textTransform: "uppercase", cursor: "pointer" }}>Cancel</button>
+          <button onClick={() => title.trim() && query.trim() && onSubmit(title.trim(), query.trim())} disabled={!title.trim() || !query.trim() || submitting}
+            style={{ height: 44, padding: "0 24px", borderRadius: 12, background: "var(--primary)", border: "none", color: "#fff", fontSize: 11, fontWeight: 800, letterSpacing: "0.2em", textTransform: "uppercase", cursor: "pointer", boxShadow: "0 10px 24px -10px rgba(160,74,27,.55)", display: "inline-flex", alignItems: "center", gap: 8 }}>
+            {submitting ? "Saving…" : <><Sparkles size={14} /> Save card</>}
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Main page
-// ---------------------------------------------------------------------------
+/* ── Insight card ───────────────────────────────────────── */
+function InsightCard({ card, idx, onRefresh, onDelete, confirmDeleteId, setConfirmDeleteId }: {
+  card: Insight; idx: number; onRefresh: (id: string) => void; onDelete: (id: string) => void;
+  confirmDeleteId: string | null; setConfirmDeleteId: (id: string | null) => void;
+}) {
+  const [hov, setHov] = useState(false);
+  const tone = idx % 2 === 0 ? "primary" : "amber";
+  const age = card.refreshed_at ?? card.created_at;
+  const ageStr = age ? new Date(age).toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
+
+  return (
+    <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      style={{ position: "relative", borderRadius: 28, padding: 26, background: "var(--bg-elevated)", border: `1px solid ${hov ? "var(--border-strong)" : "var(--border)"}`, display: "flex", flexDirection: "column", gap: 16, transition: "all .25s var(--ease-out)", boxShadow: hov ? "var(--shadow-3)" : "none" }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+          <IconTile icon={BarChart3} size={42} tone={tone as any} />
+          <div>
+            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, letterSpacing: "-0.02em", color: "var(--fg)" }}>{card.title}</h3>
+            <div className="eyebrow" style={{ marginTop: 4 }}>Intelligence card</div>
+          </div>
+        </div>
+        <Chip kind="outline">{card.result?.citations?.length ?? 0} sources</Chip>
+      </div>
+
+      {/* Answer */}
+      <div>
+        <div className="eyebrow" style={{ marginBottom: 8 }}>Answer</div>
+        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, fontWeight: 500, color: "var(--fg)" }}>
+          {card.result?.answer || <span style={{ color: "var(--fg-muted)", fontStyle: "italic" }}>Not yet synthesized — refresh to generate.</span>}
+        </p>
+      </div>
+
+      {/* Query */}
+      <div style={{ padding: 14, background: "var(--bg-muted)", borderRadius: 16, border: "1px solid var(--border)" }}>
+        <div className="eyebrow" style={{ marginBottom: 6 }}>Query</div>
+        <div style={{ fontSize: 12, color: "var(--fg-muted)", fontWeight: 500 }}>{card.query}</div>
+      </div>
+
+      {/* Footer */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 8, borderTop: "1px dashed var(--border)" }}>
+        <span className="eyebrow">{ageStr}</span>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => onRefresh(card.id)} title="Refresh" style={{ width: 30, height: 30, borderRadius: 9, background: "var(--bg-muted)", border: "1px solid var(--border)", color: "var(--fg-muted)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+            <RefreshCw size={13} />
+          </button>
+          <button onClick={() => { if (confirmDeleteId === card.id) onDelete(card.id); else setConfirmDeleteId(card.id); }}
+            title={confirmDeleteId === card.id ? "Confirm delete" : "Delete"}
+            style={{ width: 30, height: 30, borderRadius: 9, background: confirmDeleteId === card.id ? "rgba(178,58,26,.15)" : "var(--bg-muted)", border: `1px solid ${confirmDeleteId === card.id ? "rgba(178,58,26,.3)" : "var(--border)"}`, color: confirmDeleteId === card.id ? "var(--danger)" : "var(--fg-muted)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+            <Trash2 size={13} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Toast ──────────────────────────────────────────────── */
+function Toast({ msg, type, onClose }: { msg: string; type: "success" | "error"; onClose: () => void }) {
+  const ok = type === "success";
+  return (
+    <div style={{ position: "fixed", bottom: 40, right: 40, zIndex: 100, display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", borderRadius: 16, border: `1px solid ${ok ? "rgba(79,122,46,.3)" : "rgba(178,58,26,.3)"}`, background: ok ? "rgba(79,122,46,.12)" : "rgba(178,58,26,.10)", color: ok ? "#4F7A2E" : "var(--danger)", boxShadow: "var(--shadow-4)" }}>
+      {ok ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+      <span style={{ fontSize: 13, fontWeight: 700 }}>{msg}</span>
+      <button onClick={onClose} style={{ marginLeft: 8, background: "none", border: "none", cursor: "pointer", color: "inherit", opacity: 0.5 }}><X size={14} /></button>
+    </div>
+  );
+}
+
+/* ── Page ───────────────────────────────────────────────── */
 export default function InsightsPage() {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
-  const { orgRole } = useAuth();
-  const isAdmin = mapRole(orgRole ?? undefined) === "admin";
-
-  // ATH-53: Debounce search filter to reduce re-renders
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 200);
-    return () => clearTimeout(timer);
-  }, [search]);
-
-  const showToast = (msg: string, type: "success" | "error") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 4000);
-  };
+  const showToast = (msg: string, type: "success" | "error") => { setToast({ msg, type }); setTimeout(() => setToast(null), 4000); };
 
   const fetchInsights = useCallback(async () => {
     try {
@@ -171,19 +173,12 @@ export default function InsightsPage() {
         return;
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: Insight[] = await res.json();
-      setInsights(data);
+      setInsights(await res.json());
       setError(null);
-    } catch (e: any) {
-      setError("Failed to load insights. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+    } catch { setError("Failed to load insights."); } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => {
-    fetchInsights();
-  }, [fetchInsights]);
+  useEffect(() => { fetchInsights(); }, [fetchInsights]);
 
   const handleAdd = async (title: string, query: string) => {
     setSubmitting(true);
@@ -201,11 +196,7 @@ export default function InsightsPage() {
       setInsights((prev) => [newCard, ...prev]);
       setShowAdd(false);
       showToast("Insight card saved.", "success");
-    } catch (e: any) {
-      showToast(`Failed to save: ${e.message}`, "error");
-    } finally {
-      setSubmitting(false);
-    }
+    } catch (e: any) { showToast(`Failed to save: ${e.message}`, "error"); } finally { setSubmitting(false); }
   };
 
   const handleRefresh = async (id: string) => {
@@ -216,151 +207,76 @@ export default function InsightsPage() {
         body: JSON.stringify({ id, refresh: true }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const updated: Insight = await res.json();
-      setInsights((prev) => prev.map((c) => (c.id === id ? updated : c)));
+      const updated = await res.json();
+      setInsights(prev => prev.map(c => c.id === id ? updated : c));
       showToast("Card refreshed.", "success");
-    } catch (e: any) {
-      showToast(`Refresh failed: ${e.message}`, "error");
-    }
+    } catch (e: any) { showToast(`Refresh failed: ${e.message}`, "error"); }
   };
 
   const handleDelete = async (id: string) => {
-    // ATH-53: Added confirmation step
-    if (confirmDeleteId !== id) {
-      setConfirmDeleteId(id);
-      setTimeout(() => setConfirmDeleteId(null), 3000);
-      return;
-    }
-
     try {
       const res = await fetchWithTimeout(`/api/insights?id=${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setInsights((prev) => prev.filter((c) => c.id !== id));
+      setInsights(prev => prev.filter(c => c.id !== id));
       showToast("Card removed.", "success");
       setConfirmDeleteId(null);
-    } catch (e: any) {
-      showToast(`Delete failed: ${e.message}`, "error");
-    }
+    } catch (e: any) { showToast(`Delete failed: ${e.message}`, "error"); }
   };
 
-  const filtered = insights.filter(
-    (i) =>
-      i.title.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-      i.query.toLowerCase().includes(debouncedSearch.toLowerCase())
-  );
-
   return (
-    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20 font-['Space_Grotesk']">
-      {toast && (
-        <div
-          className={cn(
-            "fixed bottom-10 right-10 z-[100] flex items-center gap-4 px-6 py-4 rounded-2xl border shadow-2xl animate-in slide-in-from-right-10 duration-500",
-            toast.type === "success"
-              ? "bg-accent/20 border-accent/30 text-accent"
-              : "bg-destructive/10 border-destructive/30 text-destructive"
-          )}
-        >
-          {toast.type === "success" ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-          <span className="font-bold text-sm tracking-tight">{toast.msg}</span>
-          <button onClick={() => setToast(null)} className="ml-4 opacity-50 hover:opacity-100 transition-opacity">
-            <X className="w-4 h-4" />
-          </button>
+    <div style={{ maxWidth: 1200, margin: "0 auto", padding: "36px 40px 80px" }}>
+
+      {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
+      <AddDialog open={showAdd} onClose={() => setShowAdd(false)} onSubmit={handleAdd} submitting={submitting} />
+
+      {/* Header */}
+      <div className="reveal reveal-1" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 32, flexWrap: "wrap", gap: 20 }}>
+        <div>
+          <div className="eyebrow" style={{ color: "var(--primary)", marginBottom: 8 }}>BI · cross-departmental</div>
+          <h1 style={{ fontFamily: "var(--font-sans)", fontSize: 44, fontWeight: 800, letterSpacing: "-0.04em", textTransform: "uppercase", margin: 0, color: "var(--fg)" }}>Insights</h1>
+          <p style={{ color: "var(--fg-muted)", fontSize: 15, fontWeight: 500, marginTop: 8, maxWidth: 540 }}>
+            Saved intelligence cards with synthesized answers from your connected knowledge sources.
+          </p>
+        </div>
+        <button onClick={() => setShowAdd(true)}
+          style={{ height: 42, padding: "0 20px", borderRadius: 14, background: "var(--primary)", border: "none", color: "#fff", fontSize: 11, fontWeight: 800, letterSpacing: "0.2em", textTransform: "uppercase", display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", boxShadow: "0 10px 24px -10px rgba(160,74,27,.55)" }}>
+          <Plus size={14} /> New insight
+        </button>
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", borderRadius: 16, background: "rgba(178,58,26,.10)", border: "1px solid rgba(178,58,26,.25)", color: "var(--danger)", marginBottom: 24 }}>
+          <AlertCircle size={16} />
+          <span style={{ fontSize: 13, fontWeight: 700 }}>{error}</span>
+          <button onClick={fetchInsights} style={{ marginLeft: "auto", fontSize: 11, fontWeight: 800, background: "none", border: "none", color: "var(--danger)", cursor: "pointer", letterSpacing: "0.2em", textTransform: "uppercase" }}>Retry</button>
         </div>
       )}
 
-      <AddInsightDialog open={showAdd} onClose={() => setShowAdd(false)} onSubmit={handleAdd} submitting={submitting} />
-
-      {/* Page Header */}
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="p-3 rounded-2xl bg-gradient-to-br from-primary/10 to-secondary/10 border border-border shadow-lg">
-              <BarChart3 className="w-7 h-7 text-primary" />
-            </div>
-            <h1 className="text-4xl font-black tracking-tighter text-foreground uppercase">
-              BI <span className="text-primary">Insights</span>
-            </h1>
-          </div>
-          <p className="text-muted-foreground text-lg max-w-2xl font-medium leading-relaxed">
-            Saved intelligence cards with synthesized answers from your connected knowledge sources. Visible to admins and BI analysts.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <div className="flex flex-col items-end mr-4 hidden sm:flex">
-            <span className="text-[10px] uppercase tracking-widest font-black text-muted-foreground/40 mb-1">Cards</span>
-            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-muted/20 border border-border">
-              <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-              <span className="text-xs font-bold text-foreground tracking-tight">{insights.length} Active</span>
-            </div>
-          </div>
-          <Button
-            onClick={() => setShowAdd(true)}
-            className="h-14 px-8 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-widest text-[11px] gap-3 shadow-xl shadow-primary/10 group"
-          >
-            <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform" />
-            New Card
-          </Button>
-        </div>
-      </div>
-
-      {/* Search bar */}
-      <div className="flex items-center p-2 rounded-2xl bg-muted/10 border border-border">
-        <div className="relative flex-1 group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search cards by title or query..."
-            className="w-full h-12 pl-12 pr-4 bg-transparent outline-none text-sm font-bold text-foreground placeholder:text-muted-foreground/40"
-          />
-        </div>
-      </div>
-
       {/* Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {loading ? (
-          [...Array(3)].map((_, i) => (
-            <div key={i} className="h-72 rounded-[2.5rem] bg-muted/20 border border-border animate-pulse" />
-          ))
-        ) : error ? (
-          <div className="col-span-full py-20 text-center space-y-4 bg-muted/10 rounded-[3rem] border border-border">
-            <AlertCircle className="w-12 h-12 text-destructive mx-auto opacity-20" />
-            <p className="text-muted-foreground font-bold">{error}</p>
-            <Button variant="outline" onClick={fetchInsights} className="rounded-xl border-border">Try Again</Button>
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="col-span-full py-32 flex flex-col items-center justify-center bg-muted/5 rounded-[3rem] border-2 border-dashed border-border text-center">
-            <div className="w-20 h-20 rounded-3xl bg-muted/10 flex items-center justify-center mb-6">
-              <BarChart3 className="w-10 h-10 text-muted-foreground/20" />
+      {loading ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 18 }}>
+          {[...Array(4)].map((_, i) => <div key={i} style={{ height: 280, borderRadius: 28, background: "var(--bg-muted)", opacity: 0.4 }} />)}
+        </div>
+      ) : insights.length === 0 ? (
+        <div style={{ padding: "64px 40px", textAlign: "center", border: "1px dashed var(--border-strong)", borderRadius: 36, background: "var(--bg-elevated)" }}>
+          <IconTile icon={Sparkles} size={80} tone="primary" />
+          <h3 style={{ fontSize: 36, fontWeight: 800, letterSpacing: "-0.04em", textTransform: "uppercase", marginTop: 24, color: "var(--fg)" }}>No insight cards yet</h3>
+          <p style={{ color: "var(--fg-muted)", fontSize: 15, fontWeight: 500, maxWidth: 380, margin: "14px auto 28px" }}>Save a BI query and Athene will synthesize an answer from your connected sources.</p>
+          <button onClick={() => setShowAdd(true)}
+            style={{ height: 52, padding: "0 28px", borderRadius: 16, background: "var(--primary)", border: "none", color: "#fff", fontSize: 11, fontWeight: 800, letterSpacing: "0.28em", textTransform: "uppercase", display: "inline-flex", alignItems: "center", gap: 10, cursor: "pointer", boxShadow: "0 14px 30px -10px rgba(160,74,27,.55)" }}>
+            <Sparkles size={14} /> Create first card
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 18 }}>
+          {insights.map((card, i) => (
+            <div key={card.id} className={`reveal reveal-${Math.min(i + 1, 6)}`} style={{ animationDelay: `${i * 80}ms` }}>
+              <InsightCard card={card} idx={i} onRefresh={handleRefresh} onDelete={handleDelete} confirmDeleteId={confirmDeleteId} setConfirmDeleteId={setConfirmDeleteId} />
             </div>
-            <h3 className="text-2xl font-black text-foreground mb-2">
-              {search ? "No matching cards" : "No Insight Cards Yet"}
-            </h3>
-            <p className="text-muted-foreground max-w-sm font-medium">
-              {search ? "Try a different search term." : "Create your first BI insight card to start tracking cross-department metrics."}
-            </p>
-            {!search && (
-              <Button onClick={() => setShowAdd(true)} className="mt-8 h-12 px-8 rounded-xl bg-foreground text-background hover:bg-foreground/90 font-bold">
-                Create First Card
-              </Button>
-            )}
-          </div>
-        ) : (
-          filtered.map((insight) => (
-            <InsightCard
-              key={insight.id}
-              insight={insight}
-              currentMemberId={null}
-              isAdmin={isAdmin}
-              isConfirmingDelete={confirmDeleteId === insight.id}
-              onRefresh={handleRefresh}
-              onDelete={handleDelete}
-            />
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
-

@@ -325,10 +325,17 @@ export async function deleteConnection(
       throw notFound;
     }
 
-    // 2. Delete from Nango service
+    // 2. Delete from Nango service — non-fatal if already gone or key mismatch
     const config = getProvider(providerConfigKey as any)
     const nangoKey = config?.nangoIntegrationId ?? providerConfigKey
-    await nango.deleteConnection(nangoKey, connectionId);
+    try {
+      await nango.deleteConnection(nangoKey, connectionId);
+    } catch (nangoErr: unknown) {
+      const status = (nangoErr as any)?.response?.status;
+      if (status !== 404) {
+        logger.warn({ connectionId, nangoKey, status, err: (nangoErr as any)?.message }, '[nango] deleteConnection: Nango API error — proceeding with Supabase cleanup');
+      }
+    }
 
     // 3. Clean up Supabase mapping
     const { error: deleteError } = await supabaseAdmin

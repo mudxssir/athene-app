@@ -56,7 +56,7 @@ function ResourceIcon({ type, className }: { type: string; className?: string })
     case "channel":
       return <Hash className={cn(iconClass, "text-emerald-400")} />;
     case "repo":
-      return <GitBranch className={cn(iconClass, "text-purple-400")} />;
+      return <GitBranch className={cn(iconClass, "text-primary")} />;
     case "database":
       return <Database className={cn(iconClass, "text-cyan-400")} />;
     case "page":
@@ -254,8 +254,8 @@ export function ResourceBrowser({
         {/* Header */}
         <div className="flex items-start justify-between p-8 pb-4 border-b border-white/5">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-[#7AADCF]/10 flex items-center justify-center border border-[#7AADCF]/20">
-              <Settings2 className="w-6 h-6 text-[#7AADCF]" />
+            <div className="w-12 h-12 rounded-2xl bg-secondary/10 flex items-center justify-center border border-secondary/20">
+              <Settings2 className="w-6 h-6 text-secondary" />
             </div>
             <div>
               <h3 className="text-xl font-black text-foreground tracking-tight">
@@ -283,7 +283,7 @@ export function ResourceBrowser({
             className={cn(
               "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
               mode === "all"
-                ? "bg-[#7AADCF]/10 text-[#7AADCF] border border-[#7AADCF]/20"
+                ? "bg-secondary/10 text-secondary border border-secondary/20"
                 : "text-muted-foreground hover:bg-white/5"
             )}
           >
@@ -294,14 +294,14 @@ export function ResourceBrowser({
             className={cn(
               "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
               mode === "selected"
-                ? "bg-[#D96FAB]/10 text-[#D96FAB] border border-[#D96FAB]/20"
+                ? "bg-primary/10 text-primary border border-primary/20"
                 : "text-muted-foreground hover:bg-white/5"
             )}
           >
             Select Resources
           </button>
           {mode === "selected" && (
-            <Badge className="ml-auto bg-[#D96FAB]/10 text-[#D96FAB] border-none text-[9px] font-bold h-5 px-2">
+            <Badge className="ml-auto bg-primary/10 text-primary border-none text-[9px] font-bold h-5 px-2">
               {selected.size} selected
             </Badge>
           )}
@@ -357,7 +357,7 @@ export function ResourceBrowser({
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search resources..."
-                  className="w-full h-10 pl-10 pr-4 bg-white/5 border border-white/5 rounded-xl text-sm font-medium placeholder:text-muted-foreground/40 text-foreground outline-none focus:border-[#7AADCF]/30 transition-colors"
+                  className="w-full h-10 pl-10 pr-4 bg-white/5 border border-white/5 rounded-xl text-sm font-medium placeholder:text-muted-foreground/40 text-foreground outline-none focus:border-secondary/30 transition-colors"
                 />
               </div>
 
@@ -365,7 +365,7 @@ export function ResourceBrowser({
               <div className="flex items-center gap-2 mb-3">
                 <button
                   onClick={selectAll}
-                  className="text-[10px] font-black uppercase tracking-widest text-[#7AADCF] hover:underline"
+                  className="text-[10px] font-black uppercase tracking-widest text-secondary hover:underline"
                 >
                   Select All
                 </button>
@@ -415,7 +415,7 @@ export function ResourceBrowser({
           <Button
             onClick={handleSave}
             disabled={saving || (mode === "selected" && selected.size === 0)}
-            className="h-12 px-8 rounded-xl bg-[#7AADCF] hover:bg-[#7AADCF]/90 text-white font-black uppercase tracking-widest text-[11px] gap-2 shadow-lg shadow-[#7AADCF]/20"
+            className="h-12 px-8 rounded-xl bg-secondary hover:bg-secondary/90 text-white font-black uppercase tracking-widest text-[11px] gap-2 shadow-lg shadow-secondary/20"
           >
             {saving ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -462,7 +462,7 @@ function ResourceRow({
         className={cn(
           "flex items-center gap-2 px-3 py-2 rounded-xl transition-all cursor-pointer group",
           isSelected
-            ? "bg-[#7AADCF]/10 border border-[#7AADCF]/20"
+            ? "bg-secondary/10 border border-secondary/20"
             : "hover:bg-white/5 border border-transparent"
         )}
         style={{ paddingLeft: `${depth * 24 + 12}px` }}
@@ -494,8 +494,8 @@ function ResourceRow({
           className={cn(
             "w-5 h-5 rounded-md border flex items-center justify-center transition-all",
             isSelected
-              ? "bg-[#7AADCF] border-[#7AADCF]"
-              : "border-white/20 hover:border-[#7AADCF]/50"
+              ? "bg-secondary border-secondary"
+              : "border-white/20 hover:border-secondary/50"
           )}
         >
           {isSelected && <Check className="w-3 h-3 text-white" />}

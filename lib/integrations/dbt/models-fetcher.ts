@@ -1,6 +1,7 @@
 import { dbtFetch } from './client'
 import { FetchedChunk } from '../base'
 import { logger } from '@/lib/logger'
+import { type SyncConfig, getSelectedResourceIds } from '../sync-config'
 
 interface DbtModel {
   unique_id: string
@@ -32,14 +33,25 @@ interface DbtRun {
   job_definition?: { name: string }
 }
 
-export async function fetchDbtContent(connectionId: string, orgId: string): Promise<FetchedChunk[]> {
+export async function fetchDbtContent(
+  connectionId: string,
+  orgId: string,
+  syncConfig?: SyncConfig
+): Promise<FetchedChunk[]> {
   const chunks: FetchedChunk[] = []
+
+  // browseDbt returns job IDs (as strings) as resource IDs.
+  // If selected, only index those jobs and their recent runs.
+  const selectedIds = syncConfig ? getSelectedResourceIds(syncConfig) : null
+  const jobAllowed = (jobId: number) =>
+    !selectedIds || selectedIds.size === 0 || selectedIds.has(String(jobId))
 
   // Fetch Jobs
   try {
     const jobsRes = await dbtFetch<any>(connectionId, orgId, '/jobs/')
     const jobs: DbtJob[] = jobsRes?.data ?? []
     for (const job of jobs) {
+      if (!jobAllowed(job.id)) continue
       chunks.push({
         chunk_id: `dbt_job_${job.id}`,
         title: `dbt Job: ${job.name}`,
@@ -62,6 +74,7 @@ export async function fetchDbtContent(connectionId: string, orgId: string): Prom
     const runsRes = await dbtFetch<any>(connectionId, orgId, '/runs/?limit=50&order_by=-id')
     const runs: DbtRun[] = runsRes?.data ?? []
     for (const run of runs) {
+      if (!jobAllowed(run.job_id)) continue
       const duration = run.run_duration_humanized ?? 'unknown duration'
       chunks.push({
         chunk_id: `dbt_run_${run.id}`,

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@100..800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -6,32 +6,36 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ============================================================
+   ATHENE AI — Design System Tokens (exact match to ZIP)
+   Earthy warm palette — sienna / amber / honey. No gradients.
+   ============================================================ */
+
 @theme inline {
-  --font-sans: "Sora", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-sans: var(--font-space-grotesk), "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --font-space-grotesk: var(--font-space-grotesk), "Space Grotesk", sans-serif;
 
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
+  /* Tailwind token bridge */
+  --color-background:        var(--background);
+  --color-foreground:        var(--foreground);
+  --color-card:              var(--card);
+  --color-card-foreground:   var(--card-foreground);
+  --color-popover:           var(--popover);
+  --color-popover-foreground:var(--popover-foreground);
+  --color-primary:           var(--primary);
+  --color-primary-foreground:var(--primary-foreground);
+  --color-secondary:         var(--secondary);
+  --color-secondary-foreground:var(--secondary-foreground);
+  --color-muted:             var(--muted);
+  --color-muted-foreground:  var(--muted-foreground);
+  --color-accent:            var(--accent);
   --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-tertiary: var(--tertiary);
-  --color-tertiary-foreground: var(--tertiary-foreground);
+  --color-destructive:       var(--destructive);
+  --color-destructive-foreground:var(--destructive-foreground);
+  --color-border:            var(--border);
+  --color-input:             var(--input);
+  --color-ring:              var(--ring);
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -40,195 +44,279 @@
 }
 
 :root {
-  /* Brand Identity - Light Mode (Earthy: Sienna anchor, Amber orange, Honey-lemon yellow) */
-  --primary: #A04A1B;          /* sienna — dominant brand anchor */
-  --secondary: #D97A2E;        /* amber orange — supporting button */
-  --tertiary: #E6B928;         /* honey-lemon yellow — third supporting hue */
-  --accent: #8A3D14;           /* sienna-600 for hover depth */
+  /* ── Brand palette ─────────────────────────────────────── */
+  --sienna-50:  #FBF1E4; --sienna-100: #F2DEC2; --sienna-200: #E5BC92;
+  --sienna-300: #D29062; --sienna-400: #BF7038; --sienna-500: #A04A1B;
+  --sienna-600: #8A3D14; --sienna-700: #6B2E0E; --sienna-800: #4A1F08; --sienna-900: #2A1104;
 
-  --background: #FFFFFF;       /* clean white */
-  --foreground: #1A0E05;       /* warm near-black */
+  --amber-50:   #FCEFD8; --amber-100:  #F8D8A5; --amber-200:  #F2B96D;
+  --amber-300:  #E89846; --amber-400:  #DE832F; --amber-500:  #D97A2E;
+  --amber-600:  #BC641F; --amber-700:  #944C14;
 
-  --card: #FAF6EE;             /* warm cream cards */
-  --card-foreground: #1A0E05;
+  --honey-50:   #FBF3D2; --honey-100:  #F6E59B; --honey-200:  #F0D45E;
+  --honey-300:  #E8C12F; --honey-400:  #E6B928; --honey-500:  #C99B16;
+  --honey-600:  #9E780E; --honey-700:  #6F540A;
 
-  --popover: #FFFFFF;
-  --popover-foreground: #1A0E05;
+  --cream-50:   #FFFCF5; --cream-100:  #FAF3E6; --cream-200:  #F2E7D0;
+  --cream-300:  #E6D4AE; --cream-400:  #C9B286;
+  --coffee-300: #8B6D45; --coffee-500: #5A4225; --coffee-700: #2E1F0F; --coffee-900: #140A04;
 
-  --primary-foreground: #FFFFFF;
-  --secondary-foreground: #FFFFFF;
+  /* ── Design system tokens (exact from ZIP) ─────────────── */
+  --bg:          #FFFCF5;   /* cream-50 — warm page background */
+  --bg-elevated: #FFFFFF;   /* pure white — cards / elevated surfaces */
+  --bg-muted:    #FAF3E6;   /* cream-100 — muted fills */
+  --bg-sunken:   #F2E7D0;   /* cream-200 */
 
-  --muted: #F5ECE0;            /* warm light muted */
-  --muted-foreground: #7A5535; /* warm mid-brown */
+  --fg:          #1A0E05;
+  --fg-muted:    #5A4225;   /* coffee-500 */
+  --fg-subtle:   #8B6D45;   /* coffee-300 */
+  --fg-on-brand: #FFFFFF;
+  --fg-on-honey: #1A0E05;
 
-  --accent-foreground: #FFFFFF;
+  --border:        #EAD9BC;
+  --border-soft:   #F1E4CB;
+  --border-strong: #D7BE8E;
+  --input:         #EAD9BC;
+  --ring:          #A04A1B;
 
-  --destructive: #DC2626;
-  --destructive-foreground: #FFFFFF;
+  --primary:         #A04A1B;  --primary-hover:   #8A3D14;
+  --secondary:       #D97A2E;  --secondary-hover: #BC641F;
+  --tertiary:        #E6B928;  --tertiary-hover:  #C99B16;
+  --accent:          #8A3D14;  --accent-foreground: #FFFFFF;
 
-  --border: #EAD9BC;           /* warm tan border */
-  --input: #EAD9BC;
-  --ring: #C25A18;
+  --success: #4F7A2E;
+  --danger:  #B23A1A;
 
+  /* ── Tailwind semantic bridge ──────────────────────────── */
+  --background:              var(--bg);
+  --foreground:              var(--fg);
+  --card:                    var(--bg-elevated);
+  --card-foreground:         var(--fg);
+  --popover:                 var(--bg-elevated);
+  --popover-foreground:      var(--fg);
+  --primary-foreground:      #FFFFFF;
+  --secondary-foreground:    #FFFFFF;
+  --muted:                   var(--bg-muted);
+  --muted-foreground:        var(--fg-muted);
+  --destructive:             #B23A1A;
+  --destructive-foreground:  #FFFFFF;
+  --tertiary:                #E6B928;
+  --tertiary-foreground:     #1A0E05;
+
+  /* ── Olive substrate (for dark-mode sidebar/header) ─────── */
+  --olive-deep: #131709;
+  --olive-rule: rgba(214, 220, 168, 0.16);
+
+  /* ── Spacing scale ───────────────────────────────────────── */
+  --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px;
+  --s-5:24px; --s-6:32px; --s-7:48px; --s-8:64px; --s-9:96px; --s-10:128px;
+
+  /* ── Radius ──────────────────────────────────────────────── */
+  --r-xs:6px; --r-sm:10px; --r-md:16px; --r-lg:20px;
+  --r-xl:28px; --r-2xl:36px; --r-3xl:48px; --r-pill:9999px;
   --radius: 1rem;
+
+  /* ── Elevation ───────────────────────────────────────────── */
+  --shadow-1: 0 1px 2px rgba(74,31,8,0.06);
+  --shadow-2: 0 4px 12px -3px rgba(74,31,8,0.08), 0 2px 4px -1px rgba(74,31,8,0.04);
+  --shadow-3: 0 12px 28px -8px rgba(74,31,8,0.12), 0 4px 10px -4px rgba(74,31,8,0.06);
+  --shadow-4: 0 24px 60px -16px rgba(74,31,8,0.18), 0 8px 20px -8px rgba(74,31,8,0.08);
+
+  /* ── Motion ──────────────────────────────────────────────── */
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast:  180ms; --dur-base: 320ms; --dur-slow: 680ms; --dur-ray: 900ms;
 }
 
+/* ============================================================
+   DARK MODE — Rich coffee-brown body, warm cream type
+   Sidebar + header get the olive substrate via color-mix
+   ============================================================ */
 .dark {
-  /* Brand Identity - Dark Mode (Rich Warm Brown) */
-  --background: #0D0A06;       /* near-black warm brown */
-  --foreground: #F5EDD8;       /* warm cream */
+  --bg:          #0D0805;   /* dark coffee body */
+  --bg-elevated: #160E07;   /* elevated surfaces */
+  --bg-muted:    #1C1409;   /* muted fills */
+  --bg-sunken:   #0D0805;
 
-  --card: #111009;             /* dark warm surface */
-  --card-foreground: #F5EDD8;
+  --fg:          #F5EDD8;
+  --fg-muted:    #B89464;
+  --fg-subtle:   #7A5B36;
 
-  --popover: #111009;
-  --popover-foreground: #F5EDD8;
+  --border:        rgba(214, 158, 96, 0.14);
+  --border-soft:   rgba(214, 158, 96, 0.10);
+  --border-strong: rgba(214, 158, 96, 0.28);
+  --input:         rgba(214, 158, 96, 0.08);
+  --ring:          #C06129;
 
-  --primary: #C06129;          /* sienna brightened for dark contrast */
-  --primary-foreground: #FFFFFF;
+  --primary:        #C06129;  --primary-hover:  #D27538;
+  --secondary:      #E07A2F;  --secondary-hover:#EC8C42;
+  --tertiary:       #E6B928;  --tertiary-hover: #F0C740;
+  --success: #7BAA52;
+  --danger:  #DC5436;
 
-  --secondary: #E07A2F;        /* amber orange */
-  --secondary-foreground: #FFFFFF;
+  /* Tailwind bridge dark */
+  --background:         var(--bg);
+  --foreground:         var(--fg);
+  --card:               var(--bg-elevated);
+  --card-foreground:    var(--fg);
+  --popover:            var(--bg-elevated);
+  --popover-foreground: var(--fg);
+  --muted:              var(--bg-muted);
+  --muted-foreground:   var(--fg-muted);
+  --destructive:        #DC5436;
+  --accent:             #B85520;
 
-  --tertiary: #E6B928;         /* honey-lemon yellow */
-  --tertiary-foreground: #1A0E05;
+  --olive-deep: #0E1206;
 
-  --accent: #B85520;           /* burnt orange */
-  --accent-foreground: #FFFFFF;
-
-  --muted: #1A1208;
-  --muted-foreground: #9A7A55; /* warm tan */
-
-  --destructive: #E03030;
-  --destructive-foreground: #FFFFFF;
-
-  --border: rgba(200, 130, 60, 0.14);
-  --input: rgba(200, 130, 60, 0.08);
-  --ring: #D97033;
+  --shadow-1: 0 1px 2px rgba(0,0,0,0.4);
+  --shadow-2: 0 4px 12px -3px rgba(0,0,0,0.5);
+  --shadow-3: 0 12px 28px -8px rgba(0,0,0,0.6);
+  --shadow-4: 0 24px 60px -16px rgba(0,0,0,0.7);
 }
 
+/* ============================================================
+   BASE
+   ============================================================ */
 @layer base {
-  * {
-    border-color: var(--border);
-  }
+  * { border-color: var(--border); box-sizing: border-box; }
   body {
-    background-color: var(--background);
-    color: var(--foreground);
+    background-color: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
     font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
     min-height: 100vh;
     transition: background-color 0.3s ease, color 0.3s ease;
   }
 }
 
+/* ── Olive substrate: dark-mode sidebar & header ─────────── */
+.dark [data-sidebar="sidebar"] {
+  background: color-mix(in oklab, var(--olive-deep) 78%, transparent) !important;
+  border-right-color: var(--olive-rule) !important;
+}
+.dark header {
+  background: color-mix(in oklab, var(--olive-deep) 65%, transparent) !important;
+  border-bottom-color: var(--olive-rule) !important;
+}
 
+/* ============================================================
+   TYPOGRAPHY
+   ============================================================ */
+.eyebrow {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.label-tag {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+}
+
+/* ============================================================
+   PAGE TRANSITION ANIMATIONS
+   ============================================================ */
+
+/* Cube Roll: 3D Y-axis rotation — cube face reveals new page */
+@keyframes cubeRollIn {
+  0%   { transform: perspective(1400px) rotateY(90deg) scale(0.92); opacity: 0; }
+  65%  { transform: perspective(1400px) rotateY(-5deg) scale(1.01); opacity: 1; }
+  100% { transform: perspective(1400px) rotateY(0deg) scale(1); opacity: 1; }
+}
+
+/* Card Spin-Out → Land: cards fly in from above and land */
+@keyframes cardSpinIn {
+  0%   { transform: perspective(1400px) rotateX(48deg) translateY(90px) scale(0.80); opacity: 0; }
+  55%  { transform: perspective(1400px) rotateX(-8deg) translateY(-12px) scale(1.03); opacity: 1; }
+  100% { transform: perspective(1400px) rotateX(0deg) translateY(0) scale(1); opacity: 1; }
+}
+
+.page-cube-in {
+  animation: cubeRollIn 580ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: center center;
+}
+.page-spin-in {
+  animation: cardSpinIn 660ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: center top;
+}
+
+/* ============================================================
+   SECTION REVEAL (staggered fade-up — matches design kit .reveal)
+   ============================================================ */
+@keyframes sectionReveal {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.reveal {
+  animation: sectionReveal 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.reveal-1 { animation-delay: 0ms; }
+.reveal-2 { animation-delay: 80ms; }
+.reveal-3 { animation-delay: 160ms; }
+.reveal-4 { animation-delay: 240ms; }
+.reveal-5 { animation-delay: 320ms; }
+.reveal-6 { animation-delay: 400ms; }
+
+/* ============================================================
+   SCROLLBARS
+   ============================================================ */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(160,74,27,0.20);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(160,74,27,0.40); }
+
+.custom-scrollbar::-webkit-scrollbar { width: 5px; }
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(160,74,27,0.18);
+  border-radius: 99px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(160,74,27,0.35); }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ============================================================
+   UTILITIES
+   ============================================================ */
 @layer utilities {
   .glass {
-    background-color: rgba(200, 130, 60, 0.03);
+    background: rgba(255,252,245,0.65);
     backdrop-filter: blur(24px);
-    border: 1px solid rgba(200, 130, 60, 0.08);
-  }
-
-  :root:not(.dark) .glass {
-    background-color: rgba(255, 252, 245, 0.7);
-    border: 1px solid rgba(200, 130, 60, 0.15);
-  }
-
-  .frosted-card {
-    background-color: rgba(200, 130, 60, 0.04);
-    backdrop-filter: blur(48px);
-    border: 1px solid rgba(200, 130, 60, 0.12);
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
-  }
-
-  :root:not(.dark) .frosted-card {
-    background-color: rgba(255, 252, 245, 0.85);
     border: 1px solid var(--border);
-    box-shadow: 0 4px 20px -2px rgba(180, 100, 30, 0.08);
+  }
+  .dark .glass {
+    background: rgba(200,130,60,0.03);
+    backdrop-filter: blur(24px);
+    border: 1px solid var(--border);
   }
 
-  .glow-primary {
-    box-shadow: 0 0 25px -5px rgba(217, 112, 51, 0.4);
+  .surface-warm {
+    background: var(--bg-muted);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
   }
 
-  .glow-secondary {
-    box-shadow: 0 0 25px -5px rgba(240, 180, 41, 0.35);
-  }
+  .text-brand        { color: var(--primary); }
+  .text-brand-amber  { color: var(--secondary); }
+  .text-brand-honey  { color: var(--tertiary); }
 
-  /* Warm ambient mesh for dark backgrounds */
-  .amber-mesh {
-    background:
-      radial-gradient(ellipse 80% 55% at 15% 8%,  rgba(217,112,51,0.09) 0%, transparent 60%),
-      radial-gradient(ellipse 55% 45% at 85% 5%,  rgba(240,180,41,0.06) 0%, transparent 55%),
-      radial-gradient(ellipse 60% 40% at 50% 92%, rgba(184,85,32,0.07)  0%, transparent 60%);
-  }
+  .shadow-warm-1 { box-shadow: var(--shadow-1); }
+  .shadow-warm-2 { box-shadow: var(--shadow-2); }
+  .shadow-warm-3 { box-shadow: var(--shadow-3); }
+  .shadow-warm-4 { box-shadow: var(--shadow-4); }
 
   .stagger-1 { animation-delay: 100ms; }
   .stagger-2 { animation-delay: 200ms; }
   .stagger-3 { animation-delay: 300ms; }
   .stagger-4 { animation-delay: 400ms; }
   .stagger-5 { animation-delay: 500ms; }
-
-  /* Light-ray page transition — wipes content in from left to right */
-  @keyframes light-ray-in {
-    0%   { clip-path: inset(0 100% 0 0); opacity: 0; }
-    60%  { opacity: 1; }
-    100% { clip-path: inset(0 0 0 0); opacity: 1; }
-  }
-  .page-transition-in {
-    animation: light-ray-in 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-
-  /* Section scroll reveal */
-  @keyframes section-reveal {
-    from { opacity: 0; transform: translateY(20px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  .reveal-section {
-    animation: section-reveal 680ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-}
-
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background-color: rgba(160, 74, 27, 0.2);
-  border-radius: 9999px;
-  transition: background-color 0.2s;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(160, 74, 27, 0.35);
-}
-
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-.custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(200, 130, 60, 0.15);
-  border-radius: 10px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(200, 130, 60, 0.28);
 }

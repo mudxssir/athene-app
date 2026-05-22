@@ -380,3 +380,61 @@ export async function getCommunity(
     };
   });
 }
+
+// ---- KG-Guided Retrieval -----------------------------------------
+
+export type VectorChunk = {
+  chunk_id: string;
+  similarity: number;
+  [key: string]: unknown;
+};
+
+export type KGGuidedResult = {
+  /** Top-K chunks from vector similarity search */
+  vectorChunks: VectorChunk[];
+  /** KG entities matched by the query — provides source_documents for scoped re-ranking */
+  kgNodes: GraphNode[];
+  /** Document IDs surfaced by the KG that may not have ranked in top-K vector results */
+  kgSourceDocIds: string[];
+};
+
+/**
+ * Combines vector search with KG entity matching for richer retrieval.
+ *
+ * Flow:
+ *   1. Run vector_search RPC for top-K chunks by cosine similarity
+ *   2. Run findNodes to match entity labels in the query text
+ *   3. Collect source_documents from matched KG nodes
+ *
+ * The caller can use kgSourceDocIds to run a second scoped vector search
+ * targeting documents the KG knows are relevant, surfacing chunks that
+ * might not have ranked in the initial top-K.
+ *
+ * This is additive — does not replace existing vectorSearch calls.
+ */
+export async function kgGuidedSearch(
+  ctx: RLSContext,
+  queryEmbedding: number[],
+  queryText: string,
+  topK = 10
+): Promise<KGGuidedResult> {
+  // Run vector search and KG entity match in parallel
+  const [vectorResult, entityResult] = await Promise.all([
+    withRLS(ctx, async (supabase) => {
+      const { data, error } = await supabase.rpc("vector_search", {
+        p_embedding: JSON.stringify(queryEmbedding),
+        p_limit: topK,
+      });
+      if (error) throw new Error(`[kgGuidedSearch] vector_search failed: ${error.message}`);
+      return (data ?? []) as VectorChunk[];
+    }),
+    findNodes(ctx, { query: queryText }, 8).catch(() => ({ nodes: [], edges: [], boundary_reached: false })),
+  ]);
+
+  const kgNodes = entityResult.nodes;
+  const kgSourceDocIds = Array.from(
+    new Set(kgNodes.flatMap((n) => (n.source_documents ?? []) as string[]))
+  );
+
+  return { vectorChunks: vectorResult, kgNodes, kgSourceDocIds };
+}

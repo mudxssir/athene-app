@@ -3,7 +3,7 @@ import { getContextFromHeaders, withRLS } from '@/lib/supabase/rls-client';
 import { qstash } from '@/lib/qstash/client';
 import { getServerBaseUrl } from '@/lib/url/server-base-url';
 import { logger } from '@/lib/logger';
-import { resolveModelClient } from '@/lib/langgraph/llm-factory';
+import { rateLimit } from '@/lib/redis/client';
 import { supabaseAdmin } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -76,6 +76,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const { allowed } = await rateLimit(`briefing:${context.user_id}`, 10, 3600);
+  if (!allowed) {
+    return NextResponse.json({ error: 'Rate limited — try again later' }, { status: 429 });
+  }
+
   // ── Pre-check sufficient data (BUG-17) ──────────────────────
   try {
     const { data: threadsData } = await supabaseAdmin
@@ -111,26 +116,6 @@ export async function POST(request: Request) {
     }
   } catch (err: any) {
     logger.error({ err: err?.message, org_id: context.org_id }, '[briefing] Pre-synthesis data check failed');
-  }
-
-  // ── Pre-check LLM Key & API availability ────────────────────
-  try {
-    const llm = await resolveModelClient('simple', context.org_id);
-    const testCall = async () => {
-      await llm.invoke('test connection');
-    };
-
-    // 6-second timeout safeguard to fail fast
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('LLM connection timed out')), 6000)
-    );
-
-    await Promise.race([testCall(), timeoutPromise]);
-  } catch (err: any) {
-    logger.error({ err: err?.message, org_id: context.org_id }, '[briefing] LLM pre-check validation failed');
-    return NextResponse.json({
-      error: 'Synthesis halted: LLM API key is invalid or unreachable. Please check your billing or add a BYOK key in Admin → Keys.'
-    }, { status: 400 });
   }
 
   const workerUrl = `${getServerBaseUrl()}/api/worker/morning-briefing`;

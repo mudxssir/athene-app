@@ -5,6 +5,7 @@ import { Header } from "@/components/header";
 import { resolveUserAccess } from "@/lib/auth/rbac";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { PageTransition } from "@/components/page-transition";
 
 export default async function DashboardLayout({
   children,
@@ -37,9 +38,9 @@ export default async function DashboardLayout({
             {/* Header */}
             <Header role={userAccess.role} />
 
-            {/* Scrollable Page Content */}
-            <main className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-8 lg:p-10">
-              {children}
+            {/* Scrollable Page Content — transition wrapper owns scrolling */}
+            <main className="flex-1 overflow-hidden">
+              <PageTransition>{children}</PageTransition>
             </main>
           </div>
         </div>

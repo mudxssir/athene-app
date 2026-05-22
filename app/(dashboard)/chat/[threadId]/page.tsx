@@ -273,7 +273,7 @@ export default function ThreadChatPage() {
         {/* Header */}
         <div className="flex items-center justify-between bg-accent/20 p-6 rounded-[2.5rem] border border-white/5 shadow-sm">
           <div className="flex items-center gap-5">
-            <div className="h-12 w-12 bg-[#D96FAB] rounded-2xl flex items-center justify-center shadow-md">
+            <div className="h-12 w-12 bg-primary rounded-2xl flex items-center justify-center shadow-md">
               <BrainCircuit className="h-6 w-6 text-white" />
             </div>
             <div>
@@ -300,13 +300,13 @@ export default function ThreadChatPage() {
             <TabsList className="bg-background/50 border border-white/5 p-1 rounded-xl h-11">
               <TabsTrigger
                 value="standard"
-                className="rounded-lg px-6 text-[10px] font-bold uppercase tracking-wider transition-all data-[state=active]:bg-white/10 data-[state=active]:text-[#D96FAB] data-[state=active]:shadow-sm"
+                className="rounded-lg px-6 text-[10px] font-bold uppercase tracking-wider transition-all data-[state=active]:bg-white/10 data-[state=active]:text-primary data-[state=active]:shadow-sm"
               >
                 Standard
               </TabsTrigger>
               <TabsTrigger
                 value="analytical"
-                className="rounded-lg px-6 text-[10px] font-bold uppercase tracking-wider transition-all data-[state=active]:bg-white/10 data-[state=active]:text-[#D96FAB] data-[state=active]:shadow-sm flex items-center gap-2"
+                className="rounded-lg px-6 text-[10px] font-bold uppercase tracking-wider transition-all data-[state=active]:bg-white/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex items-center gap-2"
               >
                 <Database className="w-3.5 h-3.5" />
                 Analytical

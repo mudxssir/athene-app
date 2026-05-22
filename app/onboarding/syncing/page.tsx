@@ -69,7 +69,7 @@ export default function OnboardingSyncingPage() {
   const canContinue = allDone || timedOut;
 
   const statusIcon = (status: string) => {
-    if (status === "syncing") return <Loader2 className="w-4 h-4 text-[#66ADE4] animate-spin" />;
+    if (status === "syncing") return <Loader2 className="w-4 h-4 text-secondary animate-spin" />;
     if (status === "error") return <AlertCircle className="w-4 h-4 text-amber-400" />;
     return <CheckCircle2 className="w-4 h-4 text-emerald-400" />;
   };
@@ -82,18 +82,18 @@ export default function OnboardingSyncingPage() {
 
   return (
     <div className="min-h-screen bg-[#06080c] text-white flex flex-col font-['Space_Grotesk'] overflow-hidden">
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[600px] bg-[#66ADE4]/5 blur-[160px] -z-10 rounded-full opacity-50" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[600px] bg-secondary/5 blur-[160px] -z-10 rounded-full opacity-50" />
 
       {/* Progress Bar — step 3 of 4 */}
       <div className="h-1.5 w-full bg-white/5 fixed top-0 left-0 z-50">
-        <div className="h-full bg-gradient-to-r from-[#D96FAB] to-[#66ADE4] transition-all duration-1000" style={{ width: "75%" }} />
+        <div className="h-full bg-primary transition-all duration-1000" style={{ width: "75%" }} />
       </div>
 
       <main className="flex-1 container max-w-2xl mx-auto flex flex-col items-center justify-center p-6 pt-20 pb-16">
 
         <div className="w-full text-center space-y-5 mb-12 animate-in fade-in slide-in-from-bottom-8 duration-700">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#66ADE4]">Step 3 of 4 — Indexing</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-secondary">Step 3 of 4 — Indexing</span>
           </div>
 
           <h1 className="text-4xl md:text-5xl font-black tracking-tighter">
@@ -117,12 +117,12 @@ export default function OnboardingSyncingPage() {
         <div className="w-full space-y-3 mb-12 animate-in fade-in slide-in-from-bottom-10 duration-900 delay-150">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 text-[#66ADE4] animate-spin" />
+              <Loader2 className="w-8 h-8 text-secondary animate-spin" />
             </div>
           ) : integrations.length === 0 ? (
             <div className="text-center py-10 text-slate-500 text-sm space-y-3">
               <p>No connected sources found.</p>
-              <Link href="/onboarding/connections" className="text-[#66ADE4] hover:underline font-bold text-xs uppercase tracking-widest">
+              <Link href="/onboarding/connections" className="text-secondary hover:underline font-bold text-xs uppercase tracking-widest">
                 ← Go back and connect a source
               </Link>
             </div>
@@ -133,7 +133,7 @@ export default function OnboardingSyncingPage() {
                 className={cn(
                   "flex items-center justify-between px-6 py-4 rounded-2xl border transition-all",
                   integration.status === "syncing"
-                    ? "bg-[#66ADE4]/5 border-[#66ADE4]/20"
+                    ? "bg-secondary/5 border-secondary/20"
                     : integration.status === "error"
                     ? "bg-amber-400/5 border-amber-400/20"
                     : "bg-emerald-400/5 border-emerald-400/20"
@@ -157,7 +157,7 @@ export default function OnboardingSyncingPage() {
                   <span
                     className={cn(
                       "text-[10px] font-black uppercase tracking-widest",
-                      integration.status === "syncing" ? "text-[#66ADE4]"
+                      integration.status === "syncing" ? "text-secondary"
                         : integration.status === "error" ? "text-amber-400"
                         : "text-emerald-400"
                     )}
@@ -182,7 +182,7 @@ export default function OnboardingSyncingPage() {
               <Button
                 asChild
                 size="lg"
-                className="h-16 px-12 rounded-2xl bg-gradient-to-r from-[#66ADE4] to-[#7ab8e8] text-black hover:opacity-90 font-black uppercase tracking-widest text-[11px] gap-3 shadow-2xl shadow-blue-500/20 group"
+                className="h-16 px-12 rounded-2xl bg-secondary text-black hover:opacity-90 font-black uppercase tracking-widest text-[11px] gap-3 shadow-2xl shadow-[var(--shadow-2)] group"
               >
                 <Link href="/onboarding/ready">
                   Continue
@@ -214,7 +214,7 @@ export default function OnboardingSyncingPage() {
             key={step}
             className={cn(
               "rounded-full transition-all",
-              step <= 3 ? "w-6 h-2 bg-[#66ADE4]" : "w-2 h-2 bg-white/10"
+              step <= 3 ? "w-6 h-2 bg-secondary" : "w-2 h-2 bg-white/10"
             )}
           />
         ))}

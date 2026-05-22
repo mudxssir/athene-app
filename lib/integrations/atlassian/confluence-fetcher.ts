@@ -2,6 +2,7 @@ import { getAtlassianResources, atlassianFetch } from "./client";
 import { stripHtml } from "./confluence-html";
 import type { FetchedChunk } from "../base";
 import { assertSafeMetadata } from "../base";
+import { type SyncConfig, getSelectedResourceIds } from "../sync-config";
 
 /**
  * Fetches Confluence pages for the given connection and org.
@@ -10,7 +11,7 @@ import { assertSafeMetadata } from "../base";
 export async function fetchConfluencePages(
   connectionId: string,
   orgId: string,
-  options?: { since?: string; limit?: number }
+  options?: { since?: string; limit?: number; syncConfig?: SyncConfig }
 ): Promise<FetchedChunk[]> {
   const resources = await getAtlassianResources(connectionId, "confluence", orgId);
   if (!resources || resources.length === 0) {
@@ -19,6 +20,15 @@ export async function fetchConfluencePages(
 
   const cloudId = resources[0].id;
   const cloudUrl = resources[0].url; // e.g. https://athene-ai.atlassian.net/wiki
+
+  // Build optional space-id filter query params.
+  // browseConfluence stores the numeric space ID as the resource ID.
+  const selectedSpaceIds = options?.syncConfig
+    ? getSelectedResourceIds(options.syncConfig)
+    : null
+  const spaceFilter = selectedSpaceIds && selectedSpaceIds.size > 0
+    ? Array.from(selectedSpaceIds).map(id => `&space-id=${encodeURIComponent(id)}`).join('')
+    : ''
 
   const chunks: FetchedChunk[] = [];
   const limit = options?.limit ?? 50;
@@ -34,7 +44,7 @@ export async function fetchConfluencePages(
     }>(
       connectionId,
       cloudId,
-      `/wiki/api/v2/pages?limit=${limit}&body-format=storage${cursorParam}`,
+      `/wiki/api/v2/pages?limit=${limit}&body-format=storage${spaceFilter}${cursorParam}`,
       orgId,
       "confluence"
     );

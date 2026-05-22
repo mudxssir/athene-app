@@ -1,45 +1,75 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
-  BrainCircuit,
-  ChevronRight,
-  Clock,
-  Database,
-  ExternalLink,
-  History,
-  Layout,
-  Loader2,
-  Mic,
-  Paperclip,
-  Plus,
-  RefreshCcw,
-  Search,
-  Send,
-  ShieldCheck,
-  User,
-  AlertCircle,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+import React, { useEffect, useRef, useState, type FormEvent } from "react";
+import { Sparkles, Send, Plus, RefreshCw, Database, AlertTriangle, AlertCircle, CheckCircle2, ExternalLink, ArrowRight, Zap, ShieldCheck, Paperclip } from "lucide-react";
 import { HitlModal } from "@/components/chat/hitl-modal";
 import { toast } from "sonner";
 
+/* ── Design-kit atoms ───────────────────────────────────── */
+
+function IconTile({ icon: I, size = 42, tone = "primary" }: { icon: React.ElementType; size?: number; tone?: "primary" | "amber" | "honey" | "success" | "warn" }) {
+  const t = {
+    primary: { bg: "rgba(160,74,27,.10)", border: "rgba(160,74,27,.20)", color: "var(--primary)" },
+    amber:   { bg: "rgba(217,122,46,.12)", border: "rgba(217,122,46,.22)", color: "var(--secondary)" },
+    honey:   { bg: "rgba(230,185,40,.18)", border: "rgba(230,185,40,.32)", color: "#9E780E" },
+    success: { bg: "rgba(79,122,46,.12)",  border: "rgba(79,122,46,.25)",  color: "#4F7A2E" },
+    warn:    { bg: "rgba(178,58,26,.10)",  border: "rgba(178,58,26,.25)",  color: "var(--danger)" },
+  }[tone];
+  return (
+    <div style={{ width: size, height: size, borderRadius: Math.round(size * 0.32), background: t.bg, border: `1px solid ${t.border}`, display: "inline-flex", alignItems: "center", justifyContent: "center", color: t.color, flexShrink: 0 }}>
+      <I size={Math.round(size * 0.5)} strokeWidth={1.7} />
+    </div>
+  );
+}
+
+function Chip({ kind = "outline", dot, children }: { kind?: "primary" | "amber" | "honey" | "outline" | "success"; dot?: boolean; children: React.ReactNode }) {
+  const k = {
+    primary: { background: "rgba(160,74,27,.10)", color: "var(--primary)", border: "1px solid rgba(160,74,27,.22)" },
+    amber:   { background: "rgba(217,122,46,.12)", color: "var(--secondary)", border: "1px solid rgba(217,122,46,.22)" },
+    honey:   { background: "rgba(230,185,40,.18)", color: "#9E780E", border: "1px solid rgba(230,185,40,.32)" },
+    outline: { background: "transparent", color: "var(--fg-muted)", border: "1px solid var(--border-strong)" },
+    success: { background: "rgba(79,122,46,.12)", color: "#4F7A2E", border: "1px solid rgba(79,122,46,.25)" },
+  }[kind];
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 24, padding: "0 12px", borderRadius: 999, fontFamily: "var(--font-sans)", fontWeight: 800, fontSize: 9, letterSpacing: "0.3em", textTransform: "uppercase", ...k }}>
+      {dot && <span style={{ width: 6, height: 6, borderRadius: 99, background: "currentColor" }} />}
+      {children}
+    </span>
+  );
+}
+
+/* ── Reference cards (right sidebar) ───────────────────── */
+const REF_CARDS = [
+  { tone: "warn" as const,    icon: AlertTriangle,  title: "Renewal Risk",      body: "3 enterprise accounts have renewals in <30 days with no engagement in the last 14 days.", query: "Which enterprise accounts are at renewal risk this quarter?" },
+  { tone: "amber" as const,   icon: Zap,            title: "Pipeline Gap",      body: "Q3 pipeline is 18% below target. Top 2 open deals have had no activity for 9+ days.", query: "Show me stalled deals in the Q3 pipeline." },
+  { tone: "success" as const, icon: CheckCircle2,   title: "Connector Health",  body: "All 4 connectors syncing normally. Last full sync completed 47 minutes ago.", query: "What is the current status of all active connectors?" },
+  { tone: "primary" as const, icon: Sparkles,       title: "Knowledge Update",  body: "12 new documents indexed since your last session. 3 mention competitor activity.", query: "Summarise competitor mentions from the last 24 hours." },
+];
+
+function RefCard({ card, onQuery }: { card: typeof REF_CARDS[0]; onQuery: (q: string) => void }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      style={{ borderRadius: 20, padding: "16px 18px", background: "var(--bg-elevated)", border: `1px solid ${hov ? "var(--border-strong)" : "var(--border)"}`, display: "flex", flexDirection: "column", gap: 10, transition: "all .2s var(--ease-out)", boxShadow: hov ? "var(--shadow-2)" : "none" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <IconTile icon={card.icon} size={32} tone={card.tone} />
+        <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--fg)" }}>{card.title}</span>
+      </div>
+      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.55, fontWeight: 500, color: "var(--fg-muted)" }}>{card.body}</p>
+      <button onClick={() => onQuery(card.query)}
+        style={{ alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 8, background: "var(--bg-muted)", border: "1px solid var(--border)", fontSize: 9, fontWeight: 800, letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--fg-muted)", cursor: "pointer", transition: "all .15s ease" }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "var(--primary)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(160,74,27,.3)"; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "var(--fg-muted)"; (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"; }}
+      >Ask <ArrowRight size={9} /></button>
+    </div>
+  );
+}
+
+/* ── Types ──────────────────────────────────────────────── */
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
-  type?: "standard" | "bi";
   timestamp: string;
   cited_sources?: any[];
   isAnalytical?: boolean;
@@ -47,669 +77,283 @@ interface Message {
   isQuotaError?: boolean;
 }
 
-interface ThreadSummary {
-  id: string;
-  title: string | null;
-  last_message_at: string | null;
-  message_count: number;
-  created_at: string;
-}
-
+/* ── Page ───────────────────────────────────────────────── */
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "initial-assistant",
-      role: "assistant",
-      content: "Welcome to the Athene Synthesis Environment. I've initialized your organizational knowledge graph. How can I assist your objectives today?",
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([{
+    id: "init",
+    role: "assistant",
+    content: "Hi — I'm Athene. Ask me anything grounded in your connected sources. I'll cite every claim back to its source document.",
+    timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+  }]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isAnalyticalMode, setIsAnalyticalMode] = useState(false);
-  const [threadId, setThreadId] = useState<string>("");
-  const [threads, setThreads] = useState<ThreadSummary[]>([]);
-  const [isHitlModalOpen, setIsHitlModalOpen] = useState(false);
+  const [isAnalytical, setIsAnalytical] = useState(false);
+  const [threadId, setThreadId] = useState("");
+  const [isHitlOpen, setIsHitlOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<{ tool: string; payload: any } | null>(null);
-  const [sseReconnecting, setSseReconnecting] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  useEffect(() => { setThreadId(crypto.randomUUID()); }, []);
   useEffect(() => {
-    setThreadId(crypto.randomUUID());
-    // Load existing threads for the history sidebar
-    fetch('/api/threads')
-      .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
-      .then(data => setThreads(data.threads ?? []))
-      .catch((err) => {
-        console.warn('[chat] Failed to load thread history:', err.message);
-        // Non-fatal — user can still chat; show nothing rather than crash
-      });
-  }, []);
+    if (scrollRef.current) scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages]);
 
-  /** Switch to an existing thread and reset the message history */
-  function selectThread(id: string) {
-    setThreadId(id);
-    setMessages([{
-      id: "initial-assistant",
-      role: "assistant",
-      content: "Resuming session — I have context from our previous conversation. How can I help?",
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    }]);
-  }
-
-  /** Create a brand new thread */
   function newThread() {
     setThreadId(crypto.randomUUID());
-    setMessages([{
-      id: "initial-assistant",
-      role: "assistant",
-      content: "Welcome to the Athene Synthesis Environment. I've initialized your organizational knowledge graph. How can I assist your objectives today?",
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    }]);
+    setMessages([{ id: "init-" + Date.now(), role: "assistant", content: "New session initialized. What would you like to explore?", timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }]);
   }
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-    }
-  }, [messages]);
+  function sendQuery(q: string) {
+    setInput(q);
+    setTimeout(() => inputRef.current?.focus(), 50);
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    const userMessage = input.trim();
-    if (!userMessage || isLoading) return;
+    const text = input.trim();
+    if (!text || isLoading) return;
 
-    const userEntry: Message = {
-      id: `user-${Date.now()}`,
-      role: "user",
-      content: userMessage,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-
-    setMessages((prev) => [...prev, userEntry]);
+    const userMsg: Message = { id: `u-${Date.now()}`, role: "user", content: text, timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) };
+    setMessages(p => [...p, userMsg]);
     setInput("");
     setIsLoading(true);
 
-    const assistantId = `assistant-${Date.now()}`;
-    const assistantEntry: Message = { 
-        id: assistantId, 
-        role: "assistant", 
-        content: "", 
-        isAnalytical: isAnalyticalMode,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-    setMessages((prev) => [...prev, assistantEntry]);
+    const assistantId = `a-${Date.now()}`;
+    setMessages(p => [...p, { id: assistantId, role: "assistant", content: "", isAnalytical, timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }]);
 
-    // SSE with exponential backoff reconnect (max 3 attempts)
-    const MAX_RETRIES = 3;
-    let attempt = 0;
-    let success = false;
-
-    while (attempt <= MAX_RETRIES && !success) {
+    const MAX = 3;
+    let attempt = 0, success = false;
+    while (attempt <= MAX && !success) {
       if (attempt > 0) {
-        const backoffMs = Math.min(1000 * 2 ** (attempt - 1), 8000);
-        setSseReconnecting(true);
-        await new Promise(r => setTimeout(r, backoffMs));
-        setSseReconnecting(false);
+        setReconnecting(true);
+        await new Promise(r => setTimeout(r, Math.min(1000 * 2 ** (attempt - 1), 8000)));
+        setReconnecting(false);
       }
-
       try {
-        const res = await fetch("/api/agent", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: userMessage,
-            threadId,
-            task_type: isAnalyticalMode ? "analytical" : "general"
-          }),
-        });
-
-        if (res.status === 429) {
-          const retryAfter = res.headers.get('Retry-After') ?? '60';
-          toast.error(`Rate limit reached. Try again in ${retryAfter}s.`);
-          break;
-        }
-
-        if (!res.ok || !res.body) throw new Error(`Server error: ${res.status}`);
-
+        const res = await fetch("/api/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: text, threadId, task_type: isAnalytical ? "analytical" : "general" }) });
+        if (res.status === 429) { toast.error(`Rate limit reached. Try again in ${res.headers.get("Retry-After") ?? 60}s.`); break; }
+        if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
         const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-
+        const dec = new TextDecoder();
+        let buf = "";
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() ?? "";
-
+          buf += dec.decode(value, { stream: true });
+          const lines = buf.split("\n"); buf = lines.pop() ?? "";
           for (const line of lines) {
             if (!line.startsWith("data: ")) continue;
             try {
-              const payload = JSON.parse(line.slice(6));
-
-              if (payload.error) {
-                const errMsg = payload.content || "An error occurred. Please try again.";
+              const p = JSON.parse(line.slice(6));
+              if (p.error) {
+                const errMsg = p.content || "An error occurred. Please try again.";
                 const isQuota = /quota exceeded|quota|rate_limit|billing|BYOK/i.test(errMsg);
-
                 if (isQuota) {
-                  toast.error("LLM Quota Exceeded. Please configure a BYOK key in Admin -> Keys.", {
-                    action: {
-                      label: "Admin Keys",
-                      onClick: () => window.location.href = "/admin/keys"
-                    },
-                    duration: 10000
+                  toast.error("LLM Quota Exceeded. Please configure a BYOK key in Admin → Keys.", {
+                    action: { label: "Admin Keys", onClick: () => window.location.href = "/admin/keys" },
+                    duration: 10000,
                   });
                 }
-
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === assistantId
-                      ? { ...m, content: errMsg, isQuotaError: isQuota }
-                      : m
-                  )
-                );
-              } else if (payload.token) {
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === assistantId
-                      ? { ...m, content: m.content + payload.token }
-                      : m
-                  )
-                );
-              } else if (
-                payload.content ||
-                payload.cited_sources !== undefined ||
-                payload.awaiting_approval !== undefined
-              ) {
-                // Values frame — carries metadata (cited_sources, awaiting_approval)
-                // and optionally content for non-streaming responses.
-                // Safety rule: never overwrite accumulated token content with a shorter
-                // string. The backend already omits `content` when tokens are streaming,
-                // but this guard protects against any edge-case ordering issues.
-                setMessages((prev) =>
-                  prev.map((m) => {
-                    if (m.id !== assistantId) return m;
-                    const newContent =
-                      payload.content && payload.content.length > m.content.length
-                        ? payload.content
-                        : m.content;
-                    return {
-                      ...m,
-                      content: newContent,
-                      cited_sources: payload.cited_sources || m.cited_sources,
-                      awaiting_approval: payload.awaiting_approval ?? m.awaiting_approval,
-                    };
-                  })
-                );
-
-                if (payload.awaiting_approval && payload.pending_write_action) {
-                  setPendingAction(payload.pending_write_action);
-                  setIsHitlModalOpen(true);
-                }
+                setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: errMsg, isQuotaError: isQuota } : m));
+              } else if (p.token) {
+                setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: m.content + p.token } : m));
+              } else if (p.content || p.cited_sources !== undefined || p.awaiting_approval !== undefined) {
+                setMessages(prev => prev.map(m => {
+                  if (m.id !== assistantId) return m;
+                  return { ...m, content: p.content && p.content.length > m.content.length ? p.content : m.content, cited_sources: p.cited_sources || m.cited_sources, awaiting_approval: p.awaiting_approval ?? m.awaiting_approval };
+                }));
+                if (p.awaiting_approval && p.pending_write_action) { setPendingAction(p.pending_write_action); setIsHitlOpen(true); }
               }
-            } catch { /* malformed SSE frame — skip */ }
+            } catch { /* skip malformed */ }
           }
         }
         success = true;
-        // Refresh thread list after successful response
-        fetch('/api/threads')
-          .then(r => r.ok ? r.json() : { threads: [] })
-          .then(data => setThreads(data.threads ?? []))
-          .catch(() => {});
       } catch (err) {
         attempt++;
-        if (attempt > MAX_RETRIES) {
-          console.error("[chat] SSE failed after max retries:", err);
+        if (attempt > MAX) {
           toast.error("Connection lost. Please try again.");
-          // Replace the empty assistant bubble with an explicit error so the
-          // spinner doesn't spin forever.
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId && m.content === ""
-                ? { ...m, content: "⚠ Connection lost. Please try again." }
-                : m
-            )
-          );
+          setMessages(prev => prev.map(m => m.id === assistantId && !m.content ? { ...m, content: "⚠ Connection lost. Please try again." } : m));
         }
       }
     }
-
     setIsLoading(false);
-    setSseReconnecting(false);
+    setReconnecting(false);
   }
 
-  async function handleHitlDecision(action: 'approve' | 'reject' | 'edit', edits?: any) {
-    try {
-      const res = await fetch(`/api/threads/${threadId}/approve`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, edits }),
-      });
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Failed to process decision");
-      }
-
-      toast.success(`Action ${action}ed successfully`);
-      setPendingAction(null);
-      setIsHitlModalOpen(false);
-
-      // Backend resumes the graph in the background after approval.
-      // Surface a status message so the user knows something happened.
-      const statusContent =
-        action === "approve"
-          ? "✓ Action approved — executing in the background."
-          : "✗ Action rejected.";
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `hitl-status-${Date.now()}`,
-          role: "assistant",
-          content: statusContent,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        },
-      ]);
-    } catch (error: any) {
-      toast.error(error.message);
-      throw error;
-    }
+  async function handleHitl(action: "approve" | "reject" | "edit", edits?: any) {
+    const res = await fetch(`/api/threads/${threadId}/approve`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, edits }) });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Failed"); }
+    toast.success(`Action ${action}ed`);
+    setPendingAction(null); setIsHitlOpen(false);
+    setMessages(p => [...p, { id: `hitl-${Date.now()}`, role: "assistant", content: action === "approve" ? "✓ Action approved — executing in the background." : "✗ Action rejected.", timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }]);
   }
 
   return (
-    <div className="flex h-[calc(100vh-120px)] flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700 overflow-hidden font-['Space_Grotesk'] transition-colors duration-300">
-      <div className="flex flex-1 gap-8 overflow-hidden">
-        
-        {/* Main Conversation Column */}
-        <div className="flex flex-1 flex-col min-w-0 gap-6">
-          
-          {/* Header Section */}
-          <div className="flex items-center justify-between bg-card/50 p-4 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] border border-border shadow-2xl backdrop-blur-xl">
-            <div className="flex items-center gap-5">
-              <div className="h-12 w-12 bg-white rounded-2xl flex items-center justify-center shadow-lg border border-border/50 group hover:scale-105 transition-transform">
-                <img src="/logo.png" alt="A" className="h-8 w-8 object-contain" />
-              </div>
-              <div>
-                <div className="flex items-center gap-3">
-                  <h2 className="text-base font-black tracking-tight text-foreground uppercase tracking-widest">Synthesis <span className="text-primary">v4.2</span></h2>
-                  <Badge className="bg-accent/10 text-accent border-accent/20 text-[9px] font-black h-4.5 px-2 tracking-widest uppercase">LIVE</Badge>
-                </div>
-                <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.2em] flex items-center gap-2 mt-0.5">
-                   <ShieldCheck className="w-3.5 h-3.5 text-primary" />
-                   Encrypted Pipeline
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-4">
-               <Tabs 
-                    value={isAnalyticalMode ? "analytical" : "standard"} 
-                    onValueChange={(v) => setIsAnalyticalMode(v === "analytical")}
-                    className="hidden md:block"
-                >
-                    <TabsList className="bg-muted/30 border border-border p-1 rounded-xl h-11">
-                    <TabsTrigger value="standard" className="rounded-lg px-6 text-[10px] font-black uppercase tracking-[0.2em] transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg">
-                        Standard
-                    </TabsTrigger>
-                    <TabsTrigger value="analytical" className="rounded-lg px-6 text-[10px] font-black uppercase tracking-[0.2em] transition-all data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground data-[state=active]:shadow-lg flex items-center gap-2">
-                        <Database className="w-3.5 h-3.5" />
-                        Analytical
-                    </TabsTrigger>
-                    </TabsList>
-                </Tabs>
-               <div className="flex items-center gap-2 pr-2">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={newThread}
-                          className="h-11 w-11 rounded-xl hover:bg-primary/10 hover:text-primary border border-transparent hover:border-primary/10 transition-all"
-                          aria-label="New conversation"
-                        >
-                          <RefreshCcw className="w-4.5 h-4.5" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>New conversation</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-               </div>
-            </div>
-          </div>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
 
-          {/* Messages Area */}
-          <ScrollArea className="flex-1 px-4 custom-scrollbar">
-            <div className="space-y-10 py-6" ref={scrollRef}>
-              {messages.map((msg, i) => (
-                <div
-                  key={msg.id}
-                  data-testid={msg.role === "user" ? "user-message" : "assistant-message"}
-                  className={cn(
-                    "flex w-full animate-in fade-in slide-in-from-bottom-4 duration-500",
-                    msg.role === "user" ? "justify-end" : "justify-start"
-                  )}
-                >
-                  <div className={cn(
-                    "flex max-w-[85%] gap-5",
-                    msg.role === "user" && "flex-row-reverse"
-                  )}>
-                    <div className={cn(
-                      "h-11 w-11 shrink-0 rounded-2xl flex items-center justify-center border shadow-xl transition-all group hover:scale-110",
-                      msg.role === "assistant" 
-                        ? "bg-white border-border text-black" 
-                        : "bg-gradient-to-br from-primary to-secondary border-none text-white"
-                    )}>
-                      {msg.role === "assistant" ? <img src="/logo.png" alt="A" className="w-6 h-6 object-contain" /> : <User className="h-5.5 w-5.5" />}
-                    </div>
-                    
-                    <div className="space-y-3">
-                      <div className={cn(
-                        "p-4 sm:p-6 md:p-8 rounded-[1.5rem] sm:rounded-[2rem] md:rounded-[2.5rem] text-[14px] sm:text-[15px] leading-relaxed font-bold shadow-2xl transition-all hover:shadow-primary/5",
-                        msg.role === "assistant" 
-                          ? "bg-card/50 border border-border text-foreground backdrop-blur-xl" 
-                          : "bg-gradient-to-r from-primary to-secondary text-primary-foreground border-none"
-                      )}>
-                        {msg.isQuotaError ? (
-                          <div className="space-y-6">
-                            <div className="flex items-start gap-4">
-                              <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-2xl shrink-0">
-                                <AlertCircle className="w-6 h-6 animate-pulse" />
-                              </div>
-                              <div className="space-y-1">
-                                <h4 className="text-sm font-black uppercase tracking-widest text-amber-500">
-                                  LLM Quota Exceeded
-                                </h4>
-                                <p className="text-xs text-muted-foreground/80 font-bold leading-relaxed">
-                                  {msg.content}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex flex-wrap gap-3 pt-4 border-t border-border/50">
-                              <Button
-                                onClick={() => window.location.href = "/admin/keys"}
-                                className="h-10 px-5 bg-amber-500 text-black hover:bg-amber-400 font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center gap-2 shadow-lg shadow-amber-500/10 border-none"
-                              >
-                                Configure BYOK Keys
-                                <ChevronRight className="w-3.5 h-3.5" />
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            {msg.isAnalytical && msg.role === "assistant" && (
-                                <div className="flex items-center gap-3 text-[10px] uppercase tracking-[0.3em] font-black text-primary mb-6 border-b border-border/50 pb-4 w-fit">
-                                    <Database className="w-4 h-4" />
-                                    Business Intelligence Synthesis
-                                </div>
-                            )}
-                            <div className="whitespace-pre-wrap tracking-tight">
-                                {msg.content || (
-                                <div className="flex items-center gap-5 py-3">
-                                    <div className="flex gap-1">
-                                      <div className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]" />
-                                      <div className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]" />
-                                      <div className="w-2 h-2 rounded-full bg-primary animate-bounce" />
-                                    </div>
-                                    <span className="text-muted-foreground/40 text-[11px] font-black uppercase tracking-[0.3em]">Synthesizing Reality...</span>
-                                </div>
-                                )}
-                            </div>
-                          </>
-                        )}
-                        
-                        {msg.cited_sources && msg.cited_sources.length > 0 && (
-                          <div className="mt-10 flex flex-wrap gap-3 pt-8 border-t border-border/50">
-                             {msg.cited_sources.map((source, idx) => (
-                                <TooltipProvider key={idx}>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <a 
-                                                href={source.external_url || "#"}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="inline-flex items-center gap-3 px-5 py-2.5 bg-muted/20 border border-border rounded-xl text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-muted/40 transition-all duration-300 shadow-sm"
-                                            >
-                                                <ExternalLink className="w-3.5 h-3.5 text-primary" />
-                                                {source.source_type || "Source"}
-                                            </a>
-                                        </TooltipTrigger>
-                                        <TooltipContent className="bg-popover text-popover-foreground border-border text-[9px] font-black uppercase tracking-[0.2em] shadow-2xl">
-                                            Document ID: {source.document_id?.slice(0, 8)}
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                             ))}
-                          </div>
-                        )}
+      {/* Header strip — matches ChatScreen */}
+      <div style={{ flexShrink: 0, padding: "20px 40px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+        <div>
+          <div className="eyebrow" style={{ color: "var(--primary)", marginBottom: 6 }}>Synthesis · cited answers</div>
+          <h2 style={{ fontFamily: "var(--font-sans)", fontSize: 28, fontWeight: 800, letterSpacing: "-0.03em", textTransform: "uppercase", margin: 0, color: "var(--fg)" }}>Athene Chat</h2>
+        </div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          {reconnecting && <Chip kind="amber">Reconnecting…</Chip>}
+          <Chip kind="primary" dot>Live</Chip>
+          {/* Mode toggle */}
+          <div style={{ display: "flex", background: "var(--bg-muted)", borderRadius: 10, padding: 3, border: "1px solid var(--border)" }}>
+            {["Standard", "BI"].map(m => (
+              <button key={m} onClick={() => setIsAnalytical(m === "BI")}
+                style={{ height: 26, padding: "0 12px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 9, fontWeight: 800, letterSpacing: "0.25em", textTransform: "uppercase", background: (m === "BI") === isAnalytical ? "var(--bg-elevated)" : "transparent", color: (m === "BI") === isAnalytical ? "var(--primary)" : "var(--fg-muted)", boxShadow: (m === "BI") === isAnalytical ? "var(--shadow-1)" : "none", transition: "all .15s ease", display: "inline-flex", alignItems: "center", gap: 5 }}>
+                {m === "BI" && <Database size={9} />}{m}
+              </button>
+            ))}
+          </div>
+          <button onClick={newThread} style={{ width: 32, height: 32, borderRadius: 10, background: "var(--bg-muted)", border: "1px solid var(--border)", color: "var(--fg-muted)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+            <Plus size={13} />
+          </button>
+          <Chip kind="outline"><ShieldCheck size={8} style={{ display: "inline", marginRight: 4 }} />Encrypted</Chip>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>
+
+        {/* Messages + composer */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          {/* Messages */}
+          <div ref={scrollRef} className="custom-scrollbar" style={{ flex: 1, overflowY: "auto", padding: "32px 40px" }}>
+            <div style={{ maxWidth: 880, margin: "0 auto", display: "flex", flexDirection: "column", gap: 28 }}>
+              {messages.map((msg) => {
+                const isA = msg.role === "assistant";
+                function renderContent(content: string) {
+                  const parts: React.ReactNode[] = [];
+                  const re = /\[([a-zA-Z0-9_-]+)\]/g;
+                  let last = 0, m;
+                  while ((m = re.exec(content)) !== null) {
+                    if (m.index > last) parts.push(<span key={`t${last}`}>{content.slice(last, m.index)}</span>);
+                    parts.push(<span key={`c${m.index}`} style={{ display: "inline-flex", alignItems: "center", padding: "2px 8px", margin: "0 2px", borderRadius: 6, background: "rgba(217,122,46,.14)", border: "1px solid rgba(217,122,46,.28)", color: "var(--secondary)", fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 700 }}>[{m[1]}]</span>);
+                    last = re.lastIndex;
+                  }
+                  if (last < content.length) parts.push(<span key={`t${last}`}>{content.slice(last)}</span>);
+                  return parts;
+                }
+                return (
+                  <div key={msg.id} className="reveal" style={{ display: "flex", justifyContent: isA ? "flex-start" : "flex-end" }}>
+                    <div style={{ display: "flex", gap: 14, maxWidth: "82%", flexDirection: isA ? "row" : "row-reverse" }}>
+                      {/* Avatar */}
+                      <div style={{ width: 38, height: 38, borderRadius: 12, flexShrink: 0, background: isA ? "rgba(160,74,27,.10)" : "var(--primary)", border: isA ? "1px solid rgba(160,74,27,.22)" : "none", color: isA ? "var(--primary)" : "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        {isA ? <Sparkles size={18} strokeWidth={1.7} /> : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>}
                       </div>
-                      <div className={cn(
-                        "flex items-center gap-3 px-3 sm:px-6 md:px-8 mt-1",
-                        msg.role === "user" && "flex-row-reverse"
-                      )}>
-                        <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-40">{msg.timestamp}</span>
-                        {msg.role === "assistant" && (
-                          <div className="flex items-center gap-2">
-                             <div className="h-1 w-1 rounded-full bg-primary" />
-                             <span className="text-[9px] font-black text-primary uppercase tracking-[0.2em]">Verified Synthesis</span>
-                          </div>
-                        )}
+                      <div>
+                        <div style={{ padding: "16px 22px", borderRadius: 22, fontSize: 14, lineHeight: 1.6, fontWeight: 500, background: isA ? "var(--bg-elevated)" : "var(--primary)", color: isA ? "var(--fg)" : "#fff", border: isA ? "1px solid var(--border)" : "none", boxShadow: "var(--shadow-1)" }}>
+                          {isA && msg.isQuotaError ? (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                              <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                                <div style={{ padding: 10, background: "rgba(245,158,11,.1)", border: "1px solid rgba(245,158,11,.2)", borderRadius: 12, flexShrink: 0, color: "#F59E0B" }}>
+                                  <AlertCircle size={18} />
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.25em", textTransform: "uppercase", color: "#F59E0B", marginBottom: 4 }}>LLM Quota Exceeded</div>
+                                  <div style={{ fontSize: 12, color: "var(--fg-muted)", lineHeight: 1.5 }}>{msg.content}</div>
+                                </div>
+                              </div>
+                              <button onClick={() => window.location.href = "/admin/keys"} style={{ alignSelf: "flex-start", padding: "8px 16px", borderRadius: 10, background: "#F59E0B", color: "#000", border: "none", fontSize: 9, fontWeight: 800, letterSpacing: "0.25em", textTransform: "uppercase", cursor: "pointer" }}>
+                                Configure BYOK Keys
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              {isA && msg.isAnalytical && (
+                                <div className="eyebrow" style={{ color: "var(--primary)", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}><Database size={9} />BI Synthesis</div>
+                              )}
+                              {msg.content ? renderContent(msg.content) : (
+                                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                  <div style={{ display: "flex", gap: 4 }}>
+                                    {[0,1,2].map(j => <div key={j} style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--primary)", animation: `dot-bounce 1.2s infinite ${j * 0.18}s` }} />)}
+                                  </div>
+                                  <span className="eyebrow">Athene is synthesizing…</span>
+                                </div>
+                              )}
+                            </>
+                          )}
+                          {msg.cited_sources && msg.cited_sources.length > 0 && (
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 16, paddingTop: 14, borderTop: "1px dashed var(--border)" }}>
+                              {msg.cited_sources.map((s: any, idx: number) => (
+                                <a key={idx} href={s.external_url || "#"} target="_blank" rel="noopener noreferrer"
+                                  style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 8, background: "var(--bg-muted)", border: "1px solid var(--border)", fontSize: 9, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--fg-muted)", textDecoration: "none" }}>
+                                  <ExternalLink size={9} style={{ color: "var(--primary)" }} />{s.source_type || "Source"}
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
-          </ScrollArea>
+          </div>
 
-          {/* Input Bar */}
-          <div className="bg-card/50 p-3 sm:p-4 md:p-5 rounded-[2rem] sm:rounded-[3rem] md:rounded-[3.5rem] border border-border flex flex-col gap-3 shadow-2xl shadow-black/40 relative z-10 mx-2 sm:mx-6 lg:mx-10 mb-4 sm:mb-6 group focus-within:border-primary/50 focus-within:shadow-primary/5 transition-all backdrop-blur-2xl">
-            <div className="flex items-center gap-5">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        disabled
-                        className="h-14 w-14 rounded-full text-muted-foreground/30 cursor-not-allowed"
-                        aria-label="File attachment — coming soon"
-                      >
-                        <Paperclip className="w-6 h-6" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>File attachments — coming soon</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                
-                <form onSubmit={handleSubmit} className="flex-1 flex items-center gap-5">
-                    <input
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        disabled={isLoading}
-                        placeholder={isAnalyticalMode ? "Synthesize department-wide BI patterns..." : "Ask Athene to synthesize anything..."}
-                        className="flex-1 bg-transparent border-none focus:outline-none text-foreground text-base font-bold placeholder:text-muted-foreground/30 placeholder:font-black placeholder:uppercase placeholder:tracking-[0.2em] h-14"
-                    />
-                    
-                    <div className="flex items-center gap-4 pr-3">
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                disabled
-                                className="h-14 w-14 rounded-full text-muted-foreground/30 cursor-not-allowed"
-                                aria-label="Voice input — coming soon"
-                              >
-                                <Mic className="w-6 h-6" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Voice input — coming soon</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                        <Button 
-                            type="submit"
-                            disabled={isLoading || !input.trim()}
-                            className="h-14 w-14 rounded-full bg-gradient-to-br from-primary to-secondary text-primary-foreground hover:shadow-2xl hover:shadow-primary/20 transition-all active:scale-95 flex items-center justify-center border-none"
-                        >
-                            {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Send className="w-6 h-6 fill-primary-foreground" />}
-                        </Button>
-                    </div>
-                </form>
+          {/* Composer — borderRadius 32, padding 10 12 10 18 */}
+          <div style={{ flexShrink: 0, padding: "20px 40px 28px" }}>
+            <div style={{ maxWidth: 880, margin: "0 auto" }}>
+              <form onSubmit={handleSubmit}
+                style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 32, padding: "10px 12px 10px 18px", display: "flex", alignItems: "center", gap: 12, boxShadow: "var(--shadow-3)", transition: "border-color .2s ease" }}>
+                <button type="button" disabled style={{ width: 38, height: 38, borderRadius: 99, background: "transparent", border: "none", color: "var(--fg-subtle)", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "not-allowed", opacity: 0.4 }}>
+                  <Paperclip size={18} strokeWidth={1.7} />
+                </button>
+                <textarea
+                  ref={inputRef}
+                  value={input}
+                  onChange={e => { setInput(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 180) + "px"; }}
+                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(e as any); } }}
+                  disabled={isLoading}
+                  placeholder={isAnalytical ? "SYNTHESIZE DEPARTMENT-WIDE BI PATTERNS…" : "ASK ATHENE TO SYNTHESIZE ANYTHING…"}
+                  rows={1}
+                  style={{ flex: 1, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 500, color: "var(--fg)", resize: "none", minHeight: 38, maxHeight: 180, paddingTop: 8, paddingBottom: 8 }}
+                />
+                <button type="submit" disabled={!input.trim() || isLoading}
+                  style={{ width: 44, height: 44, borderRadius: 99, background: input.trim() && !isLoading ? "var(--primary)" : "var(--bg-muted)", color: input.trim() && !isLoading ? "#fff" : "var(--fg-subtle)", border: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", boxShadow: input.trim() && !isLoading ? "0 10px 22px -10px rgba(160,74,27,.55)" : "none", transition: "all .2s var(--ease-out)", cursor: input.trim() && !isLoading ? "pointer" : "not-allowed" }}>
+                  {isLoading ? <RefreshCw size={16} style={{ animation: "spin 1s linear infinite" }} /> : <Send size={16} />}
+                </button>
+              </form>
             </div>
           </div>
         </div>
 
-        {/* Intelligence Sidebar */}
-        <aside className="hidden xl:flex w-80 flex-col gap-8 pr-4 pb-10 overflow-y-auto custom-scrollbar">
-           {/* Thread History */}
-           <Card className="bg-card/50 backdrop-blur-xl border border-border p-8 space-y-6 rounded-[2.5rem] shadow-2xl transition-colors duration-300">
-              <div className="flex items-center justify-between">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground flex items-center gap-2">
-                  <History className="w-4 h-4" /> Sessions
-                </h3>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={newThread}
-                  className="h-8 w-8 rounded-xl hover:bg-primary/10 hover:text-primary transition-all"
-                  title="New thread"
-                >
-                  <Plus className="w-4 h-4" />
-                </Button>
-              </div>
-              <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
-                {threads.length === 0 ? (
-                  <p className="text-[10px] text-muted-foreground/40 font-black uppercase tracking-widest py-4 text-center">No prior sessions</p>
-                ) : threads.map((t) => {
-                  const ts = t.last_message_at ?? t.created_at
-                  const date = new Date(ts)
-                  const label = t.title || date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-                  const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                  const isActive = t.id === threadId
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => selectThread(t.id)}
-                      className={cn(
-                        "w-full flex items-start gap-3 p-4 rounded-2xl text-left border transition-all",
-                        isActive
-                          ? "bg-primary/10 border-primary/30 text-primary"
-                          : "border-transparent hover:bg-muted/30 hover:border-border text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <Clock className="w-3.5 h-3.5 mt-0.5 shrink-0 opacity-60" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-black uppercase tracking-tight truncate">{label}</p>
-                        <p className="text-[9px] opacity-50 mt-0.5">{time} · {t.message_count} msg{t.message_count !== 1 ? 's' : ''}</p>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-              {sseReconnecting && (
-                <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest text-center animate-pulse">Reconnecting…</p>
-              )}
-           </Card>
-
-           <Card className="bg-card/50 backdrop-blur-xl border border-border p-10 space-y-8 rounded-[2.5rem] shadow-2xl transition-colors duration-300">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">Session Context</h3>
-              {(() => {
-                const userMsgs = messages.filter(m => m.role === 'user').length;
-                const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant' && m.content && !m.content.startsWith('⚠') && !m.content.startsWith('✓') && !m.content.startsWith('✗'));
-                const sourceCount = lastAssistant?.cited_sources?.length ?? 0;
-                return (
-                  <div className="space-y-4">
-                    <div className="p-5 rounded-2xl bg-muted/20 border border-border/50 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <Layout className="w-5 h-5 text-primary" />
-                        <Badge className="bg-primary/10 text-primary border-primary/20 text-[9px] font-black uppercase tracking-widest">
-                          {isAnalyticalMode ? 'BI Mode' : 'Standard'}
-                        </Badge>
-                      </div>
-                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Thread</p>
-                      <p className="text-[11px] font-black text-foreground font-mono truncate">{threadId.slice(0, 8)}…</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="p-4 rounded-2xl bg-muted/20 border border-border/50 text-center">
-                        <p className="text-xl font-black text-primary">{userMsgs}</p>
-                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mt-1">Messages</p>
-                      </div>
-                      <div className="p-4 rounded-2xl bg-muted/20 border border-border/50 text-center">
-                        <p className="text-xl font-black text-accent">{sourceCount}</p>
-                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mt-1">Sources</p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-           </Card>
-
-           <Card className="bg-card/50 backdrop-blur-xl border border-border flex-1 p-10 space-y-10 overflow-hidden rounded-[2.5rem] shadow-2xl transition-colors duration-300">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">Active Reasoning</h3>
-              {(() => {
-                const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant' && m.content);
-                const hasSources = (lastAssistant?.cited_sources?.length ?? 0) > 0;
-                const agents = [
-                  {
-                    name: "Retrieval Scout",
-                    status: isLoading ? "Searching…" : hasSources ? "Complete" : "Standby",
-                    icon: Search,
-                    color: isLoading ? "text-primary" : hasSources ? "text-accent" : "text-muted-foreground/40",
-                    bg: isLoading ? "bg-primary/10" : hasSources ? "bg-accent/10" : "bg-muted/10",
-                    pulse: isLoading,
-                  },
-                  {
-                    name: "Logic Engine",
-                    status: isLoading ? "Processing…" : "Standby",
-                    icon: BrainCircuit,
-                    color: isLoading ? "text-primary" : "text-muted-foreground/40",
-                    bg: isLoading ? "bg-primary/10" : "bg-muted/10",
-                    pulse: isLoading,
-                  },
-                  {
-                    name: "Audit Sentry",
-                    status: "Watching",
-                    icon: ShieldCheck,
-                    color: "text-accent",
-                    bg: "bg-accent/10",
-                    pulse: false,
-                  },
-                ];
-                return (
-                  <div className="space-y-4">
-                    {agents.map((agent, i) => (
-                      <div key={i} className="flex items-center justify-between p-5 rounded-2xl bg-muted/10 border border-border transition-all shadow-sm">
-                        <div className="flex items-center gap-4">
-                          <div className={cn("p-3 rounded-xl border border-border transition-colors", agent.bg)}>
-                            <agent.icon className={cn("w-4 h-4 transition-colors", agent.color, agent.pulse && "animate-pulse")} />
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-[11px] font-black text-foreground uppercase tracking-tight">{agent.name}</span>
-                            <span className={cn("text-[9px] font-black uppercase tracking-[0.2em] mt-0.5", agent.pulse ? "text-primary" : "text-muted-foreground/50")}>{agent.status}</span>
-                          </div>
-                        </div>
-                        {agent.pulse && <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />}
-                      </div>
-                    ))}
-                  </div>
-                );
-              })()}
-           </Card>
+        {/* Reference sidebar */}
+        <aside className="custom-scrollbar" style={{ width: 288, flexShrink: 0, borderLeft: "1px solid var(--border)", overflowY: "auto", padding: "20px 16px 32px", display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="eyebrow" style={{ marginBottom: 4 }}>Intelligence · live</div>
+          {REF_CARDS.map((card, i) => (
+            <div key={i} className={`reveal reveal-${Math.min(i + 2, 6)}`}>
+              <RefCard card={card} onQuery={sendQuery} />
+            </div>
+          ))}
+          <div style={{ marginTop: 8 }}>
+            <div className="eyebrow" style={{ marginBottom: 10 }}>Quick prompts</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+              {["Summarise this week's top decisions from Slack", "Which KPIs are trending down vs last quarter?", "Show open Jira blockers for engineering"].map((q, i) => (
+                <button key={i} onClick={() => sendQuery(q)}
+                  style={{ textAlign: "left", padding: "9px 12px", borderRadius: 10, background: "var(--bg-muted)", border: "1px solid var(--border)", fontSize: 11, fontWeight: 500, color: "var(--fg-muted)", lineHeight: 1.45, cursor: "pointer", transition: "all .15s ease" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "var(--fg)"; (e.currentTarget as HTMLElement).style.borderColor = "var(--border-strong)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "var(--fg-muted)"; (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"; }}
+                >{q}</button>
+              ))}
+            </div>
+          </div>
         </aside>
       </div>
 
+      <HitlModal isOpen={isHitlOpen} onClose={() => setIsHitlOpen(false)} threadId={threadId} pendingAction={pendingAction} onDecision={handleHitl} />
 
-      <HitlModal 
-        isOpen={isHitlModalOpen}
-        onClose={() => setIsHitlModalOpen(false)}
-        threadId={threadId}
-        pendingAction={pendingAction}
-        onDecision={handleHitlDecision}
-      />
+      <style>{`
+        @keyframes dot-bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-6px)} }
+        @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+      `}</style>
     </div>
   );
 }

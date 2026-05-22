@@ -23,6 +23,13 @@ import { listSnowflakeTables } from './snowflake/schema-fetcher'
 import { listBigQueryTables } from './bigquery/client'
 import { listRedshiftTables } from './redshift/client'
 import { browsePowerBI } from './powerbi/browser'
+import { graphFetch } from './microsoft/graph-client'
+import { getCloudId, jiraFetch, confluenceFetch } from './atlassian/client'
+import { linearFetch } from './linear/client'
+import { lookerFetch } from './looker/client'
+import { tableauSignIn, tableauFetch } from './tableau/client'
+import { metabaseFetch } from './metabase/client'
+import { dbtFetch, dbtAccountId } from './dbt/client'
 import type { ProviderKey } from './providers'
 
 // ---- Types --------------------------------------------------
@@ -349,19 +356,409 @@ async function browseRedshift(
   }
 }
 
+// ---- Group A: Google flat-list providers ---------------------
+
+async function browseGmail(
+  connectionId: string,
+  orgId: string
+): Promise<BrowseResult> {
+  const res = await googleFetch<{ labels: Array<{ id: string; name: string; type: string }> }>(
+    connectionId,
+    orgId,
+    'https://www.googleapis.com/gmail/v1/users/me/labels'
+  )
+  const resources: BrowsableResource[] = (res.labels ?? [])
+    .filter((l) => !l.name.startsWith('CATEGORY_') && l.type !== 'system')
+    .map((l) => ({
+      id: l.id,
+      name: l.name,
+      type: 'folder' as const,
+      hasChildren: false,
+      path: `/${l.name}`,
+    }))
+  return { resources }
+}
+
+async function browseGoogleCalendar(
+  connectionId: string,
+  orgId: string
+): Promise<BrowseResult> {
+  const res = await googleFetch<{ items: Array<{ id: string; summary: string; description?: string; primary?: boolean }> }>(
+    connectionId,
+    orgId,
+    'https://www.googleapis.com/calendar/v3/users/me/calendarList'
+  )
+  const resources: BrowsableResource[] = (res.items ?? []).map((cal) => ({
+    id: cal.id,
+    name: cal.summary,
+    type: 'folder' as const,
+    hasChildren: false,
+    path: `/${cal.summary}`,
+    metadata: { description: cal.description, primary: cal.primary },
+  }))
+  return { resources }
+}
+
+// ---- Group B: Microsoft providers ----------------------------
+
+async function browseOutlook(
+  connectionId: string,
+  orgId: string
+): Promise<BrowseResult> {
+  const res = await graphFetch(
+    connectionId,
+    orgId,
+    '/me/mailFolders?$select=id,displayName,totalItemCount&$top=50'
+  )
+  const resources: BrowsableResource[] = (res.value ?? []).map((f: any) => ({
+    id: f.id,
+    name: f.displayName,
+    type: 'folder' as const,
+    hasChildren: false,
+    path: `/${f.displayName}`,
+    metadata: { totalItemCount: f.totalItemCount },
+  }))
+  return { resources }
+}
+
+async function browseMsCalendar(
+  connectionId: string,
+  orgId: string
+): Promise<BrowseResult> {
+  const res = await graphFetch(connectionId, orgId, '/me/calendars?$select=id,name,canEdit')
+  const resources: BrowsableResource[] = (res.value ?? []).map((c: any) => ({
+    id: c.id,
+    name: c.name,
+    type: 'folder' as const,
+    hasChildren: false,
+    path: `/${c.name}`,
+    metadata: { canEdit: c.canEdit },
+  }))
+  return { resources }
+}
+
+async function browseOneDrive(
+  connectionId: string,
+  orgId: string,
+  parentId?: string | null,
+  options?: { pageToken?: string; limit?: number }
+): Promise<BrowseResult> {
+  const pageSize = Math.min(options?.limit ?? 50, 100)
+  const select = '$select=id,name,folder,file,webUrl,lastModifiedDateTime'
+  const endpoint = parentId
+    ? `/me/drive/items/${parentId}/children?${select}&$top=${pageSize}`
+    : `/me/drive/root/children?${select}&$top=${pageSize}&$orderby=name`
+
+  const fullEndpoint = options?.pageToken
+    ? options.pageToken
+    : endpoint
+
+  const res = await graphFetch(connectionId, orgId, fullEndpoint)
+  const resources: BrowsableResource[] = (res.value ?? []).map((item: any) => {
+    const isFolder = !!item.folder
+    return {
+      id: item.id,
+      name: item.name,
+      type: isFolder ? 'folder' as const : 'file' as const,
+      hasChildren: isFolder,
+      path: `/${item.name}`,
+      metadata: { webUrl: item.webUrl, lastModified: item.lastModifiedDateTime },
+    }
+  })
+
+  let nextPageToken: string | undefined
+  if (res['@odata.nextLink']) {
+    const next = new URL(res['@odata.nextLink'])
+    nextPageToken = next.pathname.replace('/v1.0', '') + next.search
+  }
+
+  return { resources, nextPageToken }
+}
+
+async function browseSharePoint(
+  connectionId: string,
+  orgId: string,
+  parentId?: string | null,
+  options?: { pageToken?: string; limit?: number }
+): Promise<BrowseResult> {
+  if (!parentId) {
+    // Root: list SharePoint sites
+    const res = await graphFetch(
+      connectionId,
+      orgId,
+      '/sites?search=*&$select=id,displayName,webUrl&$top=50'
+    )
+    const resources: BrowsableResource[] = (res.value ?? []).map((site: any) => ({
+      id: `site:${site.id}`,
+      name: site.displayName,
+      type: 'folder' as const,
+      hasChildren: true,
+      path: `/${site.displayName}`,
+      metadata: { webUrl: site.webUrl },
+    }))
+    return { resources }
+  }
+
+  if (parentId.startsWith('site:')) {
+    // List document libraries (drives) for a site
+    const siteId = parentId.slice('site:'.length)
+    const res = await graphFetch(connectionId, orgId, `/sites/${siteId}/drives?$select=id,name,webUrl`)
+    const resources: BrowsableResource[] = (res.value ?? []).map((drive: any) => ({
+      id: `drive:${drive.id}`,
+      name: drive.name,
+      type: 'folder' as const,
+      hasChildren: true,
+      path: `/${drive.name}`,
+      metadata: { webUrl: drive.webUrl },
+    }))
+    return { resources }
+  }
+
+  if (parentId.startsWith('drive:')) {
+    // List root children of a drive
+    const driveId = parentId.slice('drive:'.length)
+    const pageSize = Math.min(options?.limit ?? 50, 100)
+    const res = await graphFetch(
+      connectionId,
+      orgId,
+      `/drives/${driveId}/root/children?$select=id,name,folder,file,webUrl&$top=${pageSize}`
+    )
+    const resources: BrowsableResource[] = (res.value ?? []).map((item: any) => {
+      const isFolder = !!item.folder
+      return {
+        id: item.id,
+        name: item.name,
+        type: isFolder ? 'folder' as const : 'file' as const,
+        hasChildren: isFolder,
+        path: `/${item.name}`,
+        metadata: { webUrl: item.webUrl },
+      }
+    })
+    return { resources }
+  }
+
+  // Generic folder children (sub-folders after drilling in)
+  return browseOneDrive(connectionId, orgId, parentId, options)
+}
+
+// ---- Group C: CRM / PM providers ----------------------------
+
+async function browseHubSpot(
+  _connectionId: string,
+  _orgId: string
+): Promise<BrowseResult> {
+  return {
+    resources: [
+      { id: 'contacts', name: 'Contacts', type: 'object_type', hasChildren: false, path: '/contacts' },
+      { id: 'companies', name: 'Companies', type: 'object_type', hasChildren: false, path: '/companies' },
+      { id: 'deals', name: 'Deals', type: 'object_type', hasChildren: false, path: '/deals' },
+      { id: 'notes', name: 'Notes', type: 'object_type', hasChildren: false, path: '/notes' },
+    ],
+  }
+}
+
+async function browseSalesforce(
+  _connectionId: string,
+  _orgId: string
+): Promise<BrowseResult> {
+  return {
+    resources: [
+      { id: 'accounts', name: 'Accounts', type: 'object_type', hasChildren: false, path: '/accounts' },
+      { id: 'cases', name: 'Cases', type: 'object_type', hasChildren: false, path: '/cases' },
+      { id: 'opportunities', name: 'Opportunities', type: 'object_type', hasChildren: false, path: '/opportunities' },
+    ],
+  }
+}
+
+async function browseJira(connectionId: string, orgId: string): Promise<BrowseResult> {
+  const cloudId = await getCloudId(connectionId, orgId, 'jira')
+  const res = await jiraFetch<any[]>(connectionId, orgId, cloudId, '/rest/api/3/project')
+  const resources: BrowsableResource[] = (Array.isArray(res) ? res : []).map((p: any) => ({
+    id: p.key,
+    name: p.name,
+    type: 'project' as const,
+    hasChildren: false,
+    path: `/${p.key}`,
+    metadata: { projectType: p.projectTypeKey, avatarUrl: p.avatarUrls?.['48x48'] },
+  }))
+  return { resources }
+}
+
+async function browseConfluence(connectionId: string, orgId: string): Promise<BrowseResult> {
+  const cloudId = await getCloudId(connectionId, orgId, 'confluence')
+  const res = await confluenceFetch<{ results: any[] }>(
+    connectionId,
+    orgId,
+    cloudId,
+    '/wiki/rest/api/space?limit=50&type=global',
+    undefined
+  )
+  const resources: BrowsableResource[] = (res.results ?? []).map((space: any) => ({
+    // Use numeric space ID so the fetcher can filter with ?space-id= directly.
+    // space.id is the Confluence numeric ID; space.key is the human-readable key.
+    id: String(space.id ?? space.key),
+    name: space.name,
+    type: 'space' as const,
+    hasChildren: false,
+    path: `/${space.key}`,
+    metadata: { type: space.type, key: space.key },
+  }))
+  return { resources }
+}
+
+async function browseLinear(connectionId: string, orgId: string): Promise<BrowseResult> {
+  const res = await linearFetch(connectionId, orgId, '{ teams { nodes { id name key } } }') as any
+  const teams: any[] = res?.data?.teams?.nodes ?? []
+  const resources: BrowsableResource[] = teams.map((team) => ({
+    id: team.id,
+    name: team.name,
+    type: 'project' as const,
+    hasChildren: false,
+    path: `/${team.key}`,
+    metadata: { key: team.key },
+  }))
+  return { resources }
+}
+
+// ---- Group D: BI tools ---------------------------------------
+
+async function browseZendesk(
+  _connectionId: string,
+  _orgId: string
+): Promise<BrowseResult> {
+  return {
+    resources: [
+      { id: 'tickets', name: 'Tickets', type: 'object_type', hasChildren: false, path: '/tickets' },
+      { id: 'articles', name: 'Help Center Articles', type: 'object_type', hasChildren: false, path: '/articles' },
+    ],
+  }
+}
+
+async function browseLooker(connectionId: string, orgId: string): Promise<BrowseResult> {
+  const [looks, dashboards] = await Promise.all([
+    lookerFetch<Array<{ id: number; title: string; folder_name?: string }>>(
+      connectionId, orgId, '/looks?fields=id,title,folder_name&limit=200'
+    ).catch(() => [] as Array<{ id: number; title: string; folder_name?: string }>),
+    lookerFetch<Array<{ id: string; title: string; folder_name?: string }>>(
+      connectionId, orgId, '/dashboards?fields=id,title,folder_name&limit=200'
+    ).catch(() => [] as Array<{ id: string; title: string; folder_name?: string }>),
+  ])
+
+  const resources: BrowsableResource[] = [
+    ...(looks ?? []).map((l) => ({
+      id: `look:${l.id}`,
+      name: l.title,
+      type: 'database' as const,
+      hasChildren: false,
+      path: `/${l.title}`,
+      metadata: { kind: 'look', folder: l.folder_name },
+    })),
+    ...(dashboards ?? []).map((d) => ({
+      id: `dashboard:${d.id}`,
+      name: d.title,
+      type: 'database' as const,
+      hasChildren: false,
+      path: `/${d.title}`,
+      metadata: { kind: 'dashboard', folder: d.folder_name },
+    })),
+  ]
+  return { resources }
+}
+
+async function browseTableau(connectionId: string, orgId: string): Promise<BrowseResult> {
+  const session = await tableauSignIn(connectionId, orgId)
+  const res = await tableauFetch<any>(session, `/sites/${session.siteId}/workbooks?pageSize=100`)
+  const workbooks: any[] = res?.workbooks?.workbook ?? []
+  const resources: BrowsableResource[] = workbooks.map((wb) => ({
+    id: wb.id,
+    name: wb.name,
+    type: 'database' as const,
+    hasChildren: false,
+    path: `/${wb.name}`,
+    metadata: { project: wb.project?.name },
+  }))
+  return { resources }
+}
+
+async function browseMetabase(connectionId: string, orgId: string): Promise<BrowseResult> {
+  const [cards, dashboards] = await Promise.all([
+    metabaseFetch<Array<{ id: number; name: string; display: string }>>(
+      connectionId, orgId, '/card'
+    ).catch(() => [] as Array<{ id: number; name: string; display: string }>),
+    metabaseFetch<Array<{ id: number; name: string }>>(
+      connectionId, orgId, '/dashboard'
+    ).catch(() => [] as Array<{ id: number; name: string }>),
+  ])
+
+  const resources: BrowsableResource[] = [
+    ...(cards ?? []).map((c) => ({
+      id: `card:${c.id}`,
+      name: c.name,
+      type: 'database' as const,
+      hasChildren: false,
+      path: `/${c.name}`,
+      metadata: { kind: 'question', display: c.display },
+    })),
+    ...(dashboards ?? []).map((d) => ({
+      id: `dashboard:${d.id}`,
+      name: d.name,
+      type: 'database' as const,
+      hasChildren: false,
+      path: `/${d.name}`,
+      metadata: { kind: 'dashboard' },
+    })),
+  ]
+  return { resources }
+}
+
+async function browseDbt(connectionId: string, orgId: string): Promise<BrowseResult> {
+  const accountId = await dbtAccountId(connectionId, orgId)
+  const res = await dbtFetch<{ data?: any[] }>(connectionId, orgId, '/jobs/')
+  const jobs: any[] = res?.data ?? []
+  const resources: BrowsableResource[] = jobs.map((job: any) => ({
+    id: String(job.id),
+    name: job.name,
+    type: 'database' as const,
+    hasChildren: false,
+    path: `/${job.name}`,
+    metadata: { projectId: job.project_id, environmentId: job.environment_id, accountId },
+  }))
+  return { resources }
+}
+
 // ---- Registry -----------------------------------------------
 
 /**
  * Map of provider keys to their browse function.
- * Only Tier 1 providers have browse implementations.
- * Other providers will return a "sync all" fallback.
  */
 const providerBrowserMap: Partial<Record<ProviderKey, ProviderBrowser>> = {
+  // Google
   google_drive: browseDrive,
   google: browseDrive,
+  gmail: browseGmail,
+  google_calendar: browseGoogleCalendar,
+  // Slack / Notion / GitHub
   slack: browseSlack,
   notion: browseNotion,
   github: browseGitHub,
+  // Microsoft
+  outlook: browseOutlook,
+  ms_calendar: browseMsCalendar,
+  onedrive: browseOneDrive,
+  sharepoint: browseSharePoint,
+  // CRM / PM
+  hubspot: browseHubSpot,
+  salesforce: browseSalesforce,
+  jira: browseJira,
+  confluence: browseConfluence,
+  linear: browseLinear,
+  // BI tools
+  zendesk: browseZendesk,
+  looker: browseLooker,
+  tableau: browseTableau,
+  metabase: browseMetabase,
+  dbt: browseDbt,
+  // Data warehouse
   snowflake: browseSnowflake,
   bigquery: browseBigQuery,
   redshift: browseRedshift,

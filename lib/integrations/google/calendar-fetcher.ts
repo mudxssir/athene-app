@@ -1,6 +1,8 @@
 import { googleFetch } from './api-client'
 import type { FetchedChunk } from '@/lib/integrations/base'
 import { assertSafeMetadata } from '@/lib/integrations/base'
+import { type SyncConfig, getSelectedResourceIds } from '@/lib/integrations/sync-config'
+import { logger } from '@/lib/logger'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,7 +49,8 @@ export async function fetchCalendarEvents(
   orgId: string,
   timeMin: Date,
   timeMax: Date,
-  maxResults: number = 50
+  maxResults: number = 50,
+  calendarId: string = 'primary'
 ): Promise<CalendarEvent[]> {
   const params = new URLSearchParams({
     timeMin: timeMin.toISOString(),
@@ -57,7 +60,8 @@ export async function fetchCalendarEvents(
     maxResults: String(maxResults),
   })
 
-  const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params.toString()}`
+  const encodedId = encodeURIComponent(calendarId)
+  const url = `https://www.googleapis.com/calendar/v3/calendars/${encodedId}/events?${params.toString()}`
   const res = await googleFetch<CalendarListResponse>(connectionId, orgId, url)
   return res.items || []
 }
@@ -184,13 +188,37 @@ export function calendarEventToChunk(event: CalendarEvent): FetchedChunk {
 /**
  * Convenience wrapper: fetches events in a time window and returns FetchedChunk[].
  * This is what the nango-fetch worker calls for Calendar indexing.
+ *
+ * When syncConfig has selected calendars (from browseGoogleCalendar), fetches
+ * events from each selected calendar instead of only the primary one.
  */
 export async function fetchCalendarChunks(
   connectionId: string,
   orgId: string,
   timeMin: Date,
   timeMax: Date,
+  syncConfig?: SyncConfig,
 ): Promise<FetchedChunk[]> {
-  const events = await fetchCalendarEvents(connectionId, orgId, timeMin, timeMax)
-  return events.map(calendarEventToChunk)
+  const selectedCalendarIds = syncConfig ? getSelectedResourceIds(syncConfig) : null
+
+  if (!selectedCalendarIds || selectedCalendarIds.size === 0) {
+    // Default: primary calendar only
+    const events = await fetchCalendarEvents(connectionId, orgId, timeMin, timeMax)
+    return events.map(calendarEventToChunk)
+  }
+
+  // Fetch events from each selected calendar and merge
+  const allChunks: FetchedChunk[] = []
+  for (const calId of selectedCalendarIds) {
+    try {
+      const events = await fetchCalendarEvents(connectionId, orgId, timeMin, timeMax, 50, calId)
+      allChunks.push(...events.map(calendarEventToChunk))
+    } catch (err) {
+      logger.warn(
+        { calendarId: calId, err: err instanceof Error ? err.message : String(err) },
+        '[calendar] Failed to fetch events from selected calendar — skipping'
+      )
+    }
+  }
+  return allChunks
 }

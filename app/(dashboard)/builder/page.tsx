@@ -39,16 +39,16 @@ type NodeData = {
 
 const INITIAL_NODES: NodeData[] = [
   { id: 1, type: "Trigger", icon: Play, label: "On File Upload", pos: { x: 100, y: 150 }, color: "bg-emerald-500" },
-  { id: 2, type: "Action", icon: Search, label: "Semantic Search", pos: { x: 350, y: 150 }, color: "bg-[#66ADE4]" },
+  { id: 2, type: "Action", icon: Search, label: "Semantic Search", pos: { x: 350, y: 150 }, color: "bg-secondary" },
   { id: 3, type: "Branch", icon: GitBranch, label: "Classification", pos: { x: 600, y: 150 }, color: "bg-amber-500" },
-  { id: 4, type: "Terminal", icon: Terminal, label: "Synth Agent", pos: { x: 850, y: 150 }, color: "bg-[#66ADE4]" },
+  { id: 4, type: "Terminal", icon: Terminal, label: "Synth Agent", pos: { x: 850, y: 150 }, color: "bg-secondary" },
 ];
 
 const LOGIC_BLOCKS = [
   { label: "Trigger Node", type: "Trigger", icon: Play, color: "bg-emerald-500", iconColor: "text-accent", bg: "bg-accent/10" },
-  { label: "AI Reasoning", type: "Action", icon: Cpu, color: "bg-[#66ADE4]", iconColor: "text-primary", bg: "bg-primary/10" },
-  { label: "Knowledge Retrieval", type: "Action", icon: Database, color: "bg-[#66ADE4]", iconColor: "text-primary", bg: "bg-primary/10" },
-  { label: "Output Stream", type: "Terminal", icon: ChevronRight, color: "bg-[#66ADE4]", iconColor: "text-secondary", bg: "bg-secondary/10" },
+  { label: "AI Reasoning", type: "Action", icon: Cpu, color: "bg-secondary", iconColor: "text-primary", bg: "bg-primary/10" },
+  { label: "Knowledge Retrieval", type: "Action", icon: Database, color: "bg-secondary", iconColor: "text-primary", bg: "bg-primary/10" },
+  { label: "Output Stream", type: "Terminal", icon: ChevronRight, color: "bg-secondary", iconColor: "text-secondary", bg: "bg-secondary/10" },
 ] as const;
 
 // Node dimensions for port and SVG line calculations
@@ -223,7 +223,7 @@ export default function BuilderPage() {
                  <button
                   onClick={handleDeployFleet}
                   disabled={isDeploying || !savedAutomationId}
-                  className="h-14 px-12 rounded-[1.5rem] bg-gradient-to-r from-primary to-secondary text-primary-foreground font-black uppercase tracking-[0.2em] text-[11px] gap-4 shadow-2xl shadow-primary/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center relative overflow-visible group">
+                  className="h-14 px-12 rounded-[1.5rem] bg-primary text-primary-foreground font-black uppercase tracking-[0.2em] text-[11px] gap-4 shadow-2xl shadow-primary/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center relative overflow-visible group">
                    <div className="absolute -left-3 top-1/2 -translate-y-1/2 w-12 h-12 rounded-[1.25rem] border-4 border-background bg-white flex items-center justify-center shadow-2xl group-hover:rotate-12 transition-transform">
                       <img src="/logo.png" alt="Logo" className="w-7 h-7 object-contain" />
                    </div>

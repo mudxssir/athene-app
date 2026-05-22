@@ -1,58 +1,59 @@
 // ============================================================
-// embedder.ts — OpenAI batch embeddings (ATH-28)
+// embedder.ts — Google batch embeddings
 //
-// Fixed 1536-dim text-embedding-3-small so output matches the
-// vector(1536) column on document_embeddings.
+// Uses text-embedding-004 (768-dim) to match the vector(768)
+// column on document_embeddings (migrated in 20260514000001).
 //
-// Rule #2: input texts are passed through to OpenAI and the
+// Rule #2: input texts are passed through to Google and the
 // vectors come back. Nothing here writes text to Supabase.
 // ============================================================
 
-import OpenAI from "openai";
+import { GoogleGenerativeAI, TaskType } from "@google/generative-ai";
 
-const EMBEDDING_MODEL = "text-embedding-3-small";
-const EMBEDDING_DIMENSIONS = 1536;
+const EMBEDDING_MODEL = "text-embedding-004";
+const EMBEDDING_DIMENSIONS = 768;
 
-// OpenAI embeddings endpoint hard-limits batch size to 2048 inputs
-// and ~300k tokens. 96 is a safe default for typical chunks.
+// Google batchEmbedContents supports up to 100 inputs per call.
+// 96 keeps us safely under that limit.
 const DEFAULT_BATCH_SIZE = 96;
 
-let openaiInstance: OpenAI | null = null;
+let googleInstance: GoogleGenerativeAI | null = null;
 
-function getClient(): OpenAI {
-  if (!openaiInstance) {
-    const apiKey = process.env.OPENAI_API_KEY;
+function getClient(): GoogleGenerativeAI {
+  if (!googleInstance) {
+    const apiKey = process.env.GOOGLE_API_KEY;
     if (!apiKey) {
-      throw new Error("Missing OPENAI_API_KEY environment variable");
+      throw new Error("Missing GOOGLE_API_KEY environment variable");
     }
-    openaiInstance = new OpenAI({ apiKey });
+    googleInstance = new GoogleGenerativeAI(apiKey);
   }
-  return openaiInstance;
+  return googleInstance;
 }
 
 /**
  * Embed an array of texts. Preserves input order.
  *
- * Returns an array of 1536-dim vectors. Batches requests of more
- * than DEFAULT_BATCH_SIZE items to stay under the OpenAI limit.
+ * Returns an array of 768-dim vectors. Batches requests of more
+ * than DEFAULT_BATCH_SIZE items to stay under the Google limit.
  */
 export async function embed(texts: string[]): Promise<number[][]> {
   if (!Array.isArray(texts) || texts.length === 0) return [];
 
-  const client = getClient();
+  const genAI = getClient();
+  const model = genAI.getGenerativeModel({ model: EMBEDDING_MODEL });
   const results: number[][] = new Array(texts.length);
 
   for (let i = 0; i < texts.length; i += DEFAULT_BATCH_SIZE) {
     const slice = texts.slice(i, i + DEFAULT_BATCH_SIZE);
-    const res = await client.embeddings.create({
-      model: EMBEDDING_MODEL,
-      input: slice,
-      dimensions: EMBEDDING_DIMENSIONS,
+    const res = await model.batchEmbedContents({
+      requests: slice.map((text) => ({
+        content: { parts: [{ text }], role: "user" },
+        taskType: TaskType.RETRIEVAL_DOCUMENT,
+      })),
     });
 
-    // API guarantees res.data is in request order
-    res.data.forEach((row, j) => {
-      results[i + j] = row.embedding;
+    res.embeddings.forEach((emb, j) => {
+      results[i + j] = emb.values;
     });
   }
 

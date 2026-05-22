@@ -16,7 +16,7 @@ import { createHash } from 'node:crypto'
 import { supabaseAdmin } from '@/lib/supabase/server'
 import type { FetchedChunk } from './base'
 import { logger } from '@/lib/logger'
-import { embedBatch } from '@/lib/ai/embedding-factory'
+import { embedBatch, type EmbeddingHint } from '@/lib/ai/embedding-factory'
 import { chunk as tokenChunk } from '@/lib/langgraph/tools/chunker'
 
 // ---- Constants --------------------------------------------------
@@ -27,6 +27,39 @@ const EMAIL_CHUNK_OVERLAP_CHARS = 200
 
 /** Email source_type values that bypass the token-based chunker */
 const EMAIL_SOURCE_TYPES = new Set(['gmail', 'outlook', 'email'])
+
+/**
+ * Structured record types (CRM, calendar) — each record is its own semantic unit.
+ * Avoid sub-chunking: a deal record fragmented across two chunks loses field relationships.
+ */
+const RECORD_SOURCE_TYPES = new Set([
+  'hubspot', 'salesforce',
+  'google_calendar', 'ms_calendar',
+])
+
+/**
+ * Tabular / BI types — fetchers pre-structure content (stats / sample / aggregation).
+ * Use larger chunks to keep column headers with data rows.
+ */
+const TABULAR_SOURCE_TYPES = new Set([
+  'snowflake', 'bigquery', 'redshift',
+  'looker', 'metabase', 'tableau', 'dbt', 'powerbi',
+])
+
+/**
+ * Conversational thread types — use larger chunks + more overlap to preserve
+ * thread context across multiple messages.
+ */
+const THREAD_SOURCE_TYPES = new Set([
+  'slack', 'zendesk', 'jira', 'linear', 'github',
+])
+
+/** CRM / structured field keys worth promoting to filterable metadata */
+const STRUCTURED_FIELD_KEYS = [
+  'stage', 'amount', 'priority', 'status', 'lifecycle',
+  'industry', 'pipeline', 'close_date', 'severity',
+  'type', 'probability', 'owner_id', 'email', 'company',
+]
 
 // ---- Content Chunking -------------------------------------------
 
@@ -67,15 +100,77 @@ function chunkEmail(content: string): string[] {
 }
 
 /**
+ * Strips residual HTML and normalizes whitespace before chunking.
+ * Most fetchers already clean their output, but some sources (Confluence,
+ * Zendesk, Gmail) can leak partial tags.
+ *
+ * HTML detection heuristic: only strip a `<...>` span if it looks like an
+ * actual tag (starts with a letter or `/`). This avoids corrupting code/SQL
+ * content where `<`, `>` appear as comparison operators (e.g. `WHERE age < 30`).
+ */
+function normalizeContent(content: string): string {
+  return content
+    .replace(/<\/?\s*[a-zA-Z][^>]*>/g, ' ')  // strip HTML tags (letter-prefixed only)
+    .replace(/&(?:amp|lt|gt|quot|nbsp|apos);/gi, (m) => ({
+      '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&nbsp;': ' ', '&apos;': "'"
+    } as Record<string, string>)[m.toLowerCase()] ?? m)  // decode common entities
+    .replace(/\n{3,}/g, '\n\n')     // collapse runs of blank lines
+    .replace(/ {2,}/g, ' ')         // collapse multiple spaces
+    .trim()
+}
+
+/**
+ * Extracts well-known structured fields from chunk metadata into a
+ * dedicated key for future faceted search (no schema migration required).
+ */
+function extractStructuredFields(meta: Record<string, unknown>): Record<string, unknown> | null {
+  const fields: Record<string, unknown> = {}
+  for (const key of STRUCTURED_FIELD_KEYS) {
+    if (meta[key] !== undefined) fields[key] = meta[key]
+  }
+  return Object.keys(fields).length > 0 ? fields : null
+}
+
+/**
  * Routes to the correct chunker based on source type.
- * Email → character-based (2000 chars / 200 overlap).
- * Everything else → token-based (512 tokens / 64 overlap, cl100k_base).
+ *
+ * Strategy | Trigger                         | Chunk size
+ * ---------|-------------------------------- |-----------
+ * record   | CRM + calendar                  | no split (whole record)
+ * tabular  | data warehouse + BI             | 768 tok / 96 overlap
+ * thread   | Slack, tickets, issues, PRs     | 768 tok / 128 overlap
+ * email    | gmail, outlook                  | 2000 char / 200 overlap
+ * document | everything else (default)       | 512 tok / 64 overlap
  */
 function chunkContent(content: string, sourceType?: string): string[] {
-  if (sourceType && EMAIL_SOURCE_TYPES.has(sourceType)) {
+  if (!sourceType) {
+    return tokenChunk(content, { chunkSize: 512, overlap: 64 }).map((c) => c.text)
+  }
+
+  // Structured records: each record is its own semantic unit — no splitting
+  if (RECORD_SOURCE_TYPES.has(sourceType)) {
+    if (content.length <= 3000) return [content]
+    // Oversized record (unusual): fall back to email chunker which breaks on sentence boundaries
     return chunkEmail(content)
   }
-  // Token-based chunking for documents (Drive, SharePoint, Notion, etc.)
+
+  // Tabular/BI: fetchers already structure content; keep large chunks to preserve column context
+  if (TABULAR_SOURCE_TYPES.has(sourceType)) {
+    if (content.length <= 4000) return [content]
+    return tokenChunk(content, { chunkSize: 768, overlap: 96 }).map((c) => c.text)
+  }
+
+  // Conversational threads: larger chunks + more overlap to keep thread context intact
+  if (THREAD_SOURCE_TYPES.has(sourceType)) {
+    return tokenChunk(content, { chunkSize: 768, overlap: 128 }).map((c) => c.text)
+  }
+
+  // Email: character-based (short bodies, no tokenizer overhead needed)
+  if (EMAIL_SOURCE_TYPES.has(sourceType)) {
+    return chunkEmail(content)
+  }
+
+  // Long-form documents: Drive, Confluence, Notion pages, wiki — 512-token default
   return tokenChunk(content, { chunkSize: 512, overlap: 64 }).map((c) => c.text)
 }
 
@@ -83,13 +178,18 @@ function chunkContent(content: string, sourceType?: string): string[] {
 
 /**
  * Generates embeddings for the given texts via the EmbeddingFactory.
- * Provider resolved from: org BYOK → system env (Jina / Together / Nomic).
+ * Provider resolved from: org BYOK → system env.
+ * Hint lets the Google provider select the optimal task type.
  */
-async function generateEmbeddings(texts: string[], orgId?: string): Promise<number[][]> {
-  return embedBatch(texts, orgId)
+async function generateEmbeddings(texts: string[], orgId?: string, hint?: EmbeddingHint): Promise<number[][]> {
+  return embedBatch(texts, orgId, hint)
 }
 
-// ---- Main Indexing Function -------------------------------------
+/** Resolve the embedding hint from source type (only relevant for Google provider). */
+function resolveEmbeddingHint(sourceType?: string): EmbeddingHint {
+  if (sourceType && RECORD_SOURCE_TYPES.has(sourceType)) return 'structured'
+  return 'document'
+}
 
 // ---- Document record resolution ---------------------------------
 
@@ -184,31 +284,37 @@ export async function indexDocument(
   )
   if (!contentChanged) return documentId
 
-  // 1. Split content into chunks (token-based for docs, char-based for email)
-  const contentChunks = chunkContent(chunk.content, chunk.metadata.provider)
+  // 1. Normalize then split content into type-appropriate chunks
+  const normalizedContent = normalizeContent(chunk.content)
+  const contentChunks = chunkContent(normalizedContent, chunk.metadata.provider)
 
   if (contentChunks.length === 0) return documentId
 
   // 2. Generate embeddings for all chunks in a single batch (org-BYOK aware)
-  const embeddings = await generateEmbeddings(contentChunks, orgId)
+  const embeddings = await generateEmbeddings(contentChunks, orgId, resolveEmbeddingHint(chunk.metadata.provider as string))
 
   // 3. Build the records to upsert — must match document_embeddings schema exactly
-  const records = contentChunks.map((text, index) => ({
-    org_id: orgId,
-    document_id: documentId,
-    department_id: departmentId,
-    owner_user_id: ownerUserId,
-    source_type: chunk.metadata.provider,
-    visibility,
-    chunk_index: index,
-    embedding: embeddings[index],
-    // SHA-256 hash — used to skip re-embedding unchanged chunks
-    content_hash: createHash('sha256').update(text).digest('hex'),
-    // Searchable preview — fallback when metadata.chunk_text is unavailable
-    content_preview: text.slice(0, 200),
-    // Zero-copy: store chunk text here so LLM retrieval never re-hits the source
-    metadata: { ...chunk.metadata, chunk_text: text },
-  }))
+  const structuredFields = RECORD_SOURCE_TYPES.has(chunk.metadata.provider as string)
+    ? extractStructuredFields(chunk.metadata)
+    : null
+
+  const records = contentChunks.map((text, index) => {
+    const meta: Record<string, unknown> = { ...chunk.metadata, chunk_text: text }
+    if (structuredFields) meta.structured_fields = structuredFields
+    return {
+      org_id: orgId,
+      document_id: documentId,
+      department_id: departmentId,
+      owner_user_id: ownerUserId,
+      source_type: chunk.metadata.provider,
+      visibility,
+      chunk_index: index,
+      embedding: embeddings[index],
+      content_hash: createHash('sha256').update(text).digest('hex'),
+      content_preview: text.slice(0, 200),
+      metadata: meta,
+    }
+  })
 
   // 4. Upsert into Supabase via service-role (bypasses RLS)
   // onConflict matches UNIQUE (document_id, chunk_index) constraint
@@ -265,7 +371,7 @@ export async function indexDocuments(
         prepared.push({ chunk, documentId, subChunks: [] })
         continue
       }
-      const subChunks = chunkContent(chunk.content, chunk.metadata.provider)
+      const subChunks = chunkContent(normalizeContent(chunk.content), chunk.metadata.provider)
       if (subChunks.length > 0) {
         prepared.push({ chunk, documentId, subChunks })
       }
@@ -282,29 +388,36 @@ export async function indexDocuments(
   // Only include items with subChunks (items with empty subChunks had unchanged content)
   const changedItems = prepared.filter(item => item.subChunks.length > 0)
   const allTexts: string[] = changedItems.flatMap(item => item.subChunks)
-  const allTemplates = changedItems.flatMap(item =>
-    item.subChunks.map((text, index) => ({
-      org_id: orgId,
-      document_id: item.documentId,
-      department_id: departmentId,
-      owner_user_id: ownerUserId,
-      source_type: item.chunk.metadata.provider,
-      visibility,
-      chunk_index: index,
-      content_hash: createHash('sha256').update(text).digest('hex'),
-      // Searchable preview — fallback when metadata.chunk_text is unavailable
-      content_preview: text.slice(0, 200),
-      // Zero-copy: chunk text stored here for LLM context — source never re-fetched at query time
-      metadata: { ...item.chunk.metadata, chunk_text: text },
-    }))
-  )
+  const allTemplates = changedItems.flatMap(item => {
+    const structuredFields = RECORD_SOURCE_TYPES.has(item.chunk.metadata.provider as string)
+      ? extractStructuredFields(item.chunk.metadata)
+      : null
+    return item.subChunks.map((text, index) => {
+      const meta: Record<string, unknown> = { ...item.chunk.metadata, chunk_text: text }
+      if (structuredFields) meta.structured_fields = structuredFields
+      return {
+        org_id: orgId,
+        document_id: item.documentId,
+        department_id: departmentId,
+        owner_user_id: ownerUserId,
+        source_type: item.chunk.metadata.provider,
+        visibility,
+        chunk_index: index,
+        content_hash: createHash('sha256').update(text).digest('hex'),
+        content_preview: text.slice(0, 200),
+        metadata: meta,
+      }
+    })
+  })
 
   // ---- Phase 3: generate embeddings in batches (org-BYOK aware) ---
+  // Derive hint from the first changed item's source type (batch is homogeneous per dispatch)
+  const batchHint = resolveEmbeddingHint(changedItems[0]?.chunk.metadata.provider as string)
   const allEmbeddings: number[][] = []
   for (let i = 0; i < allTexts.length; i += EMBED_BATCH_SIZE) {
     const batchTexts = allTexts.slice(i, i + EMBED_BATCH_SIZE)
     try {
-      const batchEmbeddings = await generateEmbeddings(batchTexts, orgId)
+      const batchEmbeddings = await generateEmbeddings(batchTexts, orgId, batchHint)
       allEmbeddings.push(...batchEmbeddings)
     } catch (err) {
       logger.error(
@@ -341,25 +454,3 @@ export async function indexDocuments(
   }
 }
 
-// ---- Helpers ----------------------------------------------------
-
-/**
- * Generates a deterministic ID for a chunk.
- * Ensures re-indexing overwrites rather than duplicates.
- */
-function generateChunkId(
-  sourceType: string,
-  sourceUrl: string,
-  chunkIndex: number
-): string {
-  // Simple hash: we use a deterministic string
-  // In production, you'd use a proper hash function
-  const raw = `${sourceType}:${sourceUrl}:${chunkIndex}`
-  // Convert to a URL-safe base64-like string
-  let hash = 0
-  for (let i = 0; i < raw.length; i++) {
-    const char = raw.charCodeAt(i)
-    hash = ((hash << 5) - hash + char) | 0
-  }
-  return `${sourceType}_${Math.abs(hash).toString(36)}_${chunkIndex}`
-}

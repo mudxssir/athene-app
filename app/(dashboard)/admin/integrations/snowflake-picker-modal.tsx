@@ -150,7 +150,7 @@ export function SnowflakePickerModal({ open, connectionId, onClose, onSuccess }:
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Filter tables..."
-              className="w-full h-11 pl-11 pr-4 bg-white/5 border border-white/10 rounded-2xl text-sm font-bold placeholder:text-muted-foreground/30 text-foreground outline-none focus:border-[#D96FAB]/30 transition-colors"
+              className="w-full h-11 pl-11 pr-4 bg-white/5 border border-white/10 rounded-2xl text-sm font-bold placeholder:text-muted-foreground/30 text-foreground outline-none focus:border-primary/30 transition-colors"
             />
             {search && (
               <button
@@ -205,7 +205,7 @@ export function SnowflakePickerModal({ open, connectionId, onClose, onSuccess }:
                     {/* Schema group header */}
                     <div className="flex items-center justify-between mb-2 pb-2 border-b border-white/5">
                       <div className="flex items-center gap-2">
-                        <Database className="w-3.5 h-3.5 text-[#7AADCF]" />
+                        <Database className="w-3.5 h-3.5 text-secondary" />
                         <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                           {schemaKey}
                         </span>
@@ -215,7 +215,7 @@ export function SnowflakePickerModal({ open, connectionId, onClose, onSuccess }:
                       </div>
                       <button
                         onClick={() => toggleSchema(schemaTables)}
-                        className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 hover:text-[#D96FAB] transition-colors flex items-center gap-1"
+                        className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 hover:text-primary transition-colors flex items-center gap-1"
                       >
                         {allSelected
                           ? <><CheckSquare className="w-3 h-3" /> Deselect all</>
@@ -233,14 +233,14 @@ export function SnowflakePickerModal({ open, connectionId, onClose, onSuccess }:
                             onClick={() => toggleTable(table.fullName)}
                             className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all text-left ${
                               isSelected
-                                ? "bg-[#D96FAB]/10 border border-[#D96FAB]/20"
+                                ? "bg-primary/10 border border-primary/20"
                                 : "hover:bg-white/5 border border-transparent"
                             }`}
                           >
                             {isSelected
-                              ? <CheckSquare className="w-4 h-4 text-[#D96FAB] flex-shrink-0" />
+                              ? <CheckSquare className="w-4 h-4 text-primary flex-shrink-0" />
                               : <Square className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />}
-                            <Table2 className="w-4 h-4 text-[#D96FAB]/60 flex-shrink-0" />
+                            <Table2 className="w-4 h-4 text-primary/60 flex-shrink-0" />
                             <span className="text-sm font-bold text-foreground">{table.name}</span>
                           </button>
                         );
@@ -271,7 +271,7 @@ export function SnowflakePickerModal({ open, connectionId, onClose, onSuccess }:
             <Button
               onClick={handleSave}
               disabled={saving || selectedTables.size === 0}
-              className="h-10 px-6 rounded-xl bg-[#D96FAB] hover:bg-[#D96FAB]/90 text-white font-black text-sm gap-2 shadow-lg shadow-[#D96FAB]/20"
+              className="h-10 px-6 rounded-xl bg-primary hover:bg-primary/90 text-white font-black text-sm gap-2 shadow-lg shadow-primary/20"
             >
               {saving && <Loader2 className="w-3 h-3 animate-spin" />}
               Save & Sync

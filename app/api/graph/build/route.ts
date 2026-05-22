@@ -3,12 +3,18 @@ import { getContextFromHeaders } from '@/lib/supabase/rls-client';
 import { qstash } from '@/lib/qstash/client';
 import { getServerBaseUrl } from '@/lib/url/server-base-url';
 import { logger } from '@/lib/logger';
+import { rateLimit } from '@/lib/redis/client';
 
 export async function POST(request: Request) {
   const context = getContextFromHeaders(request.headers);
 
   if (!context) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { allowed } = await rateLimit(`graph_build:${context.org_id}`, 5, 3600);
+  if (!allowed) {
+    return NextResponse.json({ error: 'Rate limited — try again later' }, { status: 429 });
   }
 
   try {

@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { getContextFromHeaders } from "@/lib/supabase/rls-client";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
+import { rateLimit } from "@/lib/redis/client";
 import { parseDocument } from "@/lib/integrations/microsoft/document-parser";
 import { indexDocument } from "@/lib/integrations/indexing";
 
@@ -24,10 +25,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { allowed } = await rateLimit(`upload:${context.user_id}`, 20, 3600);
+  if (!allowed) {
+    return NextResponse.json({ error: "Rate limited — try again later" }, { status: 429 });
+  }
+
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
   if (!file) {
     return NextResponse.json({ error: "No file provided" }, { status: 400 });
+  }
+
+  if (file.size > 50 * 1024 * 1024) {
+    return NextResponse.json({ error: "File too large (max 50 MB)" }, { status: 413 });
   }
 
   // context.user_id is already the internal Supabase UUID (resolved by middleware)

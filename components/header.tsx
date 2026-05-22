@@ -25,33 +25,38 @@ const Header = memo(function HeaderContent({ role }: HeaderProps) {
   if (!mounted) return null;
 
   return (
-    <header className="h-14 border-b border-border flex items-center justify-between px-8 bg-background/60 shrink-0 z-40 sticky top-0 backdrop-blur-xl transition-colors duration-300">
-      <div className="flex items-center gap-6">
-        <SidebarTrigger className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all rounded-xl border border-transparent hover:border-border" />
-        <h2 className="text-sm font-black text-foreground tracking-tighter uppercase font-['Space_Grotesk'] hidden sm:block">AtheneAI</h2>
+    <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-background/60 shrink-0 z-40 sticky top-0 backdrop-blur-xl transition-colors duration-300">
+      <div className="flex items-center gap-5">
+        <SidebarTrigger className="h-[34px] w-[34px] text-muted-foreground hover:text-foreground hover:bg-muted transition-all rounded-[12px] border border-transparent hover:border-border shrink-0" />
+        <h2
+          className="hidden sm:block text-foreground"
+          style={{ fontSize: 14, fontWeight: 800, letterSpacing: "-0.02em", textTransform: "uppercase", fontFamily: "var(--font-sans)" }}
+        >
+          Athene<span className="text-primary">AI</span>
+        </h2>
         <nav className="hidden md:flex items-center gap-8">
-          <Link 
-            href="/graph" 
+          <Link
+            href="/graph"
             className={cn(
-              "text-[10px] font-bold uppercase tracking-widest cursor-pointer transition-colors",
+              "text-[10px] font-extrabold uppercase tracking-[0.28em] transition-colors",
               pathname.includes("graph") ? "text-primary" : "text-muted-foreground hover:text-primary"
             )}
           >
             Network
           </Link>
-          <Link 
-            href="/builder" 
+          <Link
+            href="/builder"
             className={cn(
-              "text-[10px] font-bold uppercase tracking-widest cursor-pointer transition-colors",
+              "text-[10px] font-extrabold uppercase tracking-[0.28em] transition-colors",
               pathname.includes("builder") ? "text-primary" : "text-muted-foreground hover:text-primary"
             )}
           >
             Agent Lab
           </Link>
-          <Link 
-            href="/files" 
+          <Link
+            href="/files"
             className={cn(
-              "text-[10px] font-bold uppercase tracking-widest cursor-pointer transition-colors",
+              "text-[10px] font-extrabold uppercase tracking-[0.28em] transition-colors",
               pathname.includes("files") ? "text-primary" : "text-muted-foreground hover:text-primary"
             )}
           >
@@ -60,66 +65,66 @@ const Header = memo(function HeaderContent({ role }: HeaderProps) {
         </nav>
       </div>
 
-      <div className="flex items-center gap-6">
-        <div className="hidden lg:flex items-center gap-4">
-           <OrganizationSwitcher
-              hidePersonal={true}
-              afterSelectOrganizationUrl="/briefing"
-              afterLeaveOrganizationUrl="/briefing"
-              appearance={{
-                elements: {
-                  organizationSwitcherTrigger: "text-muted-foreground hover:text-foreground transition-colors text-[9px] font-bold uppercase tracking-widest bg-transparent border-none p-0",
-                  organizationPreviewMainIdentifier: "text-foreground",
-                  organizationPreviewSecondaryIdentifier: "text-muted-foreground"
-                }
-              }}
-           />
+      <div className="flex items-center gap-2">
+        <div className="hidden lg:flex items-center mr-3">
+          <OrganizationSwitcher
+            hidePersonal={true}
+            afterSelectOrganizationUrl="/briefing"
+            afterLeaveOrganizationUrl="/briefing"
+            appearance={{
+              elements: {
+                organizationSwitcherTrigger:
+                  "text-muted-foreground hover:text-foreground transition-colors text-[9px] font-extrabold uppercase tracking-[0.28em] bg-muted px-3 h-[28px] rounded-[99px] border border-border hover:bg-muted/80",
+                organizationPreviewMainIdentifier: "text-foreground text-[11px] font-bold",
+                organizationPreviewSecondaryIdentifier: "text-muted-foreground",
+              },
+            }}
+          />
         </div>
-        
-        <div className="flex items-center gap-4">
+
+        <div className="flex items-center gap-2">
           <ThemeToggle />
           {role === "admin" && (
             <>
-              <Link href="/admin/grants" title="Security Hub">
-                <ShieldCheck
-                  size={16}
-                  className="text-muted-foreground hover:text-secondary transition-colors cursor-pointer"
-                />
+              <Link
+                href="/admin/grants"
+                title="Security Hub"
+                className="flex items-center justify-center h-[34px] w-[34px] rounded-[12px] text-muted-foreground hover:text-secondary hover:bg-muted transition-all"
+              >
+                <ShieldCheck size={16} />
               </Link>
-              <Link href="/admin/integrations" title="Network Cluster">
-                <Radio
-                  size={16}
-                  className="text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-                />
+              <Link
+                href="/admin/integrations"
+                title="Network Cluster"
+                className="flex items-center justify-center h-[34px] w-[34px] rounded-[12px] text-muted-foreground hover:text-primary hover:bg-muted transition-all"
+              >
+                <Radio size={16} />
               </Link>
-              <div className="relative">
+              <div className="relative flex items-center justify-center h-[34px] w-[34px] rounded-[12px] text-muted-foreground hover:text-foreground hover:bg-muted transition-all cursor-pointer">
                 <Link href="/admin/audit" title="Audit Log">
-                  <Bell
-                    size={16}
-                    className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                  />
+                  <Bell size={16} />
                 </Link>
-                <div className="absolute top-0 right-0 w-1.5 h-1.5 bg-secondary rounded-full shadow-[0_0_8px_rgba(217,122,46,0.45)]" />
+                <span className="absolute top-[7px] right-[7px] w-[5px] h-[5px] bg-secondary rounded-full pointer-events-none" />
               </div>
             </>
           )}
-          <Link href="/dashboard" title="Neural Pulse">
-            <Cpu
-              size={16}
-              className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-            />
+          <Link
+            href="/dashboard"
+            title="Neural Pulse"
+            className="flex items-center justify-center h-[34px] w-[34px] rounded-[12px] text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+          >
+            <Cpu size={16} />
           </Link>
-          <div className="w-7 h-7 rounded-full border border-border overflow-hidden hover:border-primary/50 transition-colors">
-            <UserButton 
+          <div className="w-[34px] h-[34px] rounded-full border border-border overflow-hidden hover:border-primary/50 transition-colors flex items-center justify-center ml-1">
+            <UserButton
               appearance={{
                 elements: {
-                  userButtonAvatarBox: "w-7 h-7 dark:grayscale-[0.5]",
-                  userButtonTrigger: "focus:shadow-none"
-                }
+                  userButtonAvatarBox: "w-[34px] h-[34px] dark:grayscale-[0.3]",
+                  userButtonTrigger: "focus:shadow-none",
+                },
               }}
             />
           </div>
-          {/* Accessible logout button for E2E tests and screen readers */}
           <div className="sr-only">
             <SignOutButton>
               <button data-testid="logout-button" aria-label="Logout">Log out</button>

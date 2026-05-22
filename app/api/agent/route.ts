@@ -6,6 +6,7 @@ import { mapRole } from "@/lib/auth/clerk";
 import { rateLimit, cached, redis } from "@/lib/redis/client";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
+import { syncUserContext } from "@/lib/auth/sync";
 import { withSSEFrameSpan } from "@/lib/telemetry/spans";
 
 export async function POST(req: NextRequest) {
@@ -93,26 +94,24 @@ export async function POST(req: NextRequest) {
       }
     );
 
-    // ATH-PROD: Auto-sync user membership if missing
+    // ATH-PROD: Auto-sync user membership if missing — fetch real email from Clerk
     if (!memberRow) {
-      const { data: newMember, error: memberCreateError } = await supabaseAdmin
-        .from("org_members")
-        .insert({
-          org_id: orgRow!.id,
-          clerk_user_id: userId,
-          email: "unknown@sync.athene.ai", // Placeholder, ideally fetch from Clerk if needed
-          display_name: "User " + userId.slice(-4),
-          role: mapRole(orgRole ?? undefined) ?? "member",
-        })
-        .select("id")
-        .limit(1)
-        .maybeSingle();
-
-      if (memberCreateError) {
-        logger.error({ userId, orgId, err: memberCreateError.message }, "[agent] Member sync failed");
+      const syncResult = await syncUserContext(userId, orgId, orgRole ?? undefined);
+      if (!syncResult.success) {
+        logger.error({ userId, orgId, err: syncResult.error }, "[agent] Member sync failed");
         return NextResponse.json({ error: "Failed to sync user membership" }, { status: 500 });
       }
-      memberRow = newMember ? { ...newMember, timezone: null, department_id: null } : null;
+      const { data: syncedMember } = await supabaseAdmin
+        .from("org_members")
+        .select("id, timezone, department_id")
+        .eq("clerk_user_id", userId)
+        .eq("org_id", orgRow!.id)
+        .maybeSingle();
+      if (!syncedMember) {
+        logger.error({ userId, orgId }, "[agent] Member not found after sync");
+        return NextResponse.json({ error: "Failed to resolve user after sync" }, { status: 500 });
+      }
+      memberRow = syncedMember;
     }
 
     // 3. Ensure Thread Persistence (Required for HITL foreign keys)

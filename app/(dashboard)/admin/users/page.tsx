@@ -145,9 +145,9 @@ export default function UsersPage() {
   const getRoleBadge = (role: string) => {
     switch (role) {
       case "admin":
-        return <Badge className="bg-[#DA88B6]/20 text-[#DA88B6] border-[#DA88B6]/30 px-3 py-1 rounded-lg gap-1.5"><ShieldAlert className="w-3 h-3" /> Admin</Badge>;
+        return <Badge className="bg-primary/20 text-primary border-primary/30 px-3 py-1 rounded-lg gap-1.5"><ShieldAlert className="w-3 h-3" /> Admin</Badge>;
       case "super_user":
-        return <Badge className="bg-[#66ADE4]/20 text-[#66ADE4] border-[#66ADE4]/30 px-3 py-1 rounded-lg gap-1.5"><ShieldCheck className="w-3 h-3" /> BI Analyst</Badge>;
+        return <Badge className="bg-secondary/20 text-secondary border-secondary/30 px-3 py-1 rounded-lg gap-1.5"><ShieldCheck className="w-3 h-3" /> BI Analyst</Badge>;
       default:
         return <Badge className="bg-white/5 text-slate-400 border-white/10 px-3 py-1 rounded-lg gap-1.5"><Shield className="w-3 h-3" /> Member</Badge>;
     }

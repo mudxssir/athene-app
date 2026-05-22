@@ -89,13 +89,13 @@ export function AddIntegrationDialog({
         {/* Search Section */}
         <div className="px-8 py-6 bg-accent/5 border-b border-white/5">
           <div className="relative group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground transition-colors group-focus-within:text-[#D96FAB]" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
             <input
               type="text"
               placeholder="Search by name, category or tool..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-12 pl-12 pr-4 bg-white/5 border border-white/10 rounded-2xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#D96FAB]/20 focus:border-[#D96FAB]/40 transition-all placeholder:text-muted-foreground/30"
+              className="w-full h-12 pl-12 pr-4 bg-white/5 border border-white/10 rounded-2xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all placeholder:text-muted-foreground/30"
               autoFocus
             />
           </div>
@@ -128,7 +128,7 @@ export function AddIntegrationDialog({
                             "group flex items-center justify-between p-5 rounded-[1.5rem] border transition-all duration-300",
                             isConnected 
                               ? "bg-accent/5 border-white/5 opacity-60" 
-                              : "bg-white/5 border-white/5 hover:border-[#D96FAB]/20 hover:bg-[#D96FAB]/5 cursor-pointer"
+                              : "bg-white/5 border-white/5 hover:border-primary/20 hover:bg-primary/5 cursor-pointer"
                           )}
                           onClick={() => !isConnected && !isConnecting && onConnect(provider)}
                         >
@@ -160,7 +160,7 @@ export function AddIntegrationDialog({
                           ) : (
                             <Button
                               variant="ghost"
-                              className="h-10 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest text-[#7AADCF] group-hover:text-[#D96FAB] transition-colors gap-2"
+                              className="h-10 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest text-secondary group-hover:text-primary transition-colors gap-2"
                               disabled={!!connecting}
                             >
                               {isConnecting ? (
@@ -187,7 +187,7 @@ export function AddIntegrationDialog({
         <div className="p-6 border-t border-white/5 bg-accent/5 flex items-center justify-center">
           <p className="text-[10px] font-bold text-muted-foreground/40 flex items-center gap-2 uppercase tracking-widest">
             Need a custom tool?
-            <a href="mailto:support@athene.ai" className="text-[#7AADCF] hover:text-[#D96FAB] flex items-center gap-1 transition-colors">
+            <a href="mailto:support@athene.ai" className="text-secondary hover:text-primary flex items-center gap-1 transition-colors">
               Request Integration
               <ExternalLink className="w-2.5 h-2.5" />
             </a>
