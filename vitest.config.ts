@@ -22,6 +22,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './'),
+      // server-only is bundled inside Next.js and resolved by its custom webpack
+      // resolver — Vitest runs in plain Node and cannot find it. Stub it with a
+      // no-op so integration tests for server-side modules can run normally.
+      'server-only': path.resolve(__dirname, 'lib/__mocks__/server-only.ts'),
     },
   },
 });
