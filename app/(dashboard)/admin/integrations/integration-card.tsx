@@ -15,8 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { isBrowsable } from "@/lib/integrations/browsing";
-import type { ProviderKey } from "@/lib/integrations/providers";
+import { isBrowsable, type ProviderKey } from "@/lib/integrations/providers";
 
 export interface Integration {
   connectionId: string;

@@ -17,14 +17,13 @@ import { IntegrationCard, type Integration } from "./integration-card";
 import { AddIntegrationDialog } from "./add-integration-dialog";
 import { DrivePickerModal } from "./drive-picker-modal";
 import { PowerBIPickerModal } from "./powerbi-picker-modal";
-import { ProviderConfig, getProvider, PROVIDER_REGISTRY } from "@/lib/integrations/providers";
+import { ProviderConfig, getProvider, PROVIDER_REGISTRY, isBrowsable } from "@/lib/integrations/providers";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { VERTICAL_MODULES } from "@/lib/knowledge-graph/modules/registry";
 import { ResourceBrowser } from "@/components/integrations/resource-browser";
-import { isBrowsable } from "@/lib/integrations/browsing";
 
 // Reverse map: Nango integration ID (e.g. "google-drive") → internal key (e.g. "google_drive")
 const NANGO_KEY_MAP: Record<string, string> = Object.fromEntries(

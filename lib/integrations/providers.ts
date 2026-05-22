@@ -487,3 +487,21 @@ export function getAllProviders(): ProviderConfig[] {
  * List of all registered providers.
  */
 export const PROVIDERS = Object.values(PROVIDER_REGISTRY);
+
+/**
+ * Providers that support granular resource browsing (folder/channel picker).
+ * Client-safe — no server imports. Mirrors the keys of providerBrowserMap in browsing.ts.
+ */
+export const BROWSABLE_PROVIDERS = new Set<ProviderKey>([
+  'google_drive', 'google', 'gmail', 'google_calendar',
+  'slack', 'notion', 'github',
+  'outlook', 'ms_calendar', 'onedrive', 'sharepoint',
+  'hubspot', 'salesforce', 'jira', 'confluence', 'linear',
+  'zendesk', 'looker', 'tableau', 'metabase', 'dbt',
+  'snowflake', 'bigquery', 'redshift', 'powerbi',
+]);
+
+/** Returns true if the provider supports the resource browser picker. Client-safe. */
+export function isBrowsable(provider: ProviderKey): boolean {
+  return BROWSABLE_PROVIDERS.has(provider);
+}

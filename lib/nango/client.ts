@@ -1,3 +1,4 @@
+import 'server-only'
 import { Nango } from '@nangohq/node'
 import { supabaseAdmin } from '../supabase/server'
 import { getProvider } from '@/lib/integrations/providers'

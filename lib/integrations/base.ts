@@ -1,4 +1,5 @@
-﻿import { getConnectionToken } from '@/lib/nango/client'
+﻿import 'server-only'
+import { getConnectionToken } from '@/lib/nango/client'
 import { getProviderConfig, type ProviderKey } from './providers'
 import { Nango } from '@nangohq/node'
 import { logger } from '@/lib/logger'
