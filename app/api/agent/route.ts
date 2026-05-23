@@ -8,7 +8,7 @@ import { rateLimit, cached, redis } from "@/lib/redis/client";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 import { syncUserContext } from "@/lib/auth/sync";
-import { withSSEFrameSpan } from "@/lib/telemetry/spans";
+import { withSSEFrameSpan, withAgentRunSpan } from "@/lib/telemetry/spans";
 import { parseBody } from "@/lib/validation";
 
 const AgentPostSchema = z.object({
@@ -241,6 +241,7 @@ export async function POST(req: NextRequest) {
       try { await redis.del(lockKey); } catch { /* best-effort */ }
 
       try {
+        await withAgentRunSpan(orgRow!.id, effectiveThreadId, async () => {
         const eventStream = await graph.stream(initialState, {
           configurable: {
             thread_id: effectiveThreadId,
@@ -301,6 +302,7 @@ export async function POST(req: NextRequest) {
           }
         }
         await writer.close();
+        }); // withAgentRunSpan
       } catch (err: any) {
         logger.error({ err: err?.message }, "[agent] Stream error");
         const isQuota = err.message.includes("quota") || err.message.includes("rate_limit") || err.message.includes("429");

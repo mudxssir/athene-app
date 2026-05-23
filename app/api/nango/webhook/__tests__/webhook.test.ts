@@ -45,7 +45,8 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 vi.mock("@/lib/qstash/client", () => ({
-  dispatchThrottled: vi.fn(() => Promise.resolve()),
+  // Must return { dispatched, msgId } — the route destructures this immediately
+  dispatchThrottled: vi.fn(() => Promise.resolve({ dispatched: true, msgId: "msg-test-123" })),
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -55,6 +56,8 @@ vi.mock("@/lib/logger", () => ({
 // ─── Module under test (imported AFTER hoisted env and mocks) ────────────────
 
 import { POST } from "../route";
+import { supabaseAdmin } from "@/lib/supabase/server";
+import { dispatchThrottled } from "@/lib/qstash/client";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -162,4 +165,48 @@ describe("Nango webhook HMAC verification (8A.6)", () => {
 
     expect(response.status).toBe(401);
   });
+
+  it("dispatches a nango-fetch job for sync.completed with a known connection → dispatchThrottled called", async () => {
+    // Override the Supabase mock for this test only: return a connection row so the
+    // handler doesn't short-circuit before reaching dispatchThrottled.
+    vi.mocked(supabaseAdmin.from).mockReturnValueOnce({
+      select:      vi.fn().mockReturnThis(),
+      eq:          vi.fn().mockReturnThis(),
+      delete:      vi.fn().mockReturnThis(),
+      update:      vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn(() => Promise.resolve({
+        data: {
+          id:            "conn-uuid-123",
+          org_id:        "org-uuid-456",
+          source_type:   "github",
+          provider:      "github",
+          department_id: null,
+        },
+        error: null,
+      })),
+    } as any);
+
+    const body = JSON.stringify({
+      type:              "sync.completed",
+      providerConfigKey: "github",
+      connectionId:      "nango-conn-abc",
+    });
+    const sig = makeSignature(body);
+    const req = makeRequest(body, {
+      "Content-Type":      "application/json",
+      "x-nango-signature": sig,
+    });
+
+    const response = await POST(req as any);
+
+    expect(response.status).toBe(200);
+    expect(vi.mocked(dispatchThrottled)).toHaveBeenCalledOnce();
+  });
+
+  // NOTE: NANGO_SECRET_KEY = "" (empty string) cannot be tested in this file because
+  // the route captures `const NANGO_SECRET = process.env.NANGO_SECRET_KEY ?? ""` at
+  // module-load time via vi.hoisted(). To test the empty-secret fail-closed path
+  // (verifyNangoSignature returns false when !NANGO_SECRET) a separate test file
+  // with its own vi.hoisted() block that sets NANGO_SECRET_KEY="" is required.
+  it.skip("rejects all requests when NANGO_SECRET_KEY is empty string — requires separate module isolation", () => {});
 });

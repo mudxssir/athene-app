@@ -71,7 +71,7 @@ vi.mock("react", async () => {
 
 // ─── Modules under test ──────────────────────────────────────────────────────
 
-import { resolveUserAccess, assertAdminRole } from "@/lib/auth/rbac";
+import { resolveUserAccess, assertAdminRole, invalidateRBACCache } from "@/lib/auth/rbac";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -91,7 +91,7 @@ describe("resolveUserAccess", () => {
       (k) => delete supabaseMock.tableData[k]
     );
     redisMock.get.mockResolvedValue(null);   // cache miss by default
-    redisMock.set.mockResolvedValue(undefined as any);
+    // set is fire-and-forget in rbac.ts — no return value needed
   });
 
   it("returns cached value immediately when Redis has a hit (no Supabase call)", async () => {
@@ -105,7 +105,6 @@ describe("resolveUserAccess", () => {
     };
     redisMock.get.mockResolvedValue(JSON.stringify(cached));
 
-    // Use distinct IDs so React cache() doesn't return a previous result
     const result = await resolveUserAccess("uid-cache-hit", "oid-cache-hit");
 
     expect(result.role).toBe("admin");
@@ -148,13 +147,56 @@ describe("resolveUserAccess", () => {
       return b;
     });
 
-    // Use unique IDs to bypass React cache()
     const result = await resolveUserAccess("uid-db-hit", "oid-db-hit", "org:member");
 
     expect(orgQueried).toBe(true);
     expect(result.role).toBe("member");
     expect(result.dept_id).toBe(DEPT_ID);
     expect(result.internal_user_id).toBe(INT_USER_ID);
+  });
+
+  it("excludes expired grants from accessible_dept_ids — active and no-expiry grants are kept (1C.4)", async () => {
+    const now = new Date();
+    const pastDate   = new Date(now.getTime() - 60 * 60 * 1000).toISOString();   // 1 hour ago
+    const futureDate = new Date(now.getTime() + 60 * 60 * 1000).toISOString();   // 1 hour from now
+
+    supabaseMock.from.mockImplementation((table: string) => {
+      const b: any = {
+        select:      () => b,
+        limit:       () => b,
+        eq:          () => b,
+        insert:      () => b,
+        maybeSingle: () => {
+          if (table === "organizations")
+            return Promise.resolve({ data: { id: "org-grants-test" }, error: null });
+          if (table === "org_members")
+            return Promise.resolve({ data: { id: "mem-grants-test", role: "member", department_id: null }, error: null });
+          return Promise.resolve({ data: null, error: null });
+        },
+        // access_grants returns an array — simulated via thenable
+        then: (resolve: (v: any) => void) => {
+          if (table === "access_grants") {
+            resolve({
+              data: [
+                { id: "g1", scope_type: "department", scope_id: "dept-active",    expires_at: futureDate },
+                { id: "g2", scope_type: "department", scope_id: "dept-expired",   expires_at: pastDate  },
+                { id: "g3", scope_type: "department", scope_id: "dept-permanent", expires_at: null      },
+              ],
+              error: null,
+            });
+          } else {
+            resolve({ data: null, error: null });
+          }
+        },
+      };
+      return b;
+    });
+
+    const result = await resolveUserAccess("uid-grants-test", "oid-grants-test");
+
+    expect(result.accessible_dept_ids).toContain("dept-active");
+    expect(result.accessible_dept_ids).toContain("dept-permanent");
+    expect(result.accessible_dept_ids).not.toContain("dept-expired");
   });
 
   it("returns null access when both cache and DB are empty and userId/orgId missing", async () => {
@@ -221,7 +263,7 @@ describe("assertAdminRole", () => {
     expect(result).toBeNull();
   });
 
-  it("queries by primary key 'id' (not clerk_user_id) to prevent identity mismatch", async () => {
+  it("queries by primary key 'id' (not clerk_user_id) — prevents identity mismatch (1B.5)", async () => {
     const queriedCols: string[] = [];
     supabaseMock.from.mockImplementation(() => {
       const b: any = {};
@@ -236,5 +278,32 @@ describe("assertAdminRole", () => {
 
     // The first .eq() call must be on the primary key "id", not "clerk_user_id"
     expect(queriedCols[0]).toBe("id");
+  });
+});
+
+// ─── invalidateRBACCache ─────────────────────────────────────────────────────
+
+describe("invalidateRBACCache", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("deletes the Redis cache key that includes both userId and orgId (1B.1)", async () => {
+    await invalidateRBACCache(CLERK_USER_ID, CLERK_ORG_ID);
+
+    expect(redisMock.del).toHaveBeenCalledOnce();
+
+    // The cache key must contain BOTH identifiers — missing either would allow
+    // a stale entry for a different user or org to satisfy the lookup.
+    const deletedKey = redisMock.del.mock.calls[0][0] as string;
+    expect(deletedKey).toContain(CLERK_USER_ID);
+    expect(deletedKey).toContain(CLERK_ORG_ID);
+  });
+
+  it("does not throw when Redis.del fails — error is logged and swallowed", async () => {
+    redisMock.del.mockRejectedValue(new Error("Redis connection refused"));
+
+    // Should not throw — cache invalidation failures must not block the caller
+    await expect(invalidateRBACCache(CLERK_USER_ID, CLERK_ORG_ID)).resolves.toBeUndefined();
   });
 });

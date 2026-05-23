@@ -90,6 +90,7 @@ describe("emailAgentNode — happy path", () => {
 
     const payload = (result.pending_write_action as any)?.payload;
     expect(payload?.to).toEqual(["bob@example.com"]);
+    expect(payload?.cc).toEqual(["cc@example.com"]);
     expect(payload?.subject).toBe("Project Update");
     expect(payload?.body).toContain("Bob");
   });
@@ -108,7 +109,8 @@ describe("emailAgentNode — happy path", () => {
 
     const requestedAt = (result.pending_write_action as any)?.requested_at;
     expect(requestedAt).toBeDefined();
-    expect(() => new Date(requestedAt)).not.toThrow();
+    // new Date(undefined) does NOT throw — use getTime().not.toBeNaN() to catch missing values
+    expect(new Date(requestedAt).getTime()).not.toBeNaN();
   });
 });
 

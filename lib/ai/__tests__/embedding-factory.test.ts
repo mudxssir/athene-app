@@ -83,7 +83,12 @@ function mockJinaResponse(vecs: number[][]): void {
 }
 
 /** Make the BYOK RPC return a Jina key and mock the fetch response.
- *  Jina uses raw fetch (not the OpenAI SDK), so it's straightforward to mock. */
+ *  Jina uses raw fetch (not the OpenAI SDK), so it's straightforward to mock.
+ *
+ *  RPC contract: get_decrypted_llm_key returns rows shaped as
+ *    { provider: string, plaintext: string }
+ *  where `plaintext` is the decrypted API key.  If the DB function schema
+ *  ever changes this shape, update the mock here to match. */
 function mockByokJina(vecs: number[][]): void {
   rpcMock.mockResolvedValue({
     data: [{ provider: "jina", plaintext: "jina-byok-test-key" }],
@@ -150,6 +155,19 @@ describe("BYOK resolution", () => {
     expect(rpcMock).toHaveBeenCalledWith("get_decrypted_llm_key", expect.any(Object));
     // No OpenAI BYOK key → local model used
     expect(openaiCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("falls back to local model when RPC returns a DB error (error path)", async () => {
+    vi.mocked(getMasterKey).mockReturnValue("test-master-key");
+    // Simulate a real Supabase error response (data is null, error is set)
+    rpcMock.mockResolvedValue({ data: null, error: { message: "connection refused" } });
+    localPipelineMock.mockResolvedValue({ data: new Float32Array(ZERO_VEC) });
+
+    const result = await embed("rpc error text", "org-uuid-rpc-error");
+
+    // RPC was attempted but errored — should not throw, should fall back
+    expect(rpcMock).toHaveBeenCalled();
+    expect(result).toHaveLength(EMBEDDING_DIMS);
   });
 });
 

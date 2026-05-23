@@ -137,11 +137,13 @@ describe("calendarAgentNode — validation & error handling", () => {
 
     const result = await calendarAgentNode(makeState());
 
-    expect(result.awaiting_approval).toBeUndefined();
-    expect(result.pending_write_action).toBeUndefined();
-    // Should return a message asking for the time
+    // toBeFalsy (not toBeUndefined) — the impl may return false/null rather than omitting the key
+    expect(result.awaiting_approval).toBeFalsy();
+    expect(result.pending_write_action).toBeFalsy();
+    // Should return a message asking for the start time — require "start" or "when" as a whole word
+    // (avoids false positives like "Sorry, I can't process your request at this time" matching "time")
     const messages = result.messages as AIMessage[];
-    expect(messages?.[0]?.content).toMatch(/start|time|when/i);
+    expect(messages?.[0]?.content).toMatch(/\b(start|end|when)\b/i);
   });
 
   it("returns user-friendly message when LLM throws (no graph crash)", async () => {
@@ -149,10 +151,11 @@ describe("calendarAgentNode — validation & error handling", () => {
 
     const result = await calendarAgentNode(makeState());
 
-    expect(result.awaiting_approval).toBeUndefined();
-    expect(result.pending_write_action).toBeUndefined();
+    expect(result.awaiting_approval).toBeFalsy();
+    expect(result.pending_write_action).toBeFalsy();
+    // Error message must mention the "calendar" domain so a generic apology doesn't pass
     const messages = result.messages as AIMessage[];
-    expect(messages?.[0]?.content).toMatch(/sorry|calendar|details/i);
+    expect(messages?.[0]?.content).toMatch(/\bcalendar\b/i);
   });
 
   it("uses UTC timezone when state.user.timezone is absent", async () => {
