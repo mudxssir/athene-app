@@ -53,8 +53,8 @@ export async function hubspotSearch(
       for (const rec of (data.results ?? []).slice(0, perType)) {
         const p = rec.properties || {}
         const title =
-          [p['firstname'], p['lastname']].filter(Boolean).join(' ') ||
-          p['name'] ??
+          ([p['firstname'], p['lastname']].filter(Boolean).join(' ') ||
+          p['name']) ??
           p['dealname'] ??
           rec.id
 
