@@ -54,7 +54,12 @@ export const SYSTEM_CRON_DEFS: SystemCronDef[] = [
  * single failed registration doesn't block server startup.
  */
 export async function registerSystemCrons(): Promise<void> {
-  const APP_URL = process.env.NEXT_PUBLIC_APP_URL
+  // Fix: trim trailing slash so destination URLs never get double-slashes.
+  // e.g. "https://app.example.com/" + "/api/worker/hitl-cleanup"
+  //   → "https://app.example.com/api/worker/hitl-cleanup"  (correct)
+  // Without the trim the Set-based dedup would fail to match a schedule
+  // stored by QStash without the double slash.
+  const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
   if (!APP_URL) {
     logger.warn(
       {},
@@ -64,10 +69,9 @@ export async function registerSystemCrons(): Promise<void> {
   }
 
   // ── Step 1: fetch existing schedules ────────────────────────────────────
-  let existingDestinations: Set<string>
+  let existing: Array<{ destination: string; cron: string; scheduleId: string }>
   try {
-    const existing = await qstash.schedules.list()
-    existingDestinations = new Set(existing.map((s) => s.destination))
+    existing = await qstash.schedules.list()
   } catch (listErr: any) {
     // If we can't list schedules, skip registration entirely rather than
     // risk creating duplicates. The next cold start will retry.
@@ -78,12 +82,30 @@ export async function registerSystemCrons(): Promise<void> {
     return
   }
 
+  // Build a lookup map: destination → registered schedule (for cron-drift detection)
+  const existingByDest = new Map(existing.map((s) => [s.destination, s]))
+
   // ── Step 2: register only new/missing crons ──────────────────────────────
   for (const def of SYSTEM_CRON_DEFS) {
     const destination = `${APP_URL}${def.path}`
+    const registeredSchedule = existingByDest.get(destination)
 
-    if (existingDestinations.has(destination)) {
-      logger.info({ name: def.name, destination }, '[system-crons] Already registered — skipping')
+    if (registeredSchedule) {
+      // Warn when the cron expression has drifted from the definition —
+      // the operator must delete the old schedule and redeploy to update it.
+      if (registeredSchedule.cron !== def.cron) {
+        logger.warn(
+          {
+            name: def.name,
+            scheduleId: registeredSchedule.scheduleId,
+            registeredCron: registeredSchedule.cron,
+            expectedCron: def.cron,
+          },
+          '[system-crons] Cron expression mismatch — delete the old schedule via the admin endpoint and redeploy to update it',
+        )
+      } else {
+        logger.info({ name: def.name, destination }, '[system-crons] Already registered — skipping')
+      }
       continue
     }
 

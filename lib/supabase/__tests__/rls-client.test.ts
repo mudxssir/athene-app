@@ -142,6 +142,17 @@ describe('getContextFromHeaders', () => {
     expect(ctx).toBeNull();
   });
 
+  // ── user_id: pass-through (no UUID validation) ───────────────────────────
+  it('passes a non-UUID user_id through unchanged (middleware guarantees UUIDs)', () => {
+    // getContextFromHeaders() intentionally does NOT validate user_id against
+    // the UUID regex. The proxy middleware always injects access.internal_user_id
+    // which is already a UUID, so an extra check here would be redundant overhead.
+    // This test documents the intentional contract rather than a bug.
+    const ctx = getContextFromHeaders(makeHeaders({ 'x-current-user-id': 'clerk_user_abc123' }));
+    expect(ctx).not.toBeNull();
+    expect(ctx!.user_id).toBe('clerk_user_abc123');
+  });
+
   // ── Optional headers ─────────────────────────────────────────────────────
   it('defaults department_id to empty string when header is absent', () => {
     const ctx = getContextFromHeaders(makeHeaders({ 'x-current-user-dept-id': null }));

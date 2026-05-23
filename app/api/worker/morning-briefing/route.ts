@@ -168,7 +168,7 @@ export async function POST(request: Request): Promise<Response> {
   // duplicate rather than inserting a second briefing for the same user.
   const isFirstDelivery = await checkIdempotency(request)
   if (!isFirstDelivery) {
-    logger.warn({}, '[morning-briefing] Duplicate delivery detected — skipping')
+    logger.info({}, '[morning-briefing] Duplicate delivery detected — skipping')
     return NextResponse.json({ skipped: true, reason: 'duplicate' })
   }
 

@@ -98,8 +98,10 @@ ORDER  BY table_name;
 
 -- ────────────────────────────────────────────────────────────
 -- 6A.5 — LLM key encryption: encrypted_key never selected raw
--- Run with: grep -rn "select.*encrypted_key\|select.*'\*'.*llm_keys" lib/ app/
--- Expected: 0 matches outside the store_llm_key / get_decrypted_llm_key RPCs
+-- Run with: grep -rn "encrypted_key\|\.select(\"\*\")\|\.select('\*')" lib/ app/
+-- Then cross-check matches — zero should be outside the store_llm_key /
+-- get_decrypted_llm_key RPCs. The pattern above catches both the explicit
+-- column name AND wildcard select() calls on the llm_keys table.
 -- (This is a code review check, not a SQL query.)
 -- ────────────────────────────────────────────────────────────
 
@@ -188,4 +190,6 @@ ORDER  BY table_name;
 */
 
 -- No DDL executed — this migration is documentation-only.
-SELECT 1;
+-- DO block used instead of bare SELECT so pg_dump / migration runners that
+-- strip plain SELECT statements still register this file as executed.
+DO $$ BEGIN END $$;

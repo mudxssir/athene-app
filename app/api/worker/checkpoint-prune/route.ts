@@ -43,7 +43,7 @@ export async function POST(request: Request): Promise<Response> {
   // will be a no-op rather than re-running the potentially expensive batch delete.
   const isFirstDelivery = await checkIdempotency(request);
   if (!isFirstDelivery) {
-    logger.warn({}, '[checkpoint-prune] Duplicate delivery detected — skipping');
+    logger.info({}, '[checkpoint-prune] Duplicate delivery detected — skipping');
     return NextResponse.json({ skipped: true, reason: 'duplicate' });
   }
 

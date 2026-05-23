@@ -90,9 +90,13 @@ describe('registerSystemCrons', () => {
   });
 
   it('skips all schedules when every destination is already registered (true idempotency)', async () => {
-    const existing = SYSTEM_CRON_DEFS.map((def) =>
-      fakeSchedule(`${APP_URL}${def.path}`),
-    );
+    // Must use the real cron expressions — drift detection logs warn (not info)
+    // when the registered cron differs from def.cron, which would fail the
+    // "Already registered" assertion below.
+    const existing = SYSTEM_CRON_DEFS.map((def) => ({
+      ...fakeSchedule(`${APP_URL}${def.path}`),
+      cron: def.cron,
+    }));
     schedulesList.mockResolvedValue(existing);
 
     await registerSystemCrons();
@@ -106,22 +110,26 @@ describe('registerSystemCrons', () => {
   });
 
   it('creates only the schedules whose destination is not yet registered', async () => {
-    const firstDef = SYSTEM_CRON_DEFS[0];
-    const rest = SYSTEM_CRON_DEFS.slice(1);
+    // Look up by name — resistant to reordering of SYSTEM_CRON_DEFS entries.
+    const alreadyRegisteredDef = SYSTEM_CRON_DEFS.find((d) => d.name === 'hitl-cleanup');
+    if (!alreadyRegisteredDef) throw new Error("SYSTEM_CRON_DEFS missing 'hitl-cleanup' entry");
+    const stillNeededDefs = SYSTEM_CRON_DEFS.filter((d) => d.name !== 'hitl-cleanup');
 
-    schedulesList.mockResolvedValue([fakeSchedule(`${APP_URL}${firstDef.path}`)]);
+    schedulesList.mockResolvedValue([
+      { ...fakeSchedule(`${APP_URL}${alreadyRegisteredDef.path}`), cron: alreadyRegisteredDef.cron },
+    ]);
     schedulesCreate.mockResolvedValue({ scheduleId: 'partial-id' });
 
     await registerSystemCrons();
 
-    expect(schedulesCreate).toHaveBeenCalledTimes(rest.length);
-    for (const def of rest) {
+    expect(schedulesCreate).toHaveBeenCalledTimes(stillNeededDefs.length);
+    for (const def of stillNeededDefs) {
       expect(schedulesCreate).toHaveBeenCalledWith(
         expect.objectContaining({ destination: `${APP_URL}${def.path}` }),
       );
     }
     expect(schedulesCreate).not.toHaveBeenCalledWith(
-      expect.objectContaining({ destination: `${APP_URL}${firstDef.path}` }),
+      expect.objectContaining({ destination: `${APP_URL}${alreadyRegisteredDef.path}` }),
     );
   });
 

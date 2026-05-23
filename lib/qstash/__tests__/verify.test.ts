@@ -17,15 +17,8 @@ import type { Mock } from 'vitest';
 // vi.mock factories are hoisted to the top of the file and run before any
 // `const` declarations. Use vi.hoisted() to lift the controllable mocks.
 const { redisMock, loggerMock } = vi.hoisted(() => {
-  const redisMock = {
-    set: vi.fn(),
-    get: vi.fn(),
-    incr: vi.fn(),
-    decr: vi.fn(),
-    expire: vi.fn(),
-    del: vi.fn(),
-    pipeline: vi.fn(),
-  };
+  // Only `set` is called by checkIdempotency(); no other redis methods needed.
+  const redisMock = { set: vi.fn() };
   const loggerMock = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
   return { redisMock, loggerMock };
 });
@@ -107,8 +100,10 @@ describe('checkIdempotency', () => {
     );
   });
 
-  it('uses NX semantics so a second call with the same ID returns false', async () => {
-    // First call: key not present → SET NX returns OK
+  it('returns false on a second call when the mock simulates a key already set (OK then null)', async () => {
+    // The mock returns OK for the first delivery, then null to simulate the key
+    // already existing on a second delivery. This exercises the true/false
+    // branching in checkIdempotency, not real Redis NX semantics.
     redisMock.set.mockResolvedValueOnce('OK').mockResolvedValueOnce(null);
     expect(await checkIdempotency(makeRequest('msg-003'))).toBe(true);
     expect(await checkIdempotency(makeRequest('msg-003'))).toBe(false);
