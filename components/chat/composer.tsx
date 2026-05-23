@@ -1,15 +1,25 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { Send, Loader2, Paperclip, Mic } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Send, Loader2, Paperclip, Mic, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+// ── Scope filters ─────────────────────────────────────────────────────────────
+const SCOPES = ["All sources", "Customer data", "Internal docs", "My team"] as const;
+type Scope = typeof SCOPES[number];
+
 interface ComposerProps {
-  onSend: (message: string) => void;
+  onSend: (message: string, scope?: Scope) => void;
   isLoading?: boolean;
   isAnalytical?: boolean;
   placeholder?: string;
+  /** Pre-populate the input (e.g. from reference card "Ask →" buttons).
+   *  Changing either field focuses the textarea and sets its content.
+   *  Use prefillSeq as an incrementing counter to force re-trigger even
+   *  when the same string is sent twice in a row. */
+  prefillValue?: string;
+  prefillSeq?: number;
 }
 
 const MAX_LENGTH = 10000;
@@ -19,10 +29,33 @@ export function Composer({
   isLoading = false,
   isAnalytical = false,
   placeholder = "Ask Athene to synthesize anything...",
+  prefillValue,
+  prefillSeq,
 }: ComposerProps) {
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [activeScope, setActiveScope] = useState<Scope>("All sources");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // When a reference card sets a prefill, populate input and focus composer.
+  // prefillSeq is an incrementing counter so the effect fires even when the
+  // same string is sent twice in a row.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!prefillValue) return;
+    setInput(prefillValue);
+    setError(null);
+    setTimeout(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.style.height = "auto";
+      el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+      el.focus();
+      el.selectionStart = el.selectionEnd = el.value.length;
+    }, 0);
+  // prefillSeq is the trigger — intentionally omitting prefillValue from deps
+  // so we don't double-apply when seq changes but value stays the same.
+  }, [prefillSeq]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -41,7 +74,7 @@ export function Composer({
     }
 
     setError(null);
-    onSend(message);
+    onSend(message, activeScope);
     setInput("");
     // Reset textarea height
     if (textareaRef.current) {
@@ -67,7 +100,47 @@ export function Composer({
   const isNearLimit = charCount > MAX_LENGTH * 0.9;
 
   return (
-    <div className="bg-card p-[10px_12px_10px_18px] rounded-[32px] border border-border flex flex-col gap-3 shadow-[var(--shadow-3)] relative z-10 mx-6 mb-4 group focus-within:border-primary/40 transition-all">
+    <div className="bg-card p-[10px_12px_10px_18px] rounded-[32px] border border-border flex flex-col gap-2 shadow-[var(--shadow-3)] relative z-10 mx-6 mb-4 group focus-within:border-primary/40 transition-all">
+
+      {/* ── Scope filter chips ─────────────────────────────── */}
+      <div className="flex items-center gap-2 px-2 pt-1 flex-wrap">
+        {SCOPES.map((scope) => {
+          const active = scope === activeScope;
+          return (
+            <button
+              key={scope}
+              type="button"
+              onClick={() => setActiveScope(scope)}
+              style={{
+                display: "inline-flex", alignItems: "center", height: 22,
+                padding: "0 10px", borderRadius: 999,
+                fontFamily: "var(--font-sans)", fontWeight: 800,
+                fontSize: 8, letterSpacing: "0.28em", textTransform: "uppercase",
+                border: active ? "1px solid rgba(160,74,27,0.35)" : "1px solid var(--border)",
+                background: active ? "rgba(160,74,27,0.10)" : "transparent",
+                color: active ? "var(--primary)" : "var(--fg-subtle)",
+                cursor: "pointer", transition: "all .15s ease",
+              }}
+            >
+              {scope}
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 4, height: 22,
+            padding: "0 10px", borderRadius: 999,
+            fontFamily: "var(--font-sans)", fontWeight: 800,
+            fontSize: 8, letterSpacing: "0.28em", textTransform: "uppercase",
+            border: "1px solid var(--border)", background: "transparent",
+            color: "var(--fg-subtle)", cursor: "pointer",
+          }}
+        >
+          <SlidersHorizontal size={8} /> Filter
+        </button>
+      </div>
+
       {error && (
         <div className="px-4 text-xs text-red-400 font-medium">
           {error}

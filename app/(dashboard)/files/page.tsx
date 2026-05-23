@@ -1,5 +1,6 @@
 "use client";
 
+import { TCard } from "@/components/ui/kit";
 import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -238,7 +239,7 @@ export default function FilesPage() {
   const capacityPct = Math.min(files.length / 100, 1) * 100;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-12 pb-20 animate-in fade-in duration-700">
+    <div className="max-w-7xl mx-auto space-y-12 pb-20">
       <input
         ref={fileInputRef}
         type="file"
@@ -248,7 +249,7 @@ export default function FilesPage() {
         onChange={handleFileSelected}
       />
       {/* Page Header */}
-      <section className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-white/5 pb-10">
+      <TCard i={0} as="section" className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-border pb-10">
         <div className="space-y-4">
           <Badge className="bg-secondary/10 text-secondary border-none px-3 py-1 text-[10px] uppercase tracking-widest font-bold">
             Knowledge Base
@@ -277,7 +278,7 @@ export default function FilesPage() {
               <span className="ml-4">New Repository</span>
            </button>
         </div>
-      </section>
+      </TCard>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
         {/* Sidebar Analytics */}

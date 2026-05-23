@@ -1,5 +1,6 @@
 "use client";
 
+import { TCard } from "@/components/ui/kit";
 import { useState, useEffect, useCallback } from "react";
 import {
   GitBranch,
@@ -222,9 +223,9 @@ export default function DecisionsPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-10 pb-20 animate-in fade-in duration-700">
+    <div className="max-w-5xl mx-auto space-y-10 pb-20">
       {/* Page Header */}
-      <section className="flex flex-col gap-4 border-b border-white/5 pb-10">
+      <TCard i={0} as="section" className="flex flex-col gap-4 border-b border-border pb-10">
         <Badge className="bg-secondary/10 text-secondary border-none px-3 py-1 text-[10px] uppercase tracking-widest font-bold w-fit">
           Organizational Memory
         </Badge>
@@ -234,7 +235,7 @@ export default function DecisionsPage() {
         <p className="text-slate-400 text-lg max-w-xl font-medium leading-relaxed">
           Every resolved choice extracted from your documents — who decided, when, and what alternatives were considered.
         </p>
-      </section>
+      </TCard>
 
       {/* View switcher */}
       <div className="flex items-center gap-2 p-1.5 bg-white/5 rounded-2xl w-fit border border-white/10">

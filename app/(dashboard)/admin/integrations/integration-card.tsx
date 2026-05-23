@@ -124,7 +124,7 @@ export function IntegrationCard({
         ? "border-amber-400/25 hover:border-amber-400/40 hover:shadow-amber-500/5"
         : isStale
         ? "border-yellow-400/25 hover:border-yellow-400/40 hover:shadow-yellow-500/5"
-        : "border-white/5 hover:border-white/10 hover:shadow-[#D96FAB]/5"
+        : "border-white/5 hover:border-white/10 hover:shadow-primary/5"
     )}>
       <div className="absolute top-0 right-0 p-8 flex flex-col items-end gap-2">
         <Badge className={cn("rounded-full px-3 py-1 font-black text-[9px] uppercase tracking-widest border", config.color)}>
@@ -206,7 +206,7 @@ export function IntegrationCard({
                 ? "text-amber-400 hover:bg-amber-400/10"
                 : isStale
                 ? "text-yellow-400 hover:bg-yellow-400/10"
-                : "text-foreground hover:bg-[#7AADCF]/10 hover:text-[#7AADCF]"
+                : "text-foreground hover:bg-primary/10 hover:text-primary"
             )}
           >
             {checking ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}

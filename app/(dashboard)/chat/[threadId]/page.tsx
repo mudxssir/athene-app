@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { BrainCircuit, Database, Loader2, ShieldCheck } from "lucide-react";
+import { TCard } from "@/components/ui/kit";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ThreadSidebar } from "@/components/chat/thread-sidebar";
@@ -209,7 +210,7 @@ export default function ThreadChatPage() {
     }
   }, [handleStreamMessage, handleStreamError]);
 
-  async function handleSend(message: string) {
+  async function handleSend(message: string, scope?: string) {
     if (!message.trim() || isLoading || !threadId) return;
 
     const userMessage: Message = {
@@ -241,6 +242,7 @@ export default function ThreadChatPage() {
       message,
       threadId,
       task_type: isAnalyticalMode ? "analytical" : "general",
+      ...(scope && scope !== "All sources" ? { scope } : {}),
     });
   }
 
@@ -271,7 +273,7 @@ export default function ThreadChatPage() {
 
       <div className="flex-1 flex flex-col min-w-0 gap-6">
         {/* Header */}
-        <div className="flex items-center justify-between bg-accent/20 p-6 rounded-[2.5rem] border border-white/5 shadow-sm">
+        <TCard i={0} className="flex items-center justify-between p-6 rounded-[2.5rem] border border-border shadow-sm" style={{ background: "var(--bg-elevated)" }}>
           <div className="flex items-center gap-5">
             <div className="h-12 w-12 bg-primary rounded-2xl flex items-center justify-center shadow-md">
               <BrainCircuit className="h-6 w-6 text-white" />
@@ -286,7 +288,7 @@ export default function ThreadChatPage() {
                 </Badge>
               </div>
               <p className="text-[11px] text-muted-foreground/40 font-bold uppercase tracking-[0.15em] flex items-center gap-2 mt-0.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-[#5290B8]" />
+                <ShieldCheck className="w-3.5 h-3.5 text-primary" />
                 Encrypted Pipeline
               </p>
             </div>
@@ -313,7 +315,7 @@ export default function ThreadChatPage() {
               </TabsTrigger>
             </TabsList>
           </Tabs>
-        </div>
+        </TCard>
 
         {/* Messages */}
         <MessageList messages={messages} awaitingApproval={awaitingApproval} />

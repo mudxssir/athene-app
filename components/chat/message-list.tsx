@@ -72,7 +72,7 @@ export function MessageList({ messages, awaitingApproval }: MessageListProps) {
         parts.push(
           <Tooltip key={`kg-${match.index}`}>
             <TooltipTrigger asChild>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 mx-0.5 bg-[#F0EEFF]/10 border border-[#C4BCF0]/20 rounded text-[10px] font-bold uppercase tracking-wider text-[#9B8FD4] cursor-default">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 mx-0.5 rounded text-[10px] font-bold uppercase tracking-wider cursor-default" style={{ background: "rgba(230,185,40,0.12)", border: "1px solid rgba(230,185,40,0.28)", color: "var(--honey-600)" }}>
                 <GitBranch className="w-2.5 h-2.5" />
                 KG
               </span>

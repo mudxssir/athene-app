@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BriefingSection } from '@/components/briefing/section';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { History, Sparkles, RefreshCw, Calendar, BookOpen, Mail, Loader2, FileText, Database, Zap, MessageSquare, AlertCircle, Plug } from 'lucide-react';
+import { IconTile, Chip, TCard } from '@/components/ui/kit';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { fetchWithTimeout } from '@/lib/fetch-timeout';
@@ -23,36 +24,6 @@ interface BriefingContent {
   knowledge?: string;
   section_status?: Record<string, 'ok' | 'failed' | 'no_data'>;
   [key: string]: any;
-}
-
-/* ── Design-kit atoms ───────────────────────────────────── */
-
-function IconTile({ icon: I, size = 44, tone = 'primary' }: { icon: React.ElementType; size?: number; tone?: 'primary' | 'amber' | 'honey' }) {
-  const t = {
-    primary: { bg: 'rgba(160,74,27,.10)', border: 'rgba(160,74,27,.20)', color: 'var(--primary)' },
-    amber:   { bg: 'rgba(217,122,46,.12)', border: 'rgba(217,122,46,.22)', color: 'var(--secondary)' },
-    honey:   { bg: 'rgba(230,185,40,.18)', border: 'rgba(230,185,40,.32)', color: '#9E780E' },
-  }[tone];
-  return (
-    <div style={{ width: size, height: size, borderRadius: Math.round(size * 0.32), background: t.bg, border: `1px solid ${t.border}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: t.color, flexShrink: 0 }}>
-      <I size={Math.round(size * 0.5)} strokeWidth={1.7} />
-    </div>
-  );
-}
-
-function Chip({ kind = 'outline', dot, children }: { kind?: 'primary' | 'amber' | 'honey' | 'outline'; dot?: boolean; children: React.ReactNode }) {
-  const k = {
-    primary: { background: 'rgba(160,74,27,.10)', color: 'var(--primary)', border: '1px solid rgba(160,74,27,.22)' },
-    amber:   { background: 'rgba(217,122,46,.12)', color: 'var(--secondary)', border: '1px solid rgba(217,122,46,.22)' },
-    honey:   { background: 'rgba(230,185,40,.18)', color: '#9E780E', border: '1px solid rgba(230,185,40,.32)' },
-    outline: { background: 'transparent', color: 'var(--fg-muted)', border: '1px solid var(--border-strong)' },
-  }[kind];
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 24, padding: '0 12px', borderRadius: 999, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 9, letterSpacing: '0.3em', textTransform: 'uppercase', ...k }}>
-      {dot && <span style={{ width: 6, height: 6, borderRadius: 99, background: 'currentColor' }} />}
-      {children}
-    </span>
-  );
 }
 
 /* ── Types ──────────────────────────────────────────────── */
@@ -176,7 +147,7 @@ export default function BriefingPage() {
     <div style={{ maxWidth: 980, margin: '0 auto', padding: '36px 40px 80px' }}>
 
       {/* Hero header card — matches BriefingScreen */}
-      <div className="reveal reveal-1" style={{ position: 'relative', overflow: 'hidden', borderRadius: 36, background: 'var(--bg-elevated)', border: '1px solid var(--border)', padding: '40px 48px', marginBottom: 32 }}>
+      <TCard i={0} style={{ position: 'relative', overflow: 'hidden', borderRadius: 36, background: 'var(--bg-elevated)', border: '1px solid var(--border)', padding: '40px 48px', marginBottom: 32 }}>
         {/* Radial glow */}
         <div style={{ position: 'absolute', top: -120, right: -120, width: 480, height: 480, borderRadius: '50%', background: 'radial-gradient(ellipse, rgba(160,74,27,.10) 0%, transparent 65%)', pointerEvents: 'none' }} />
 
@@ -281,11 +252,11 @@ export default function BriefingPage() {
             </button>
           </div>
         </div>
-      </div>
+      </TCard>
 
       {/* Dataset Overview Strip — only shown when admin stats are available */}
       {stats && (
-        <div className="reveal reveal-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 28 }}>
+        <TCard i={1} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 28 }}>
           {[
             { icon: Database,      label: 'Documents Indexed',    value: stats.docs.total.toLocaleString(),                      sub: 'Total knowledge base',                        tone: 'primary' as const },
             { icon: Zap,           label: 'Active Feeds',         value: stats.connections.by_status.active.toLocaleString(),    sub: `${stats.connections.total} connectors total`, tone: 'amber' as const },
@@ -301,7 +272,7 @@ export default function BriefingPage() {
               <div style={{ fontSize: 10, color: 'var(--fg-subtle)', fontWeight: 700 }}>{sub}</div>
             </div>
           ))}
-        </div>
+        </TCard>
       )}
 
       {histItemLoading && (
@@ -314,7 +285,7 @@ export default function BriefingPage() {
       {/* Content */}
       {!briefing ? (
         insufficientData ? (
-          <div className="reveal reveal-2" style={{ padding: '64px 40px', textAlign: 'center', border: '1px dashed rgba(245,158,11,.3)', borderRadius: 36, background: 'rgba(245,158,11,.04)' }}>
+          <TCard i={2} style={{ padding: '64px 40px', textAlign: 'center', border: '1px dashed rgba(245,158,11,.3)', borderRadius: 36, background: 'rgba(245,158,11,.04)' }}>
             <IconTile icon={AlertCircle} size={80} tone="amber" />
             <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: 36, fontWeight: 800, letterSpacing: '-0.04em', textTransform: 'uppercase', marginTop: 24, color: 'var(--secondary)' }}>Insufficient Data</h3>
             <p style={{ color: 'var(--fg-muted)', fontSize: 15, fontWeight: 600, maxWidth: 440, margin: '14px auto 28px' }}>
@@ -325,9 +296,9 @@ export default function BriefingPage() {
                 <Plug size={16} />Connect Sources
               </button>
             </Link>
-          </div>
+          </TCard>
         ) : (
-          <div className="reveal reveal-2" style={{ padding: '64px 40px', textAlign: 'center', border: '1px dashed var(--border-strong)', borderRadius: 36, background: 'var(--bg-elevated)' }}>
+          <TCard i={2} style={{ padding: '64px 40px', textAlign: 'center', border: '1px dashed var(--border-strong)', borderRadius: 36, background: 'var(--bg-elevated)' }}>
             <IconTile icon={Sparkles} size={80} tone="primary" />
             <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: 36, fontWeight: 800, letterSpacing: '-0.04em', textTransform: 'uppercase', marginTop: 24, color: 'var(--fg)' }}>Synthesis required</h3>
             <p style={{ color: 'var(--fg-muted)', fontSize: 15, fontWeight: 600, maxWidth: 440, margin: '14px auto 28px' }}>
@@ -342,39 +313,43 @@ export default function BriefingPage() {
               style={{ height: 58, padding: '0 30px', borderRadius: 18, background: 'var(--primary)', border: 'none', color: '#fff', fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 800, letterSpacing: '0.28em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer', boxShadow: '0 14px 30px -10px rgba(160,74,27,.55)' }}>
               {enqueuing ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />Synthesizing…</> : <><Sparkles size={16} />Trigger neural synthesis</>}
             </button>
-          </div>
+          </TCard>
         )
       ) : (
-        <div className="grid gap-12 animate-in fade-in slide-in-from-bottom-8 duration-1000">
-          <BriefingSection
-            type="calendar"
-            title="Calendar & Strategic Alignment"
-            content={briefing.content?.calendar ?? ""}
-            status={briefing.content?.section_status?.calendar}
-            className="stagger-1"
-          />
-          <BriefingSection
-            type="emails"
-            title="High-Priority Communications"
-            content={briefing.content?.emails ?? ""}
-            status={briefing.content?.section_status?.emails}
-            className="stagger-2"
-          />
-          <BriefingSection
-            type="docs"
-            title="Knowledge & Document Evolution"
-            content={briefing.content?.docs ?? ""}
-            status={briefing.content?.section_status?.docs}
-            className="stagger-3"
-          />
-          {briefing.content?.knowledge && (
+        <div className="grid gap-12">
+          <TCard i={2}>
             <BriefingSection
-              type="knowledge"
-              title="Executive Summary"
-              content={briefing.content.knowledge}
-              status={briefing.content?.section_status?.knowledge}
-              className="stagger-4"
+              type="calendar"
+              title="Calendar & Strategic Alignment"
+              content={briefing.content?.calendar ?? ""}
+              status={briefing.content?.section_status?.calendar}
             />
+          </TCard>
+          <TCard i={3}>
+            <BriefingSection
+              type="emails"
+              title="High-Priority Communications"
+              content={briefing.content?.emails ?? ""}
+              status={briefing.content?.section_status?.emails}
+            />
+          </TCard>
+          <TCard i={4}>
+            <BriefingSection
+              type="docs"
+              title="Knowledge & Document Evolution"
+              content={briefing.content?.docs ?? ""}
+              status={briefing.content?.section_status?.docs}
+            />
+          </TCard>
+          {briefing.content?.knowledge && (
+            <TCard i={5}>
+              <BriefingSection
+                type="knowledge"
+                title="Executive Summary"
+                content={briefing.content.knowledge}
+                status={briefing.content?.section_status?.knowledge}
+              />
+            </TCard>
           )}
         </div>
       )}

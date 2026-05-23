@@ -1,5 +1,6 @@
 'use client'
 
+import { TCard } from "@/components/ui/kit";
 import { useState, useEffect } from 'react'
 import { useOrganization } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
@@ -205,8 +206,8 @@ export default function KeysPage() {
   }
 
   return (
-    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20 font-['Space_Grotesk'] transition-colors duration-300">
-      <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
+    <div className="space-y-10 pb-20 font-['Space_Grotesk'] transition-colors duration-300">
+      <TCard i={0} as="header" className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
         <div className="space-y-4">
           <div className="flex items-center gap-3">
             <div className="p-3 rounded-2xl bg-gradient-to-br from-primary/10 to-secondary/10 border border-border shadow-lg">
@@ -220,7 +221,7 @@ export default function KeysPage() {
             Configure your own API keys for the Athene core agents. Keys are encrypted at rest using your organization's unique KMS secret.
           </p>
         </div>
-      </header>
+      </TCard>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Add Key Form */}

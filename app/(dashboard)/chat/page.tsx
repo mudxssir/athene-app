@@ -1,42 +1,12 @@
 "use client";
 
 import React, { useEffect, useRef, useState, type FormEvent } from "react";
-import { Sparkles, Send, Plus, RefreshCw, Database, AlertTriangle, AlertCircle, CheckCircle2, ExternalLink, ArrowRight, Zap, ShieldCheck, Paperclip } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Sparkles, Send, Plus, RefreshCw, Database, AlertTriangle, AlertCircle, CheckCircle2, ExternalLink, ArrowRight, Zap, ShieldCheck, Share2 } from "lucide-react";
+import { IconTile, Chip, TCard } from "@/components/ui/kit";
+import { Composer } from "@/components/chat/composer";
 import { HitlModal } from "@/components/chat/hitl-modal";
 import { toast } from "sonner";
-
-/* ── Design-kit atoms ───────────────────────────────────── */
-
-function IconTile({ icon: I, size = 42, tone = "primary" }: { icon: React.ElementType; size?: number; tone?: "primary" | "amber" | "honey" | "success" | "warn" }) {
-  const t = {
-    primary: { bg: "rgba(160,74,27,.10)", border: "rgba(160,74,27,.20)", color: "var(--primary)" },
-    amber:   { bg: "rgba(217,122,46,.12)", border: "rgba(217,122,46,.22)", color: "var(--secondary)" },
-    honey:   { bg: "rgba(230,185,40,.18)", border: "rgba(230,185,40,.32)", color: "#9E780E" },
-    success: { bg: "rgba(79,122,46,.12)",  border: "rgba(79,122,46,.25)",  color: "#4F7A2E" },
-    warn:    { bg: "rgba(178,58,26,.10)",  border: "rgba(178,58,26,.25)",  color: "var(--danger)" },
-  }[tone];
-  return (
-    <div style={{ width: size, height: size, borderRadius: Math.round(size * 0.32), background: t.bg, border: `1px solid ${t.border}`, display: "inline-flex", alignItems: "center", justifyContent: "center", color: t.color, flexShrink: 0 }}>
-      <I size={Math.round(size * 0.5)} strokeWidth={1.7} />
-    </div>
-  );
-}
-
-function Chip({ kind = "outline", dot, children }: { kind?: "primary" | "amber" | "honey" | "outline" | "success"; dot?: boolean; children: React.ReactNode }) {
-  const k = {
-    primary: { background: "rgba(160,74,27,.10)", color: "var(--primary)", border: "1px solid rgba(160,74,27,.22)" },
-    amber:   { background: "rgba(217,122,46,.12)", color: "var(--secondary)", border: "1px solid rgba(217,122,46,.22)" },
-    honey:   { background: "rgba(230,185,40,.18)", color: "#9E780E", border: "1px solid rgba(230,185,40,.32)" },
-    outline: { background: "transparent", color: "var(--fg-muted)", border: "1px solid var(--border-strong)" },
-    success: { background: "rgba(79,122,46,.12)", color: "#4F7A2E", border: "1px solid rgba(79,122,46,.25)" },
-  }[kind];
-  return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 24, padding: "0 12px", borderRadius: 999, fontFamily: "var(--font-sans)", fontWeight: 800, fontSize: 9, letterSpacing: "0.3em", textTransform: "uppercase", ...k }}>
-      {dot && <span style={{ width: 6, height: 6, borderRadius: 99, background: "currentColor" }} />}
-      {children}
-    </span>
-  );
-}
 
 /* ── Reference cards (right sidebar) ───────────────────── */
 const REF_CARDS = [
@@ -79,13 +49,16 @@ interface Message {
 
 /* ── Page ───────────────────────────────────────────────── */
 export default function ChatPage() {
+  const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([{
     id: "init",
     role: "assistant",
     content: "Hi — I'm Athene. Ask me anything grounded in your connected sources. I'll cite every claim back to its source document.",
     timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
   }]);
-  const [input, setInput] = useState("");
+  // prefill.seq increments on every sendQuery call so the Composer effect
+  // always fires even when the same query string is clicked twice.
+  const [prefill, setPrefill] = useState<{ value: string; seq: number }>({ value: "", seq: 0 });
   const [isLoading, setIsLoading] = useState(false);
   const [isAnalytical, setIsAnalytical] = useState(false);
   const [threadId, setThreadId] = useState("");
@@ -93,7 +66,6 @@ export default function ChatPage() {
   const [pendingAction, setPendingAction] = useState<{ tool: string; payload: any } | null>(null);
   const [reconnecting, setReconnecting] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => { setThreadId(crypto.randomUUID()); }, []);
   useEffect(() => {
@@ -106,18 +78,23 @@ export default function ChatPage() {
   }
 
   function sendQuery(q: string) {
-    setInput(q);
-    setTimeout(() => inputRef.current?.focus(), 50);
+    setPrefill(prev => ({ value: q, seq: prev.seq + 1 }));
   }
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    const text = input.trim();
+  async function handleSend(message: string, scope?: string) {
+    const text = message.trim();
+    if (!text || isLoading) return;
+    // pass scope through to the stream payload (ignored if "All sources")
+    return handleSubmit(null, text, scope);
+  }
+
+  async function handleSubmit(e: FormEvent | null, overrideText?: string, scope?: string) {
+    if (e) e.preventDefault();
+    const text = overrideText?.trim() ?? "";
     if (!text || isLoading) return;
 
     const userMsg: Message = { id: `u-${Date.now()}`, role: "user", content: text, timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) };
     setMessages(p => [...p, userMsg]);
-    setInput("");
     setIsLoading(true);
 
     const assistantId = `a-${Date.now()}`;
@@ -132,7 +109,7 @@ export default function ChatPage() {
         setReconnecting(false);
       }
       try {
-        const res = await fetch("/api/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: text, threadId, task_type: isAnalytical ? "analytical" : "general" }) });
+        const res = await fetch("/api/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: text, threadId, task_type: isAnalytical ? "analytical" : "general", ...(scope && scope !== "All sources" ? { scope } : {}) }) });
         if (res.status === 429) { toast.error(`Rate limit reached. Try again in ${res.headers.get("Retry-After") ?? 60}s.`); break; }
         if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
         const reader = res.body.getReader();
@@ -211,8 +188,19 @@ export default function ChatPage() {
               </button>
             ))}
           </div>
-          <button onClick={newThread} style={{ width: 32, height: 32, borderRadius: 10, background: "var(--bg-muted)", border: "1px solid var(--border)", color: "var(--fg-muted)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+          <button
+            onClick={() => { newThread(); router.push("/chat"); }}
+            title="⌘K · New thread"
+            style={{ width: 32, height: 32, borderRadius: 10, background: "var(--bg-muted)", border: "1px solid var(--border)", color: "var(--fg-muted)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+          >
             <Plus size={13} />
+          </button>
+          <button
+            onClick={() => { navigator.clipboard.writeText(window.location.href); toast.success("Thread URL copied"); }}
+            title="⊕ Share"
+            style={{ width: 32, height: 32, borderRadius: 10, background: "var(--bg-muted)", border: "1px solid var(--border)", color: "var(--fg-muted)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+          >
+            <Share2 size={13} />
           </button>
           <Chip kind="outline"><ShieldCheck size={8} style={{ display: "inline", marginRight: 4 }} />Encrypted</Chip>
         </div>
@@ -298,40 +286,24 @@ export default function ChatPage() {
             </div>
           </div>
 
-          {/* Composer — borderRadius 32, padding 10 12 10 18 */}
-          <div style={{ flexShrink: 0, padding: "20px 40px 28px" }}>
-            <div style={{ maxWidth: 880, margin: "0 auto" }}>
-              <form onSubmit={handleSubmit}
-                style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 32, padding: "10px 12px 10px 18px", display: "flex", alignItems: "center", gap: 12, boxShadow: "var(--shadow-3)", transition: "border-color .2s ease" }}>
-                <button type="button" disabled style={{ width: 38, height: 38, borderRadius: 99, background: "transparent", border: "none", color: "var(--fg-subtle)", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "not-allowed", opacity: 0.4 }}>
-                  <Paperclip size={18} strokeWidth={1.7} />
-                </button>
-                <textarea
-                  ref={inputRef}
-                  value={input}
-                  onChange={e => { setInput(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 180) + "px"; }}
-                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(e as any); } }}
-                  disabled={isLoading}
-                  placeholder={isAnalytical ? "SYNTHESIZE DEPARTMENT-WIDE BI PATTERNS…" : "ASK ATHENE TO SYNTHESIZE ANYTHING…"}
-                  rows={1}
-                  style={{ flex: 1, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 500, color: "var(--fg)", resize: "none", minHeight: 38, maxHeight: 180, paddingTop: 8, paddingBottom: 8 }}
-                />
-                <button type="submit" disabled={!input.trim() || isLoading}
-                  style={{ width: 44, height: 44, borderRadius: 99, background: input.trim() && !isLoading ? "var(--primary)" : "var(--bg-muted)", color: input.trim() && !isLoading ? "#fff" : "var(--fg-subtle)", border: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", boxShadow: input.trim() && !isLoading ? "0 10px 22px -10px rgba(160,74,27,.55)" : "none", transition: "all .2s var(--ease-out)", cursor: input.trim() && !isLoading ? "pointer" : "not-allowed" }}>
-                  {isLoading ? <RefreshCw size={16} style={{ animation: "spin 1s linear infinite" }} /> : <Send size={16} />}
-                </button>
-              </form>
-            </div>
-          </div>
+          {/* Composer — shared component with scope chips, char counter, error state */}
+          <Composer
+            onSend={handleSend}
+            isLoading={isLoading}
+            isAnalytical={isAnalytical}
+            placeholder={isAnalytical ? "SYNTHESIZE DEPARTMENT-WIDE BI PATTERNS…" : "ASK ATHENE TO SYNTHESIZE ANYTHING…"}
+            prefillValue={prefill.value}
+            prefillSeq={prefill.seq}
+          />
         </div>
 
         {/* Reference sidebar */}
         <aside className="custom-scrollbar" style={{ width: 288, flexShrink: 0, borderLeft: "1px solid var(--border)", overflowY: "auto", padding: "20px 16px 32px", display: "flex", flexDirection: "column", gap: 12 }}>
           <div className="eyebrow" style={{ marginBottom: 4 }}>Intelligence · live</div>
           {REF_CARDS.map((card, i) => (
-            <div key={i} className={`reveal reveal-${Math.min(i + 2, 6)}`}>
+            <TCard key={i} i={i + 1}>
               <RefCard card={card} onQuery={sendQuery} />
-            </div>
+            </TCard>
           ))}
           <div style={{ marginTop: 8 }}>
             <div className="eyebrow" style={{ marginBottom: 10 }}>Quick prompts</div>

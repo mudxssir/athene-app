@@ -9,6 +9,8 @@ import type { UserRole } from "@/lib/auth/rbac";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+// stampFor is derived from ROUTE_CONFIG in kit.tsx — single source of truth
+import { stampFor } from "@/components/ui/kit";
 
 interface HeaderProps {
   role: UserRole;
@@ -22,18 +24,36 @@ const Header = memo(function HeaderContent({ role }: HeaderProps) {
     setMounted(true);
   }, []);
 
-  if (!mounted) return null;
+  // Render an empty shell (same h-16 height) during SSR / before hydration
+  // so the layout doesn't shift when the full header mounts client-side.
+  if (!mounted) {
+    return (
+      <header className="h-16 border-b border-border bg-background/60 shrink-0 z-40 sticky top-0" />
+    );
+  }
+
+  const stamp = stampFor(pathname);
 
   return (
     <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-background/60 shrink-0 z-40 sticky top-0 backdrop-blur-xl transition-colors duration-300">
       <div className="flex items-center gap-5">
         <SidebarTrigger className="h-[34px] w-[34px] text-muted-foreground hover:text-foreground hover:bg-muted transition-all rounded-[12px] border border-transparent hover:border-border shrink-0" />
-        <h2
-          className="hidden sm:block text-foreground"
-          style={{ fontSize: 14, fontWeight: 800, letterSpacing: "-0.02em", textTransform: "uppercase", fontFamily: "var(--font-sans)" }}
-        >
-          Athene<span className="text-primary">AI</span>
-        </h2>
+        <div className="hidden sm:flex flex-col gap-[2px]">
+          <h2
+            className="text-foreground leading-none"
+            style={{ fontSize: 14, fontWeight: 800, letterSpacing: "-0.02em", textTransform: "uppercase", fontFamily: "var(--font-sans)" }}
+          >
+            Athene<span className="text-primary">AI</span>
+          </h2>
+          {stamp && (
+            <span
+              className="text-muted-foreground/60 leading-none"
+              style={{ fontSize: 8, fontWeight: 700, letterSpacing: "0.3em", textTransform: "uppercase", fontFamily: "var(--font-sans)" }}
+            >
+              {stamp}
+            </span>
+          )}
+        </div>
         <nav className="hidden md:flex items-center gap-8">
           <Link
             href="/graph"

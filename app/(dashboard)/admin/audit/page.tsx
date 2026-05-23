@@ -1,5 +1,6 @@
 "use client";
  
+import { TCard } from "@/components/ui/kit";
 import { useState, useEffect } from "react";
 import {
   Activity,
@@ -96,10 +97,10 @@ export default function AuditPage() {
     };
 
     return (
-        <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20 font-['Space_Grotesk'] transition-colors duration-300">
+        <div className="space-y-10 pb-20 font-['Space_Grotesk'] transition-colors duration-300">
             
             {/* Header */}
-            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
+            <TCard i={0} className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
                   <div className="p-3 rounded-2xl bg-gradient-to-br from-primary/10 to-secondary/10 border border-border shadow-lg">
@@ -128,7 +129,7 @@ export default function AuditPage() {
                   <p className="text-[10px] text-red-400 font-medium">{exportError}</p>
                 )}
               </div>
-            </div>
+            </TCard>
 
             <Tabs defaultValue="admin" className="space-y-8">
               <div className="flex flex-col sm:flex-row gap-6 items-center justify-between p-2 rounded-2xl bg-muted/10 border border-border backdrop-blur-xl">

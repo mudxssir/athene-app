@@ -1,5 +1,6 @@
 'use client';
 
+import { TCard } from "@/components/ui/kit";
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Key, 
@@ -107,9 +108,9 @@ export default function GrantsPage() {
     };
 
     return (
-        <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20 font-['Space_Grotesk'] transition-colors duration-300">
+        <div className="space-y-10 pb-20 font-['Space_Grotesk'] transition-colors duration-300">
             {/* Header Section */}
-            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
+            <TCard i={0} className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
                 <div className="space-y-4">
                     <div className="flex items-center gap-3">
                         <div className="p-3 rounded-2xl bg-gradient-to-br from-primary/10 to-secondary/10 border border-border shadow-lg">
@@ -132,7 +133,7 @@ export default function GrantsPage() {
                         <span className="text-xs font-bold text-foreground tracking-tight">{grants.length} Managed Resources</span>
                     </div>
                 </div>
-            </div>
+            </TCard>
 
             <div className="grid grid-cols-1 gap-10">
                 {/* Grant BI Access Form */}

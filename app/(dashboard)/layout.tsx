@@ -6,6 +6,7 @@ import { resolveUserAccess } from "@/lib/auth/rbac";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { PageTransition } from "@/components/page-transition";
+import { TransitionProvider } from "@/components/transition-provider";
 
 export default async function DashboardLayout({
   children,
@@ -38,9 +39,11 @@ export default async function DashboardLayout({
             {/* Header */}
             <Header role={userAccess.role} />
 
-            {/* Scrollable Page Content — transition wrapper owns scrolling */}
+            {/* Scrollable Page Content — TransitionProvider drives TCard animations */}
             <main className="flex-1 overflow-hidden">
-              <PageTransition>{children}</PageTransition>
+              <TransitionProvider>
+                <PageTransition>{children}</PageTransition>
+              </TransitionProvider>
             </main>
           </div>
         </div>

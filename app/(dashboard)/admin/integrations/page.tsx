@@ -12,6 +12,7 @@ import {
   Search,
   RefreshCw,
 } from "lucide-react";
+import { TCard } from "@/components/ui/kit";
 import Nango from "@nangohq/frontend";
 import { IntegrationCard, type Integration } from "./integration-card";
 import { AddIntegrationDialog } from "./add-integration-dialog";
@@ -311,7 +312,7 @@ export default function IntegrationsPage() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20 font-['Space_Grotesk']">
+    <div className="space-y-10 pb-20 font-['Space_Grotesk']">
       {toast && (
         <div className={cn(
           "fixed bottom-10 right-10 z-[100] flex items-center gap-4 px-6 py-4 rounded-2xl border shadow-2xl animate-in slide-in-from-right-10 duration-500",
@@ -373,7 +374,7 @@ export default function IntegrationsPage() {
         />
       )}
 
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
+      <TCard i={0} className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
         <div className="space-y-4">
           <div className="flex items-center gap-3">
             <div className="p-3 rounded-2xl bg-gradient-to-br from-primary/10 to-accent/10 border border-border shadow-lg">
@@ -414,9 +415,9 @@ export default function IntegrationsPage() {
              Integrate Tool
            </Button>
         </div>
-      </div>
+      </TCard>
 
-      <div className="flex flex-col sm:flex-row gap-4 items-center p-2 rounded-2xl bg-muted/10 border border-border">
+      <TCard i={1} className="flex flex-col sm:flex-row gap-4 items-center p-2 rounded-2xl bg-muted/10 border border-border">
          <div className="relative flex-1 group">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
             <input 
@@ -426,9 +427,9 @@ export default function IntegrationsPage() {
               className="w-full h-12 pl-12 pr-4 bg-transparent outline-none text-sm font-bold placeholder:text-muted-foreground/40 text-foreground"
             />
          </div>
-      </div>
+      </TCard>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      <TCard i={2} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {loading ? (
           [...Array(6)].map((_, i) => (
             <div key={i} className="h-64 rounded-[2.5rem] bg-muted/20 border border-border animate-pulse" />
@@ -477,7 +478,7 @@ export default function IntegrationsPage() {
             );
           })
         )}
-      </div>
+      </TCard>
 
       {/* Available Integrations — all providers not yet connected */}
       {!loading && (() => {

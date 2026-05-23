@@ -6,37 +6,9 @@ import { useAuth } from "@clerk/nextjs";
 import { mapRole } from "@/lib/auth/clerk";
 import { Button } from "@/components/ui/button";
 import { type Insight } from "@/components/insights/insight-card";
+import { IconTile, Chip, TCard } from "@/components/ui/kit";
 import { cn } from "@/lib/utils";
 import { fetchWithTimeout } from "@/lib/fetch-timeout";
-
-/* ── Design-kit atoms ───────────────────────────────────── */
-
-function IconTile({ icon: I, size = 42, tone = "primary" }: { icon: React.ElementType; size?: number; tone?: "primary" | "amber" | "honey" }) {
-  const t = {
-    primary: { bg: "rgba(160,74,27,.10)", border: "rgba(160,74,27,.20)", color: "var(--primary)" },
-    amber:   { bg: "rgba(217,122,46,.12)", border: "rgba(217,122,46,.22)", color: "var(--secondary)" },
-    honey:   { bg: "rgba(230,185,40,.18)", border: "rgba(230,185,40,.32)", color: "#9E780E" },
-  }[tone];
-  return (
-    <div style={{ width: size, height: size, borderRadius: Math.round(size * 0.32), background: t.bg, border: `1px solid ${t.border}`, display: "inline-flex", alignItems: "center", justifyContent: "center", color: t.color, flexShrink: 0 }}>
-      <I size={Math.round(size * 0.5)} strokeWidth={1.7} />
-    </div>
-  );
-}
-
-function Chip({ kind = "outline", children }: { kind?: "primary" | "amber" | "honey" | "outline"; children: React.ReactNode }) {
-  const k = {
-    primary: { background: "rgba(160,74,27,.10)", color: "var(--primary)", border: "1px solid rgba(160,74,27,.22)" },
-    amber:   { background: "rgba(217,122,46,.12)", color: "var(--secondary)", border: "1px solid rgba(217,122,46,.22)" },
-    honey:   { background: "rgba(230,185,40,.18)", color: "#9E780E", border: "1px solid rgba(230,185,40,.32)" },
-    outline: { background: "transparent", color: "var(--fg-muted)", border: "1px solid var(--border-strong)" },
-  }[kind];
-  return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 24, padding: "0 12px", borderRadius: 999, fontFamily: "var(--font-sans)", fontWeight: 800, fontSize: 9, letterSpacing: "0.3em", textTransform: "uppercase", ...k }}>
-      {children}
-    </span>
-  );
-}
 
 /* ── Add Insight Dialog ─────────────────────────────────── */
 function AddDialog({ open, onClose, onSubmit, submitting }: { open: boolean; onClose: () => void; onSubmit: (t: string, q: string) => void; submitting: boolean }) {
@@ -230,7 +202,7 @@ export default function InsightsPage() {
       <AddDialog open={showAdd} onClose={() => setShowAdd(false)} onSubmit={handleAdd} submitting={submitting} />
 
       {/* Header */}
-      <div className="reveal reveal-1" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 32, flexWrap: "wrap", gap: 20 }}>
+      <TCard i={0} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 32, flexWrap: "wrap", gap: 20 }}>
         <div>
           <div className="eyebrow" style={{ color: "var(--primary)", marginBottom: 8 }}>BI · cross-departmental</div>
           <h1 style={{ fontFamily: "var(--font-sans)", fontSize: 44, fontWeight: 800, letterSpacing: "-0.04em", textTransform: "uppercase", margin: 0, color: "var(--fg)" }}>Insights</h1>
@@ -242,7 +214,7 @@ export default function InsightsPage() {
           style={{ height: 42, padding: "0 20px", borderRadius: 14, background: "var(--primary)", border: "none", color: "#fff", fontSize: 11, fontWeight: 800, letterSpacing: "0.2em", textTransform: "uppercase", display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", boxShadow: "0 10px 24px -10px rgba(160,74,27,.55)" }}>
           <Plus size={14} /> New insight
         </button>
-      </div>
+      </TCard>
 
       {/* Error */}
       {error && (
@@ -271,9 +243,9 @@ export default function InsightsPage() {
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 18 }}>
           {insights.map((card, i) => (
-            <div key={card.id} className={`reveal reveal-${Math.min(i + 1, 6)}`} style={{ animationDelay: `${i * 80}ms` }}>
+            <TCard key={card.id} i={i + 1}>
               <InsightCard card={card} idx={i} onRefresh={handleRefresh} onDelete={handleDelete} confirmDeleteId={confirmDeleteId} setConfirmDeleteId={setConfirmDeleteId} />
-            </div>
+            </TCard>
           ))}
         </div>
       )}

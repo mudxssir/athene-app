@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { Network, Search, Loader2 } from "lucide-react";
 import { ENTITY_COLORS, type EntityColorKey } from "@/components/graph/knowledge-graph-canvas";
 import { useSearchParams } from "next/navigation";
+import { TCard } from "@/components/ui/kit";
 
 // Lazy-load the canvas to avoid SSR issues with React Flow
 const KnowledgeGraphCanvas = dynamic(
@@ -203,7 +204,7 @@ export default function GraphPage() {
   return (
     <div id="graph-page">
       {/* Page Header */}
-      <div className="graph-page__header">
+      <TCard i={0} className="graph-page__header">
         <div>
           <h1 className="graph-page__title">
             <Network className="h-7 w-7 inline-block mr-2 text-primary" />
@@ -213,14 +214,16 @@ export default function GraphPage() {
             Interactive map of your organization&apos;s connected knowledge
           </p>
         </div>
-      </div>
+      </TCard>
 
       {/* FIX #1: Render nothing until isMobile is resolved */}
-      {isMobile === null ? null : isMobile ? (
-        <MobileGraphList />
-      ) : (
-        <KnowledgeGraphCanvas userRole={userRole} focusNodeId={searchParams.get("focus") || undefined} />
-      )}
+      <TCard i={1}>
+        {isMobile === null ? null : isMobile ? (
+          <MobileGraphList />
+        ) : (
+          <KnowledgeGraphCanvas userRole={userRole} focusNodeId={searchParams.get("focus") || undefined} />
+        )}
+      </TCard>
     </div>
   );
 }

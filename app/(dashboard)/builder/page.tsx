@@ -1,5 +1,6 @@
 "use client";
 
+import { TCard } from "@/components/ui/kit";
 import { useState, useRef, useEffect } from "react";
 import {
   Plus,
@@ -196,9 +197,9 @@ export default function BuilderPage() {
   };
 
   return (
-    <div className="h-[calc(100vh-120px)] flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700 font-['Space_Grotesk'] transition-colors duration-300">
+    <div className="h-[calc(100vh-120px)] flex flex-col gap-8 font-['Space_Grotesk'] transition-colors duration-300">
       {/* Builder Toolbar */}
-      <header className="flex items-center justify-between bg-card/50 backdrop-blur-2xl p-6 rounded-[3rem] border border-border shadow-2xl">
+      <TCard i={0} as="header" className="flex items-center justify-between bg-card/50 backdrop-blur-2xl p-6 rounded-[3rem] border border-border shadow-2xl">
         <div className="flex items-center gap-12 px-6">
           <div className="flex flex-col">
              <h2 className="text-lg font-black tracking-tighter text-foreground flex items-center gap-4 uppercase">
@@ -241,7 +242,7 @@ export default function BuilderPage() {
              </Tooltip>
            </TooltipProvider>
         </div>
-      </header>
+      </TCard>
 
       {/* Main Canvas Area */}
       <div className="flex-1 flex gap-8 overflow-hidden">
