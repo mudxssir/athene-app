@@ -187,3 +187,21 @@ export async function withSSEFrameSpan<T>(
   );
 }
 
+// Agent run span helper — wraps the full LangGraph invocation so that
+// all child spans (llm_call, tool_call, vector_search, sse_frame) are
+// correctly nested under a single top-level agent trace (8B.1).
+export async function withAgentRunSpan<T>(
+  orgId: string,
+  threadId: string,
+  fn: (span: Span) => Promise<T>
+): Promise<T> {
+  return withSpan(
+    "agent_run",
+    (span) => fn(span),
+    {
+      "agent.org_id": orgId,
+      "agent.thread_id": threadId,
+    }
+  );
+}
+
