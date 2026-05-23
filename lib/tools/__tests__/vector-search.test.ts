@@ -23,8 +23,7 @@ const { embedMock, mockRpc, withVectorSearchSpanMock } = vi.hoisted(() => ({
   ),
 }));
 
-vi.mock("../../../lib/ai/embedder", () => ({ embed: embedMock }));
-vi.mock("../../ai/embedder",         () => ({ embed: embedMock }));
+vi.mock("../../ai/embedder", () => ({ embed: embedMock }));
 
 vi.mock("../../supabase/rls-client", () => ({
   withRLS: vi.fn((_ctx: any, fn: (s: any) => any) => fn({ rpc: mockRpc })),
@@ -112,8 +111,9 @@ describe("crossDeptVectorSearch — role guard fires BEFORE embed() (4B.6)", () 
   });
 
   it("error message for member does not leak internal state", async () => {
-    const err = await crossDeptVectorSearch({ ...BASE_PARAMS, user_role: "member" }).catch((e: Error) => e);
-    expect((err as Error).message).not.toMatch(/org_id|user_id|SELECT|token/i);
+    await expect(
+      crossDeptVectorSearch({ ...BASE_PARAMS, user_role: "member" }),
+    ).rejects.toThrow(expect.not.stringMatching(/org_id|user_id|SELECT|token/i));
   });
 
   // ── Role: super_user allowed ──────────────────────────────────────────────

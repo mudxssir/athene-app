@@ -72,39 +72,46 @@ WHERE  org_id IS NULL;
 */
 
 -- ────────────────────────────────────────────────────────────
--- 3B.3 — No stale chunks (chunk_index beyond current max per document)
--- A stale chunk is one whose index is higher than the highest valid
--- chunk for that document.  This would indicate a failed prune.
--- Expected: 0 rows
+-- 3B.3 — No stale chunks (chunk_index gaps indicate a failed prune)
+--
+-- Definitive detection of stale chunks requires knowing the expected
+-- chunk count per document, which is only available by re-running the
+-- indexer.  The two SQL-level checks below are complementary proxies:
+--
+-- Check A: documents where (max_chunk_index + 1) ≠ total chunk rows.
+--   A healthy document has contiguous 0-based indices, so
+--   max_index = count - 1.  Any deviation means either a gap
+--   (over-pruned) or an extra row (under-pruned / stale).
+--   Expected: 0 rows.
+--
+-- Check B: documents with an abnormally high chunk count (> 50).
+--   Most documents should produce far fewer chunks.  A very high
+--   count suggests repeated indexing without pruning.
+--   Expected: investigate any rows returned.
 -- ────────────────────────────────────────────────────────────
+
+-- Check A — non-contiguous chunk indices per document
 /*
-WITH max_chunks AS (
-  SELECT
-    document_id,
-    MAX(chunk_index) AS max_idx,
-    COUNT(*)         AS total
-  FROM   document_embeddings
-  GROUP  BY document_id
-),
-expected_max AS (
-  -- The maximum valid chunk_index is total - 1 (0-indexed).
-  -- Any chunk_index = max_idx that equals total-1 is fine.
-  -- A stale chunk would be gap-free but exceed actual content count.
-  -- Best proxy: look for documents where chunk indices are not contiguous.
-  SELECT
-    e.document_id,
-    generate_series(0, mc.max_idx) AS expected_idx
-  FROM   document_embeddings e
-  JOIN   max_chunks mc ON mc.document_id = e.document_id
-)
 SELECT
-  de.document_id,
-  de.chunk_index
-FROM   document_embeddings de
-LEFT JOIN expected_max em
-  ON em.document_id = de.document_id
- AND em.expected_idx = de.chunk_index
-WHERE  em.expected_idx IS NULL  -- chunk exists but was not expected
+  document_id,
+  COUNT(*)         AS chunk_rows,
+  MAX(chunk_index) AS max_idx
+FROM   document_embeddings
+GROUP  BY document_id
+HAVING MAX(chunk_index) <> COUNT(*) - 1
+ORDER  BY chunk_rows DESC
+LIMIT  50;
+*/
+
+-- Check B — documents with suspiciously high chunk counts
+/*
+SELECT
+  document_id,
+  COUNT(*) AS chunk_count
+FROM   document_embeddings
+GROUP  BY document_id
+HAVING COUNT(*) > 50
+ORDER  BY chunk_count DESC
 LIMIT  50;
 */
 
@@ -145,26 +152,52 @@ LIMIT  50;
 */
 
 -- ────────────────────────────────────────────────────────────
--- 4C.1 — HITL audit completeness: every decision action has a row
--- This is a sampling check: look for threads in awaiting_approval=false
--- state that have no hitl_decisions row within the last 7 days.
--- (Exact verification requires checkpoint inspection — this catches obvious gaps.)
--- Expected: 0 rows (all approved/rejected actions have audit entries)
+-- 4C.1 — HITL audit completeness: every approved/rejected action
+--         has a row in hitl_decisions
+--
+-- ⚠  FALSE-POSITIVE WARNING: most threads never reach a write
+--    action that triggers HITL, so they will legitimately have
+--    no hitl_decisions row.  The query below is intentionally
+--    scoped to threads whose checkpoint state shows a past
+--    awaiting_approval=true → false transition, which is not
+--    directly queryable here.
+--
+-- Practical proxy: join to hitl_decisions and look for threads
+-- that DO have a decision row to confirm the audit trail exists.
+-- Cross-reference with application logs for threads that triggered
+-- write actions but show no matching hitl_decisions row.
+--
+-- Positive check — confirm audit rows exist at all
+-- Expected: non-zero (at least some HITL decisions recorded)
 -- ────────────────────────────────────────────────────────────
 /*
 SELECT
-  t.id           AS thread_id,
+  hd.thread_id,
+  hd.action,
+  hd.decided_by,
+  hd.decided_at
+FROM   hitl_decisions hd
+WHERE  hd.decided_at > now() - interval '7 days'
+ORDER  BY hd.decided_at DESC
+LIMIT  50;
+*/
+
+-- Negative check — threads with pending_write_action set but no decision
+-- (only meaningful if your threads table has a pending_write_action column)
+/*
+SELECT
+  t.id AS thread_id,
   t.org_id,
   t.updated_at
 FROM   threads t
 WHERE  t.updated_at > now() - interval '7 days'
+  AND  t.pending_write_action IS NOT NULL
+  AND  (t.awaiting_approval IS NULL OR t.awaiting_approval = false)
   AND  NOT EXISTS (
     SELECT 1
     FROM   hitl_decisions hd
     WHERE  hd.thread_id = t.id
   )
-  -- Only flag threads that had activity (message_count > 0)
-  AND  t.message_count > 0
 ORDER  BY t.updated_at DESC
 LIMIT  50;
 */

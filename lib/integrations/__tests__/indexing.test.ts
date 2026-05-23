@@ -63,18 +63,29 @@ vi.mock("@/lib/ai/embedding-factory", () => ({
 
 vi.mock("@/lib/supabase/server", () => {
   // Terminal node — every query chain ends here.
-  const leaf = () => ({
-    maybeSingle: () => Promise.resolve({ data: supabaseState.existingDoc, error: null }),
-    single:      () => Promise.resolve({ data: supabaseState.existingDoc, error: null }),
+  const leaf = (data: unknown) => ({
+    maybeSingle: () => Promise.resolve({ data, error: null }),
+    single:      () => Promise.resolve({ data, error: null }),
   });
 
-  // Builds an infinitely-chainable `.eq()` builder that terminates with leaf().
-  function eqChain(): any {
-    return { eq: (_k: string, _v: unknown) => eqChain(), ...leaf() };
+  // Named interface for the chainable `.eq()` builder so we avoid `any`.
+  interface QueryChain {
+    eq(k: string, v: unknown): QueryChain;
+    maybeSingle(): Promise<{ data: unknown; error: null }>;
+    single(): Promise<{ data: unknown; error: null }>;
   }
 
-  // `.select(cols)` → eqChain (for SELECT queries)
-  const selectFn = (_cols: string) => eqChain();
+  // Builds an infinitely-chainable `.eq()` builder that terminates with leaf().
+  function eqChain(data: unknown): QueryChain {
+    return { eq: (_k, _v) => eqChain(data), ...leaf(data) };
+  }
+
+  // `.select(cols)` → eqChain, table-aware so SELECT on 'documents' returns
+  // supabaseState.existingDoc while other tables resolve to null.
+  const selectFn = (table: string) => (_cols: string) => {
+    const data = table === "documents" ? supabaseState.existingDoc : null;
+    return eqChain(data);
+  };
 
   // `.upsert(records, opts?)` — different shapes for 'documents' vs 'document_embeddings'
   const upsertFn = (table: string) => (records: unknown, _opts?: unknown) => {
@@ -113,7 +124,7 @@ vi.mock("@/lib/supabase/server", () => {
   return {
     supabaseAdmin: {
       from: (table: string) => ({
-        select: selectFn,
+        select: selectFn(table),
         upsert: upsertFn(table),
         delete: deleteFn(table),
       }),
@@ -345,5 +356,43 @@ describe("3B.3 — Stale chunk pruning scoped to (document_id, chunk_index)", ()
     expect(gtPrune).toBeDefined();
     // chunk_index > 0 → the one live chunk (index 0) is not deleted
     expect(gtPrune!.chunkThreshold).toBeGreaterThanOrEqual(0);
+  });
+});
+
+// ─── 3B.5 — Embedding batch size cap ─────────────────────────────────────────
+
+describe("3B.5 — embedBatch is never called with more than EMBED_BATCH_SIZE texts", () => {
+  // The constant is 96 in indexing.ts; import it indirectly by observing behaviour.
+  const EMBED_BATCH_SIZE = 96;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    supabaseState.existingDoc = null; // force full re-embed for every doc
+    supabaseState.upsertDocReturn = { id: DOC_ID };
+    supabaseState.upsertEmbeddingsError = null;
+    supabaseState.deleteCalls = [];
+    supabaseState.upsertCalls = [];
+    // Return one 768-dim vector per text so batch size checks are stable
+    embedBatchMock.mockImplementation(async (texts: string[]) =>
+      texts.map(() => Array(768).fill(0))
+    );
+  });
+
+  it("splits a corpus larger than EMBED_BATCH_SIZE into multiple batches (3B.5)", async () => {
+    // Build EMBED_BATCH_SIZE + 1 chunks so at least two embed calls are needed.
+    // Give each chunk enough content that it produces exactly one text (short, no splitting).
+    const chunks = Array.from({ length: EMBED_BATCH_SIZE + 1 }, (_, i) =>
+      makeChunk({ chunk_id: `c-${i}`, content: `Unique short content number ${i}.` })
+    );
+
+    await indexDocuments(chunks, ORG_ID, CONN_ID, null, "org_wide");
+
+    // Every individual call to embedBatch must stay within the cap
+    for (const [texts] of embedBatchMock.mock.calls) {
+      expect(texts.length).toBeLessThanOrEqual(EMBED_BATCH_SIZE);
+    }
+
+    // With 97 texts and a cap of 96 we need at least 2 calls
+    expect(embedBatchMock.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 });
