@@ -75,12 +75,16 @@ export async function dispatchThrottled({
       return { dispatched: false };
     }
 
-    // Dev bypass: QStash can't reach localhost, so call the worker directly
+    // Dev bypass: QStash can't reach localhost, so call the worker directly.
+    // x-dev-internal-bypass tells verifyQStashSignature to skip signature check.
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? '';
     if (appUrl.startsWith('http://localhost') || appUrl.startsWith('http://127.0.0.1')) {
       fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-dev-internal-bypass': '1',
+        },
         body: JSON.stringify(body),
       }).catch(err => logger.warn({ err: err.message, url }, '[QStash] Dev direct call failed'));
       return { dispatched: true, msgId: 'dev-direct' };

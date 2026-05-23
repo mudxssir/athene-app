@@ -73,7 +73,7 @@ import { fetchMetabaseContent } from '@/lib/integrations/metabase/cards-fetcher'
 import { fetchDbtContent } from '@/lib/integrations/dbt/models-fetcher'
 import { fetchPowerBIContent } from '@/lib/integrations/powerbi/reports-fetcher'
 
-import { getProviderMetadata } from '@/lib/integrations/base'
+import { getProviderMetadata, getProviderToken } from '@/lib/integrations/base'
 import type { FetchedChunk } from '@/lib/integrations/base'
 
 // ---- Provider Fetcher Map ---------------------------------------
@@ -172,6 +172,53 @@ const providerFetcherMap: Record<string, FetcherFn[]> = {
           ? [{ owner: metadata.owner as string, repo: metadata.repo as string }]
           : []
       if (repos.length === 0) throw new Error(`GitHub: no repos configured for connection ${connectionId}`)
+      const allChunks = await Promise.all(
+        repos.map(({ owner, repo }) =>
+          Promise.all([
+            githubIssuesFetcher(connectionId, orgId, owner, repo),
+            githubPrsFetcher(connectionId, orgId, owner, repo),
+            githubWikiFetcher(connectionId, orgId, owner, repo),
+          ]).then((results) => results.flat())
+        )
+      )
+      return allChunks.flat()
+    },
+  ],
+  // Nango's demo GitHub integration key — same fetchers as 'github'.
+  // When no repos are explicitly configured, auto-discovers the user's
+  // accessible repos via the GitHub REST API (up to 20 most recently updated).
+  'github-getting-started': [
+    async (connectionId, orgId, opts) => {
+      const metadata = await getProviderMetadata(connectionId, 'github-getting-started', orgId)
+      const selectedRepos = opts?.syncConfig?.selectedResources?.map((r) => r.id) ?? []
+
+      let repos: Array<{ owner: string; repo: string }>
+
+      if (selectedRepos.length > 0) {
+        repos = selectedRepos.map((fullName) => {
+          const [owner, repo] = String(fullName).split('/')
+          return { owner, repo }
+        })
+      } else if (metadata.owner && metadata.repo) {
+        repos = [{ owner: metadata.owner as string, repo: metadata.repo as string }]
+      } else {
+        // Auto-discover: use the OAuth token to list repos the user has access to.
+        // Capped at 20 most-recently-updated to avoid indexing hundreds of repos.
+        const token = await getProviderToken(connectionId, 'github-getting-started', orgId)
+        const resp = await fetch(
+          'https://api.github.com/user/repos?sort=updated&per_page=20&visibility=all',
+          { headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github.v3+json' } },
+        )
+        if (!resp.ok) throw new Error(`GitHub API repos list error: ${resp.status}`)
+        const rawRepos = (await resp.json()) as Array<{ full_name: string }>
+        repos = rawRepos.map((r) => {
+          const [owner, repo] = r.full_name.split('/')
+          return { owner, repo }
+        })
+        if (repos.length === 0) throw new Error(`GitHub (getting-started): no accessible repos found for connection ${connectionId}`)
+        logger.info({ count: repos.length, orgId }, '[github-getting-started] Auto-discovered repos')
+      }
+
       const allChunks = await Promise.all(
         repos.map(({ owner, repo }) =>
           Promise.all([

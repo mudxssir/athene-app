@@ -22,16 +22,22 @@ const receiver =
  * MUST be called before fulfilling any background job worker request.
  */
 export async function verifyQStashSignature(req: Request): Promise<boolean> {
-  // ── Dev bypass: allow direct in-process calls when QStash is not configured ──
+  // ── Dev bypass: allow direct localhost calls even when signing keys are present ──
+  // dispatchThrottled sets x-dev-internal-bypass when NEXT_PUBLIC_APP_URL is localhost.
+  // This lets the dev server call workers directly without going through QStash.
+  if (process.env.NODE_ENV !== 'production') {
+    const bypass = req.headers.get('x-dev-internal-bypass');
+    if (bypass === '1') {
+      logger.warn({}, '[QStash] Accepting x-dev-internal-bypass (local dev only)');
+      return true;
+    }
+  }
+
+  // ── No receiver: signing keys absent ──
   if (!receiver) {
     if (process.env.NODE_ENV === 'production') {
       logger.error({}, '[QStash] Signature verification skipped in production: QSTASH_CURRENT_SIGNING_KEY / QSTASH_NEXT_SIGNING_KEY not set');
       return false;
-    }
-    const bypass = req.headers.get('x-dev-internal-bypass');
-    if (bypass === '1') {
-      logger.warn({}, '[QStash] QSTASH signing keys absent — accepting x-dev-internal-bypass (local dev only)');
-      return true;
     }
     logger.error({}, '[QStash] Signature verification skipped: QSTASH_CURRENT_SIGNING_KEY / QSTASH_NEXT_SIGNING_KEY not set');
     return false;

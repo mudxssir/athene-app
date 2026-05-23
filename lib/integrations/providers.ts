@@ -16,6 +16,7 @@ export type ProviderKey =
   | 'salesforce'
   | 'snowflake'
   | 'github'
+  | 'github-getting-started'
   | 'linear'
   | 'zendesk'
   | 'bigquery'
@@ -304,6 +305,23 @@ export const PROVIDER_REGISTRY: Record<ProviderKey, ProviderConfig> = {
       canWrite: true,
       requiresScopes: ['repo', 'read:user', 'user:email'],
     },
+  },
+  'github-getting-started': {
+    key: 'github-getting-started',
+    displayName: 'GitHub',
+    description: 'Sync repos, issues, PRs, wikis, and search code',
+    icon: '/integrations/github.svg',
+    category: 'devtools',
+    // Nango integration ID for the getting-started variant
+    nangoIntegrationId: 'github-getting-started',
+    resources: ['repos', 'issues', 'pull_requests', 'wiki'],
+    capabilities: {
+      canFetch: true,
+      canSearch: true,
+      canWrite: true,
+      requiresScopes: ['repo', 'read:user', 'user:email'],
+    },
+    hidden: true,
   },
   linear: {
     key: 'linear',
