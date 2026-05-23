@@ -53,7 +53,7 @@ describe("Vector Search Access Control", () => {
         user_role: "member",
         query: "revenue",
       })
-    ).rejects.toThrow("cross-department search requires super_user role");
+    ).rejects.toThrow("cross-department search requires super_user or admin role");
   });
 
   it("allows super_user to retrieve cross-department data", async () => {

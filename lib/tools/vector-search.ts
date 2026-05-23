@@ -61,11 +61,19 @@ export async function vectorSearch({
 }
 
 /**
- * Cross-department vector search for super_users with bi_accessible grants.
+ * Cross-department vector search for BI Analysts (super_user) and admins.
+ *
+ * Role guard rationale:
+ *   - super_user (org:bi_analyst) — primary audience for cross-dept analysis
+ *   - admin — org administrators can view cross-dept data by design
+ *   - member — blocked: no cross-org visibility grant
+ *
+ * The check fires BEFORE embed() and any DB query so that unauthorised
+ * callers never trigger an embedding API call (plan item 4B.6).
  */
 export async function crossDeptVectorSearch(params: Params) {
-  if (params.user_role !== "super_user") {
-    throw new Error("Unauthorized: cross-department search requires super_user role");
+  if (params.user_role !== "super_user" && params.user_role !== "admin") {
+    throw new Error("Unauthorized: cross-department search requires super_user or admin role");
   }
 
   const topK = params.topK ?? 5;
