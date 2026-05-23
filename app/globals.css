@@ -12,6 +12,7 @@
    ============================================================ */
 
 @theme inline {
+  --font-display: var(--font-space-grotesk), "Space Grotesk", "Sora", ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--font-space-grotesk), "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --font-space-grotesk: var(--font-space-grotesk), "Space Grotesk", sans-serif;
@@ -86,6 +87,8 @@
 
   --success: #4F7A2E;
   --danger:  #B23A1A;
+  --warning: #D97A2E;   /* amber-500 */
+  --info:    #5A4225;   /* coffee-500 */
 
   /* ── Tailwind semantic bridge ──────────────────────────── */
   --background:              var(--bg);
@@ -106,6 +109,30 @@
   /* ── Olive substrate (for dark-mode sidebar/header) ─────── */
   --olive-deep: #131709;
   --olive-rule: rgba(214, 220, 168, 0.16);
+
+  /* ── Typography scale (from design system ZIP) ──────────── */
+  --text-2xs:  10px;
+  --text-xs:   11px;
+  --text-sm:   13px;
+  --text-base: 15px;
+  --text-lg:   18px;
+  --text-xl:   22px;
+  --text-2xl:  28px;
+  --text-3xl:  36px;
+  --text-4xl:  52px;
+  --text-5xl:  72px;
+  --text-6xl:  104px;
+
+  --tracking-tight:     -0.04em;
+  --tracking-normal:     0em;
+  --tracking-wide:       0.04em;
+  --tracking-widest:     0.3em;
+  --tracking-uppercase:  0.42em;  /* signature uppercase eyebrow */
+
+  --leading-tight:   1.0;
+  --leading-snug:    1.2;
+  --leading-normal:  1.5;
+  --leading-relaxed: 1.65;
 
   /* ── Spacing scale ───────────────────────────────────────── */
   --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px;
@@ -136,11 +163,13 @@
   --bg:          #0D0805;   /* dark coffee body */
   --bg-elevated: #160E07;   /* elevated surfaces */
   --bg-muted:    #1C1409;   /* muted fills */
-  --bg-sunken:   #0D0805;
+  --bg-sunken:   #080503;   /* deepest layer — slightly darker than bg */
 
   --fg:          #F5EDD8;
   --fg-muted:    #B89464;
   --fg-subtle:   #7A5B36;
+  --fg-on-brand: #FFFFFF;
+  --fg-on-honey: #1A0E05;
 
   --border:        rgba(214, 158, 96, 0.14);
   --border-soft:   rgba(214, 158, 96, 0.10);
@@ -153,6 +182,8 @@
   --tertiary:       #E6B928;  --tertiary-hover: #F0C740;
   --success: #7BAA52;
   --danger:  #DC5436;
+  --warning: #E07A2F;
+  --info:    #B89464;
 
   /* Tailwind bridge dark */
   --background:         var(--bg);
