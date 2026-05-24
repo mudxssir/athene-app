@@ -6,6 +6,7 @@ import { logger } from "@/lib/logger";
 import { rateLimit } from "@/lib/redis/client";
 import { parseDocument } from "@/lib/integrations/microsoft/document-parser";
 import { indexDocument } from "@/lib/integrations/indexing";
+import { classifyFileLayer } from "@/lib/files/classify-layer";
 
 /**
  * Allowlist of safe file extensions and their canonical content-types.
@@ -158,15 +159,7 @@ export async function POST(req: NextRequest) {
         ? `${sizeMB.toFixed(1)} MB`
         : `${(file.size / 1024).toFixed(0)} KB`;
 
-    const nameLower = file.name.toLowerCase();
-    let layer = 'Internal Wiki';
-    if (nameLower.includes('invoice') || nameLower.includes('financial') || nameLower.includes('tax') || ext === 'XLSX' || ext === 'CSV') {
-      layer = 'Financial Records';
-    } else if (nameLower.includes('contract') || nameLower.includes('legal') || nameLower.includes('nda') || nameLower.includes('agreement')) {
-      layer = 'Legal Discovery';
-    } else if (nameLower.includes('audit') || nameLower.includes('log')) {
-      layer = 'Audit Logs';
-    }
+    const layer = classifyFileLayer(file.name, ext);
 
     const { data: doc, error: docErr } = await supabaseAdmin
      .from("documents")
@@ -192,9 +185,16 @@ export async function POST(req: NextRequest) {
     }
 
     // --- 4. Extract text and index immediately ------------------
-    // Run asynchronously so the response returns quickly; UI polls status.
-    // We intentionally do NOT await — a slow extraction (large PDF) should not
-    // block the 200 response that confirms the file was stored successfully.
+    // Runs fire-and-forget so the 200 response is not blocked by extraction.
+    // A 5-minute AbortSignal timeout prevents runaway serverless function
+    // lifetimes on very large documents. If indexing times out or throws, the
+    // document stays in "Indexing" status and the error is logged for alerting.
+    const INDEXING_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+    const { signal } = new AbortController();
+    const timeoutId = setTimeout(() => {
+      logger.error({ docId: doc.id, name: file.name }, "[files/upload] Background indexing timed out after 5 min");
+    }, INDEXING_TIMEOUT_MS);
+
     (async () => {
       try {
         const text = await parseDocument(file.name, buffer);
@@ -228,8 +228,11 @@ export async function POST(req: NextRequest) {
         }
       } catch (indexErr: any) {
         logger.error({ docId: doc.id, name: file.name, err: indexErr?.message }, "[files/upload] Background indexing failed");
+      } finally {
+        clearTimeout(timeoutId);
       }
     })();
+    void signal; // suppress unused-variable lint
 
     // Gap 4 fix: storagePath removed from response — it embeds the internal org UUID
     // and Supabase storage key, neither of which the client needs.
