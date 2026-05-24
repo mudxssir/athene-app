@@ -2,21 +2,22 @@ import { Client } from '@upstash/qstash';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { incrWithExpire, redis } from '@/lib/redis/client';
 import { logger } from '@/lib/logger';
+import { localDispatcher } from '@/lib/jobs/local-dispatcher';
 
 const qstashToken = process.env.QSTASH_TOKEN;
 
 /**
  * Lazily initialised QStash client.
- * Returns a mock client if the token is missing during build time
- * to prevent top-level instantiation errors.
+ * Falls back to localDispatcher when QSTASH_TOKEN is absent — direct HTTP
+ * dispatch with HMAC-SHA256 signing and exponential-backoff retry, so
+ * background jobs work in local dev and self-hosted deployments without Upstash.
  */
 function getQStashClient(): Client {
   if (!qstashToken) {
-    // Return a mock that throws only when called
+    logger.warn({}, "[qstash] QSTASH_TOKEN not set — using local dispatcher (direct HTTP). Set QSTASH_TOKEN for production.");
     return {
-      publishJSON: async () => {
-        throw new Error("QSTASH_TOKEN is missing. Background jobs are disabled.");
-      }
+      publishJSON: async (options: Parameters<typeof localDispatcher.publishJSON>[0]) =>
+        localDispatcher.publishJSON(options),
     } as unknown as Client;
   }
   return new Client({ token: qstashToken });

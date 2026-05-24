@@ -9,6 +9,7 @@ import { synthesisAgentNode } from "./nodes/synthesis-agent";
 import { actionExecutorNode } from "./nodes/action-executor";
 import { reportAgent } from "./nodes/report-agent";
 import { plannerAgent } from "./nodes/planner-agent";
+import { integrationAgentNode } from "./nodes/integration-agent";
 import { getCheckpointer } from "./checkpointer";
 
 // Shared compilation promise to prevent race conditions during cold starts
@@ -31,6 +32,7 @@ export async function getAgentGraph(): Promise<any> {
         .addNode("cross_dept_retrieval", crossDeptRetrievalAgent)
         .addNode("email_agent", emailAgentNode)
         .addNode("calendar_agent", calendarAgentNode)
+        .addNode("integration_agent", integrationAgentNode)
         .addNode("synthesis", synthesisAgentNode)
         .addNode("report_agent", reportAgent)
         // Write-action executor (paused by interrupt_before for HITL approval)
@@ -47,6 +49,7 @@ export async function getAgentGraph(): Promise<any> {
       workflow.addEdge("cross_dept_retrieval", "supervisor");
       workflow.addEdge("email_agent", "supervisor");
       workflow.addEdge("calendar_agent", "supervisor");
+      workflow.addEdge("integration_agent", "supervisor");
       workflow.addEdge("report_agent", "supervisor");
       workflow.addEdge("action_executor", "supervisor");
 
@@ -63,6 +66,7 @@ export async function getAgentGraph(): Promise<any> {
           cross_dept_retrieval: "cross_dept_retrieval",
           email_agent: "email_agent",
           calendar_agent: "calendar_agent",
+          integration_agent: "integration_agent",
           report_agent: "report_agent",
           synthesis: "synthesis",
           action_executor: "action_executor",
