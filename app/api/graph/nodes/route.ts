@@ -150,7 +150,6 @@ export async function GET(req: NextRequest) {
       page,
       limit,
       communities: uniqueCommunities,
-      role: access.role,
     });
   } catch (err) {
     logger.error({ err }, "[graph/nodes] Unexpected error");

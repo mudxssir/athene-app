@@ -49,8 +49,7 @@ export async function POST(request: Request) {
       messageId: response.messageId 
     });
   } catch (error) {
-    logger.error({ err: error instanceof Error ? error.message : String(error) }, '[graph/build/post]');
-    const message = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: `Failed to enqueue job: ${message}` }, { status: 500 });
+    logger.error({ err: error instanceof Error ? error.message : String(error) }, '[graph/build/post] Failed to enqueue graph build job');
+    return NextResponse.json({ error: 'Failed to enqueue graph build job' }, { status: 500 });
   }
 }

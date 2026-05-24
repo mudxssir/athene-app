@@ -122,7 +122,15 @@ export function NodeDetailPanel({
             <ul className="node-detail-panel__doc-list">
               {node.source_documents.slice(0, 10).map((docId) => (
                 <li key={docId} className="node-detail-panel__doc-item">
-                  <span className="node-detail-panel__doc-id">{docId.slice(0, 8)}…</span>
+                  <a
+                    href={`/api/files/download?id=${docId}`}
+                    download
+                    className="node-detail-panel__doc-id hover:underline flex items-center gap-1"
+                    title={`Download document ${docId}`}
+                  >
+                    <FileText className="h-3 w-3 shrink-0" />
+                    {docId.slice(0, 8)}…
+                  </a>
                 </li>
               ))}
             </ul>

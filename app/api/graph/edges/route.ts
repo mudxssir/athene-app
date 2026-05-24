@@ -66,16 +66,16 @@ export async function GET(req: NextRequest) {
 
     if (access.role === "member") {
       nodeQuery = nodeQuery.or(
-        `visibility.eq.public,` +
-        (access.dept_id ? `department_ids.cs.{${access.dept_id}}` : `visibility.eq.public`)
+        `visibility.eq.org_wide,` +
+        (access.dept_id ? `department_ids.cs.{${access.dept_id}}` : `visibility.eq.org_wide`)
       );
     } else if (access.role === "super_user") {
       const deptIds = access.accessible_dept_ids ?? [];
       if (deptIds.length > 0) {
         const deptFilter = deptIds.map((id) => `department_ids.cs.{${id}}`).join(",");
-        nodeQuery = nodeQuery.or(`visibility.eq.public,${deptFilter}`);
+        nodeQuery = nodeQuery.or(`visibility.eq.org_wide,${deptFilter}`);
       } else {
-        nodeQuery = nodeQuery.eq("visibility", "public");
+        nodeQuery = nodeQuery.eq("visibility", "org_wide");
       }
     }
     // Admins see everything
@@ -87,13 +87,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ edges: [], total: 0 });
     }
 
-    // Fetch edges where both source and target are in the accessible node set
+    // Fetch edges where both source and target are in the accessible node set.
+    // Capped at 10 000 to prevent unbounded payloads on dense graphs.
     const { data: edges, error } = await supabaseAdmin
       .from("kg_edges")
       .select("*")
       .eq("org_id", internalOrgId)
       .in("source_node", accessibleIds)
-      .in("target_node", accessibleIds);
+      .in("target_node", accessibleIds)
+      .limit(10000);
 
     if (error) {
       logger.error({ error: error.message }, "[graph/edges] Query failed");

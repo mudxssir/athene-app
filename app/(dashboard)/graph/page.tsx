@@ -40,6 +40,7 @@ function MobileGraphList() {
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     // Reset to page 1 on search change
@@ -54,10 +55,10 @@ function MobileGraphList() {
           search ? `&search=${encodeURIComponent(search)}` : ""
         }`;
         const res = await fetch(url);
-        if (!res.ok) throw new Error();
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (!active) return;
-        
+        setFetchError(null);
         if (page === 1) {
           setNodes(data.nodes ?? []);
         } else {
@@ -66,6 +67,8 @@ function MobileGraphList() {
         setTotal(data.total ?? 0);
       } catch (err) {
         console.error("[MobileGraphList] Failed to fetch nodes:", err);
+        if (!active) return;
+        setFetchError("Failed to load nodes. Tap to retry.");
         if (page === 1) {
           setNodes([]);
           setTotal(0);
@@ -121,6 +124,17 @@ function MobileGraphList() {
       {isLoading ? (
         <div className="graph-mobile__loading">
           <Loader2 className="h-6 w-6 animate-spin" />
+        </div>
+      ) : fetchError ? (
+        <div className="graph-mobile__empty">
+          <Network className="h-10 w-10 opacity-30" />
+          <p className="text-sm text-destructive mb-3">{fetchError}</p>
+          <button
+            onClick={() => { setFetchError(null); setPage(1); }}
+            className="text-xs font-black uppercase tracking-widest text-purple-400 hover:text-purple-300"
+          >
+            Retry
+          </button>
         </div>
       ) : nodes.length === 0 ? (
         <div className="graph-mobile__empty">
@@ -183,23 +197,25 @@ export default function GraphPage() {
   const [isMobile, setIsMobile] = useState<boolean | null>(null);
   const [userRole, setUserRole] = useState("member");
 
+  // Detect mobile breakpoint
   useEffect(() => {
-    // Check screen width
     const mql = window.matchMedia("(max-width: 768px)");
     setIsMobile(mql.matches);
     const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    // FIX #5: Optional chaining for older Safari compatibility
     mql.addEventListener?.("change", handler);
+    return () => mql.removeEventListener?.("change", handler);
+  }, []);
 
+  // Fetch role only on desktop (used by the department filter in the canvas)
+  useEffect(() => {
+    if (isMobile !== false) return;
     fetch("/api/user/role")
       .then((r) => r.json())
       .then((d) => {
         if (d.role && typeof d.role === "string") setUserRole(d.role);
       })
       .catch(() => {});
-
-    return () => mql.removeEventListener?.("change", handler);
-  }, []);
+  }, [isMobile]);
 
   return (
     <div id="graph-page">

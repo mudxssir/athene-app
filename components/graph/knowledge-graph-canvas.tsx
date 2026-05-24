@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import {
   ReactFlow,
   Background,
@@ -33,6 +33,22 @@ export const ENTITY_COLORS: Record<string, string> = {
   product:      "#B23A1A",  // danger       — warm red-orange
 };
 export type EntityColorKey = keyof typeof ENTITY_COLORS;
+
+/**
+ * Deterministic colour fallback for entity types not in ENTITY_COLORS
+ * (e.g. "deal", "incident", "contract" from the extended type registry).
+ * Uses a palette of brand-adjacent hues keyed by a simple string hash.
+ */
+function entityColorFallback(entityType: string): string {
+  const hash = entityType.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+  const palette = ["#7c3aed", "#0d9488", "#b45309", "#dc2626", "#2563eb", "#9333ea"];
+  return palette[hash % palette.length];
+}
+
+/** Resolve a node colour — ENTITY_COLORS first, then hashed fallback */
+function resolveNodeColor(entityType: string): string {
+  return ENTITY_COLORS[entityType] ?? entityColorFallback(entityType);
+}
 
 // ── Types ───────────────────────────────────────────────────
 
@@ -125,7 +141,7 @@ function layoutNodes(apiNodes: APINode[]): GraphNode[] {
     members.forEach((n, i) => {
       const ix = i % innerCols;
       const iy = Math.floor(i / innerCols);
-      const bgColor = ENTITY_COLORS[n.entity_type] ?? ENTITY_COLORS.concept;
+      const bgColor = resolveNodeColor(n.entity_type);
 
       rfNodes.push({
         id: n.id,
@@ -236,6 +252,7 @@ function KnowledgeGraphCanvasInternal({ userRole, focusNodeId }: KnowledgeGraphC
   const [isBuildingGraph, setIsBuildingGraph] = useState(false);
   const [departmentFilter, setDepartmentFilter] = useState("");
   const initRef = useRef(false);
+  const buildPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // FIX #1: Use ref for apiNodes to break the stale closure cycle
   const apiNodesRef = useRef<APINode[]>([]);
@@ -274,6 +291,17 @@ function KnowledgeGraphCanvasInternal({ userRole, focusNodeId }: KnowledgeGraphC
           ? [...currentApiNodes, ...newNodes.filter((n) => !currentApiNodes.some((e) => e.id === n.id))]
           : newNodes;
 
+        // Seed loadedCommunities with the communities present in the initial load
+        // so "Load more communities" only appears when there are truly unloaded ones.
+        if (!append) {
+          const represented = new Set(
+            newNodes
+              .filter((n) => n.community !== null && n.community !== undefined)
+              .map((n) => n.community as number)
+          );
+          setLoadedCommunities(represented);
+        }
+
         setApiNodes(mergedNodes);
         setNodes(layoutNodes(mergedNodes));
 
@@ -299,9 +327,20 @@ function KnowledgeGraphCanvasInternal({ userRole, focusNodeId }: KnowledgeGraphC
     fetchNodes(1);
   }, [fetchNodes]);
 
-  // FIX #3: Department filter change triggers re-fetch
+  // Clean up build-graph polling interval on unmount
   useEffect(() => {
-    if (!initRef.current) return; // Skip on initial mount
+    return () => {
+      if (buildPollRef.current) clearInterval(buildPollRef.current);
+    };
+  }, []);
+
+  // Department filter change triggers re-fetch.
+  // Only fires when the value is empty or a structurally valid UUID —
+  // prevents spammy requests while the admin is still typing.
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  useEffect(() => {
+    if (!initRef.current) return;
+    if (departmentFilter && !UUID_REGEX.test(departmentFilter)) return;
     fetchNodes(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [departmentFilter]);
@@ -320,84 +359,105 @@ function KnowledgeGraphCanvasInternal({ userRole, focusNodeId }: KnowledgeGraphC
     }
   }, [isLoading, focusNodeId, nodes, fitView]);
 
+  // ── Pre-built adjacency map — O(1) neighbor lookup per node ─
+  // Rebuilt only when edges or apiNodes change, not on every click.
+  const adjacencyMap = useMemo(() => {
+    const nodeIndex = new Map(apiNodes.map((n) => [n.id, n]));
+    const map = new Map<string, NeighborInfo[]>();
+
+    edges.forEach((e) => {
+      const relation = (e.data as GraphEdgeData | undefined)?.relation ?? "RELATED_TO";
+      if (!map.has(e.source)) map.set(e.source, []);
+      if (!map.has(e.target)) map.set(e.target, []);
+
+      const targetNode = nodeIndex.get(e.target);
+      const sourceNode = nodeIndex.get(e.source);
+
+      if (targetNode) {
+        map.get(e.source)!.push({
+          id: targetNode.id,
+          label: targetNode.label,
+          entity_type: targetNode.entity_type,
+          relation,
+          direction: "outbound",
+        });
+      }
+      if (sourceNode) {
+        map.get(e.target)!.push({
+          id: sourceNode.id,
+          label: sourceNode.label,
+          entity_type: sourceNode.entity_type,
+          relation,
+          direction: "inbound",
+        });
+      }
+    });
+
+    return map;
+  }, [edges, apiNodes]);
+
   // ── Node click → side panel ───────────────────────────────
   const handleNodeClick: NodeMouseHandler<GraphNode> = useCallback(
     (_event, rfNode) => {
-      const currentNodes = apiNodesRef.current;
-      const node = currentNodes.find((n) => n.id === rfNode.id);
+      const node = apiNodesRef.current.find((n) => n.id === rfNode.id);
       if (!node) return;
 
       setSelectedNode(node);
       setNeighborsLoading(true);
       setNeighbors([]);
 
-      // FIX #5: Defer neighbor computation so loading state renders
+      // Defer so the loading spinner renders before we do the map lookup
       setTimeout(() => {
-        const neighborList: NeighborInfo[] = [];
-
-        edges.forEach((e) => {
-          const relation = (e.data as GraphEdgeData | undefined)?.relation ?? "RELATED_TO";
-
-          if (e.source === node.id) {
-            const targetNode = currentNodes.find((n) => n.id === e.target);
-            if (targetNode) {
-              neighborList.push({
-                id: targetNode.id,
-                label: targetNode.label,
-                entity_type: targetNode.entity_type,
-                relation,
-                direction: "outbound",
-              });
-            }
-          } else if (e.target === node.id) {
-            const sourceNode = currentNodes.find((n) => n.id === e.source);
-            if (sourceNode) {
-              neighborList.push({
-                id: sourceNode.id,
-                label: sourceNode.label,
-                entity_type: sourceNode.entity_type,
-                relation,
-                direction: "inbound",
-              });
-            }
-          }
-        });
-
-        setNeighbors(neighborList);
+        setNeighbors(adjacencyMap.get(node.id) ?? []);
         setNeighborsLoading(false);
       }, 0);
     },
-    [edges]
+    [adjacencyMap]
   );
 
   // ── Search highlight ──────────────────────────────────────
   const handleSearchResults = useCallback(
     (nodeIds: string[]) => {
-      // Dim non-matching nodes, highlight matches
+      // Dim non-matching nodes; highlight matches with a ring (no transform —
+      // scale() shifts layout footprint and causes visible node overlap).
       setNodes((prev) =>
-        prev.map((n) => ({
-          ...n,
-          style: {
-            ...n.style,
-            opacity: nodeIds.includes(n.id) ? 1 : 0.15,
-            transform: nodeIds.includes(n.id) ? "scale(1.15)" : "scale(1)",
-          },
-        }))
+        prev.map((n) => {
+          const isMatch = nodeIds.includes(n.id);
+          const bgColor = resolveNodeColor(n.data?.entity_type as string ?? "concept");
+          return {
+            ...n,
+            style: {
+              ...n.style,
+              opacity: isMatch ? 1 : 0.15,
+              boxShadow: isMatch
+                ? `0 0 0 3px #a855f7, 0 4px 12px ${bgColor}60`
+                : `0 2px 8px ${bgColor}40`,
+            },
+          };
+        })
       );
+      // Pan the viewport to show matched nodes
+      const matchedRFNodes = nodes.filter((n) => nodeIds.includes(n.id));
+      if (matchedRFNodes.length > 0) {
+        setTimeout(() => fitView({ nodes: matchedRFNodes, padding: 0.5, duration: 600 }), 50);
+      }
     },
-    [setNodes]
+    [setNodes, nodes, fitView]
   );
 
   const handleSearchClear = useCallback(() => {
     setNodes((prev) =>
-      prev.map((n) => ({
-        ...n,
-        style: {
-          ...n.style,
-          opacity: 1,
-          transform: "scale(1)",
-        },
-      }))
+      prev.map((n) => {
+        const bgColor = resolveNodeColor(n.data?.entity_type as string ?? "concept");
+        return {
+          ...n,
+          style: {
+            ...n.style,
+            opacity: 1,
+            boxShadow: `0 2px 8px ${bgColor}40`,
+          },
+        };
+      })
     );
   }, [setNodes]);
 
@@ -415,12 +475,21 @@ function KnowledgeGraphCanvasInternal({ userRole, focusNodeId }: KnowledgeGraphC
   const handleNavigateToNode = useCallback(
     (nodeId: string) => {
       const node = apiNodesRef.current.find((n) => n.id === nodeId);
-      if (node) setSelectedNode(node);
+      if (!node) return;
+      setSelectedNode(node);
+      // Pan the canvas to the target node so the user can see it
+      const rfNode = nodes.find((n) => n.id === nodeId);
+      if (rfNode) {
+        setTimeout(() => fitView({ nodes: [rfNode], duration: 500, padding: 2 }), 0);
+      }
     },
-    []
+    [nodes, fitView]
   );
 
   // ── Build graph (empty state) ─────────────────────────────
+  // After enqueueing, poll every 5s (max 2 min) until nodes appear.
+  // The QStash worker may take 10–60+ seconds to finish — a fixed 5s
+  // timeout would almost always arrive before the worker completes.
   const handleBuildGraph = useCallback(async () => {
     setIsBuildingGraph(true);
     try {
@@ -430,10 +499,32 @@ function KnowledgeGraphCanvasInternal({ userRole, focusNodeId }: KnowledgeGraphC
         body: JSON.stringify({ job_type: "full" }),
       });
       if (!res.ok) throw new Error("Build request failed");
-      setTimeout(() => fetchNodes(1), 5000);
+
+      let attempts = 0;
+      buildPollRef.current = setInterval(async () => {
+        attempts++;
+        try {
+          const r = await fetch("/api/graph/nodes?limit=1");
+          if (r.ok) {
+            const d = await r.json();
+            if ((d.total ?? 0) > 0) {
+              clearInterval(buildPollRef.current!);
+              buildPollRef.current = null;
+              setIsBuildingGraph(false);
+              fetchNodes(1);
+              return;
+            }
+          }
+        } catch {}
+        // Stop polling after 2 minutes (24 × 5s)
+        if (attempts >= 24) {
+          clearInterval(buildPollRef.current!);
+          buildPollRef.current = null;
+          setIsBuildingGraph(false);
+        }
+      }, 5000);
     } catch (err) {
       console.error("[graph] Build failed:", err);
-    } finally {
       setIsBuildingGraph(false);
     }
   }, [fetchNodes]);
@@ -441,7 +532,7 @@ function KnowledgeGraphCanvasInternal({ userRole, focusNodeId }: KnowledgeGraphC
   // ── MiniMap node colour ───────────────────────────────────
   const miniMapNodeColor = useCallback((node: GraphNode) => {
     const entityType = node.data?.entity_type as string | undefined;
-    return (entityType && ENTITY_COLORS[entityType]) ?? "#6b7280";
+    return entityType ? resolveNodeColor(entityType) : "#6b7280";
   }, []);
 
   // ── Empty state ───────────────────────────────────────────
