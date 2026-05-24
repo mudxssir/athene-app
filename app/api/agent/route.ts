@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { cachedAuth } from "@/lib/auth/cached-clerk";
-import { HumanMessage } from "@langchain/core/messages";
+import { HumanMessage, isAIMessageChunk } from "@langchain/core/messages";
 import { getAgentGraph } from "@/lib/langgraph/graph";
 import { mapRole } from "@/lib/auth/clerk";
 import { rateLimit, cached, redis } from "@/lib/redis/client";
@@ -252,6 +252,11 @@ export async function POST(req: NextRequest) {
         for await (const [mode, chunk] of eventStream as AsyncIterable<[string, any]>) {
           if (mode === "messages") {
             const messageChunk = (chunk as any[])?.[0];
+            // Only stream tokens from AI model chunks — skip HumanMessage and
+            // ToolMessage objects that LangGraph also emits in "messages" mode.
+            // Without this guard, the user's own question and tool-result strings
+            // (e.g. "[Retrieval complete] Found N chunks") appear in the assistant bubble.
+            if (!isAIMessageChunk(messageChunk)) continue;
             if (messageChunk?.content) {
               const token = typeof messageChunk.content === "string"
                 ? messageChunk.content
