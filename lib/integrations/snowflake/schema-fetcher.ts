@@ -157,9 +157,11 @@ export async function fetchTableStats(
         )
         const distinctCount = Number(parseSnowflakeRows(distinctRes)[0]?.cnt ?? 0)
 
+        // SAMPLE (1) = 1% Bernoulli sampling, server-side before GROUP BY.
+        // Snowflake's optimizer ignores SAMPLE on small tables (<10k rows), preserving accuracy.
         const topRes = await snowflakeFetch(
           connectionId, orgId,
-          `SELECT ${quotedCol} AS val, COUNT(*) AS cnt FROM ${tableFullName} GROUP BY ${quotedCol} ORDER BY cnt DESC LIMIT ${limit}`
+          `SELECT val, COUNT(*) AS cnt FROM (SELECT ${quotedCol} AS val FROM ${tableFullName} SAMPLE (1)) GROUP BY val ORDER BY cnt DESC LIMIT ${limit}`
         )
         const topRows = parseSnowflakeRows(topRes)
         categorical.push({

@@ -1,5 +1,5 @@
 import { tableauSignIn, tableauFetch } from './client'
-import { FetchedChunk } from '../base'
+import { FetchedChunk, baseFetchRaw } from '../base'
 import { logger } from '@/lib/logger'
 import { type SyncConfig, getSelectedResourceIds } from '../sync-config'
 
@@ -69,12 +69,28 @@ export async function fetchTableauWorkbooks(
       },
     })
 
-    // Index each view as its own chunk
+    // Index each view as its own chunk, enriched with a CSV data sample
     for (const view of views) {
+      let dataContent = ''
+      try {
+        // CSV export: first 50 rows of the view's default query
+        const csvUrl = `${session.serverUrl}/api/3.21/sites/${session.siteId}/views/${view.id}/data.csv?pageSize=50`
+        const res = await baseFetchRaw(csvUrl, {
+          headers: { 'X-Tableau-Auth': session.token },
+        })
+        if (res.ok) {
+          const csv = await res.text()
+          if (csv.trim()) dataContent = `\n\nData Sample:\n${csv.trim()}`
+        }
+      } catch {
+        // Non-fatal: some views require parameters or live connections; fall back to metadata-only
+      }
+
+      const baseContent = `View "${view.name}" in workbook "${wb.name}". Project: ${wb.project?.name ?? 'Default'}.`
       chunks.push({
         chunk_id: `tableau_view_${view.id}`,
         title: `Tableau View: ${view.name} (${wb.name})`,
-        content: `View "${view.name}" in workbook "${wb.name}". Project: ${wb.project?.name ?? 'Default'}.`,
+        content: baseContent + dataContent,
         source_url: `${session.serverUrl}/#/site/default/views/${view.contentUrl}`,
         metadata: {
           provider: 'tableau',

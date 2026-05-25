@@ -184,36 +184,22 @@ export async function microsoftFetcher(
     logger.error({ err: error instanceof Error ? error.message : String(error) }, '[microsoft] Error fetching Calendar events');
   }
 
-  // 3. OneDrive Documents
-  // If selectedIds is non-null, only start traversal from selected folder IDs
-  // (browseOneDrive returns drive item IDs). Otherwise fetch from root.
+  // 3. OneDrive Documents — scoped to selected folders when syncConfig provides them
   try {
-    const oneDriveSelected = selectedIds
-      ? [...selectedIds].filter(id => !id.startsWith('site:'))
-      : null
-
-    if (!oneDriveSelected || oneDriveSelected.length > 0) {
-      const startIds = oneDriveSelected && oneDriveSelected.length > 0
-        ? oneDriveSelected
-        : ['root']
-
-      for (const startId of startIds) {
-        const driveDocs = await listOneDriveDocs(connectionId, orgId, startId === 'root' ? undefined : startId)
-        for (const doc of driveDocs) {
-          const content = await fetchOneDriveDocContent(connectionId, orgId, doc.id)
-          chunks.push({
-            chunk_id: `ms_drive_${doc.id}`,
-            title: `OneDrive: ${doc.name}`,
-            content,
-            source_url: doc.webLink,
-            metadata: {
-              provider: 'microsoft',
-              resource_type: 'onedrive_doc',
-              id: doc.id
-            }
-          })
+    const driveDocs = await listOneDriveDocs(connectionId, orgId, options?.syncConfig)
+    for (const doc of driveDocs) {
+      const content = await fetchOneDriveDocContent(connectionId, orgId, doc.id)
+      chunks.push({
+        chunk_id: `ms_drive_${doc.id}`,
+        title: `OneDrive: ${doc.name}`,
+        content,
+        source_url: doc.webLink,
+        metadata: {
+          provider: 'microsoft',
+          resource_type: 'onedrive_doc',
+          id: doc.id
         }
-      }
+      })
     }
   } catch (error) {
     logger.error({ err: error instanceof Error ? error.message : String(error) }, '[microsoft] Error fetching OneDrive docs');

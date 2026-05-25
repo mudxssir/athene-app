@@ -49,6 +49,7 @@ import { fetchHubSpotDeals } from '@/lib/integrations/hubspot/deals-fetcher'
 import { fetchHubSpotNotes } from '@/lib/integrations/hubspot/notes-fetcher'
 import { fetchSalesforceAccounts } from '@/lib/integrations/salesforce/accounts-fetcher'
 import { fetchSalesforceCases } from '@/lib/integrations/salesforce/cases-fetcher'
+import { fetchSalesforceContacts } from '@/lib/integrations/salesforce/contacts-fetcher'
 import { fetchSalesforceOpportunities } from '@/lib/integrations/salesforce/opportunities-fetcher'
 import { fetchZendeskTickets } from '@/lib/integrations/zendesk/tickets-fetcher'
 import { fetchZendeskArticles } from '@/lib/integrations/zendesk/articles-fetcher'
@@ -67,7 +68,7 @@ import { fetchConfluencePages } from '@/lib/integrations/atlassian/confluence-fe
 import { fetchSnowflakeSamples } from '@/lib/integrations/snowflake/sample-fetcher'
 import { fetchBigQueryDatasets } from '@/lib/integrations/bigquery/datasets-fetcher'
 import { fetchRedshiftTables } from '@/lib/integrations/redshift/tables-fetcher'
-import { fetchLookerContent } from '@/lib/integrations/looker/looks-fetcher'
+import { fetchLookerContent, fetchLookerExplores } from '@/lib/integrations/looker/looks-fetcher'
 import { fetchTableauWorkbooks } from '@/lib/integrations/tableau/workbooks-fetcher'
 import { fetchMetabaseContent } from '@/lib/integrations/metabase/cards-fetcher'
 import { fetchDbtContent } from '@/lib/integrations/dbt/models-fetcher'
@@ -135,9 +136,10 @@ const providerFetcherMap: Record<string, FetcherFn[]> = {
       const selected = opts?.syncConfig ? new Set(opts.syncConfig.selectedResources?.map((r) => r.id) ?? []) : new Set<string>()
       const all = selected.size === 0
       const chunks = await Promise.all([
-        all || selected.has('accounts') ? fetchSalesforceAccounts(connectionId, instanceUrl, orgId) : Promise.resolve([]),
-        all || selected.has('cases') ? fetchSalesforceCases(connectionId, instanceUrl, orgId) : Promise.resolve([]),
-        all || selected.has('opportunities') ? fetchSalesforceOpportunities(connectionId, instanceUrl, orgId) : Promise.resolve([]),
+        all || selected.has('accounts') ? fetchSalesforceAccounts(connectionId, instanceUrl, orgId, { since: opts?.since }) : Promise.resolve([]),
+        all || selected.has('cases') ? fetchSalesforceCases(connectionId, instanceUrl, orgId, { since: opts?.since }) : Promise.resolve([]),
+        all || selected.has('contacts') ? fetchSalesforceContacts(connectionId, instanceUrl, orgId, { since: opts?.since }) : Promise.resolve([]),
+        all || selected.has('opportunities') ? fetchSalesforceOpportunities(connectionId, instanceUrl, orgId, { since: opts?.since }) : Promise.resolve([]),
       ])
       return chunks.flat()
     },
@@ -236,8 +238,8 @@ const providerFetcherMap: Record<string, FetcherFn[]> = {
       const [issues, cycles, projects] = await Promise.all([
         // Issues support team filtering via syncConfig; cycles/projects are cross-team.
         linearIssuesFetcher(connectionId, orgId, opts?.syncConfig),
-        linearCyclesFetcher(connectionId, orgId),
-        linearProjectsFetcher(connectionId, orgId),
+        linearCyclesFetcher(connectionId, orgId, opts?.syncConfig),
+        linearProjectsFetcher(connectionId, orgId, opts?.syncConfig),
       ])
       return [...issues, ...cycles, ...projects]
     },
@@ -251,7 +253,10 @@ const providerFetcherMap: Record<string, FetcherFn[]> = {
   redshift:  [fetchRedshiftTables],
 
   // ── BI Tools ─────────────────────────────────────────────────
-  looker:   [(cid, oid, opts) => fetchLookerContent(cid, oid, opts?.syncConfig)],
+  looker: [
+    (cid, oid, opts) => fetchLookerContent(cid, oid, opts?.syncConfig),
+    (cid, oid) => fetchLookerExplores(cid, oid),
+  ],
   tableau:  [(cid, oid, opts) => fetchTableauWorkbooks(cid, oid, opts?.syncConfig)],
   metabase: [(cid, oid, opts) => fetchMetabaseContent(cid, oid, opts?.syncConfig)],
   dbt:      [(cid, oid, opts) => fetchDbtContent(cid, oid, opts?.syncConfig)],

@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { User, Zap, Loader2, Database, ExternalLink, GitBranch, AlertCircle, ChevronRight } from "lucide-react";
+import { User, Zap, Loader2, Database, ExternalLink, AlertCircle, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { MarkdownMessage } from "@/components/chat/markdown-message";
 
 export interface Message {
   id: string;
@@ -40,104 +41,6 @@ export function MessageList({ messages, awaitingApproval }: MessageListProps) {
       });
     }
   }, [messages.length]);
-
-  function renderContent(content: string, citedSources?: CitedSource[]) {
-    // Local regex instance to avoid concurrent render races
-    const CITATION_REGEX = /\[([a-zA-Z0-9_-]+)\]/g;
-
-    // Check whether there are any [EXTRACTED] tags even when citedSources is empty
-    const hasAnyCitations = (citedSources && citedSources.length > 0) || /\[EXTRACTED\]/.test(content);
-    if (!hasAnyCitations) {
-      return <div className="whitespace-pre-wrap">{content}</div>;
-    }
-
-    const parts: React.ReactNode[] = [];
-    let lastIndex = 0;
-    let match: RegExpExecArray | null;
-
-    while ((match = CITATION_REGEX.exec(content)) !== null) {
-      // Add text before the match
-      if (match.index > lastIndex) {
-        parts.push(
-          <span key={`text-${lastIndex}`}>
-            {content.slice(lastIndex, match.index)}
-          </span>
-        );
-      }
-
-      const docId = match[1];
-
-      // Knowledge-graph extracted relationship — purple chip, no external link
-      if (docId === "EXTRACTED") {
-        parts.push(
-          <Tooltip key={`kg-${match.index}`}>
-            <TooltipTrigger asChild>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 mx-0.5 rounded text-[10px] font-bold uppercase tracking-wider cursor-default" style={{ background: "rgba(230,185,40,0.12)", border: "1px solid rgba(230,185,40,0.28)", color: "var(--honey-600)" }}>
-                <GitBranch className="w-2.5 h-2.5" />
-                KG
-              </span>
-            </TooltipTrigger>
-            <TooltipContent className="bg-black text-white border-white/10 text-xs max-w-xs">
-              <p>Extracted from knowledge graph — not a stored document</p>
-            </TooltipContent>
-          </Tooltip>
-        );
-        lastIndex = CITATION_REGEX.lastIndex;
-        continue;
-      }
-
-      const source = citedSources?.find((s) => s.document_id === docId);
-
-      if (source) {
-        parts.push(
-          <Tooltip key={`cite-${docId}-${match.index}`}>
-            <TooltipTrigger asChild>
-              <span
-                className="inline-flex items-center px-2 py-0.5 mx-0.5 bg-secondary/10 border border-secondary/20 rounded text-[10px] font-bold uppercase tracking-wider text-secondary cursor-pointer hover:bg-secondary/20 transition-colors"
-                onClick={() => {
-                  if (source.external_url) {
-                    // noopener prevents the opened tab from accessing window.opener
-                    window.open(source.external_url, "_blank", "noopener,noreferrer");
-                  }
-                }}
-              >
-                [{docId.slice(0, 8)}]
-              </span>
-            </TooltipTrigger>
-            <TooltipContent className="bg-black text-white border-white/10 text-xs max-w-xs">
-              <div className="space-y-1">
-                <p className="font-bold">{source.title || "Untitled Document"}</p>
-                <p className="text-muted-foreground">
-                  Type: {source.source_type}
-                </p>
-                {source.external_url && (
-                  <p className="text-secondary flex items-center gap-1">
-                    <ExternalLink className="w-3 h-3" />
-                    Open document
-                  </p>
-                )}
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        );
-      } else {
-        parts.push(
-          <span key={`cite-${docId}-${match.index}`}>[{docId}]</span>
-        );
-      }
-
-      lastIndex = CITATION_REGEX.lastIndex;
-    }
-
-    // Add remaining text
-    if (lastIndex < content.length) {
-      parts.push(
-        <span key={`text-${lastIndex}`}>{content.slice(lastIndex)}</span>
-      );
-    }
-
-    return <div className="whitespace-pre-wrap">{parts}</div>;
-  }
 
   return (
     <TooltipProvider>
@@ -231,7 +134,7 @@ export function MessageList({ messages, awaitingApproval }: MessageListProps) {
                           </span>
                         </div>
                       ) : (
-                        renderContent(msg.content, msg.cited_sources)
+                        <MarkdownMessage content={msg.content} citedSources={msg.cited_sources} />
                       )}
                     </>
                   )}

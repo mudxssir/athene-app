@@ -1,74 +1,22 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import {
   Blocks,
   ArrowRight,
-  Plus,
   CheckCircle2,
-  Loader2,
   Sparkles,
   Cloud,
   AlertCircle
 } from "lucide-react";
 import Link from "next/link";
-import Nango from "@nangohq/frontend";
 import { Button } from "@/components/ui/button";
-import { ProviderConfig, getProvider, PROVIDER_REGISTRY } from "@/lib/integrations/providers";
-import { cn } from "@/lib/utils";
-
-// Reverse map: Nango integration ID → internal provider key
-const NANGO_KEY_MAP: Record<string, string> = Object.fromEntries(
-  Object.values(PROVIDER_REGISTRY).map((p) => [p.nangoIntegrationId, p.key])
-);
+import { OAuthConnectButton } from "@/components/integrations/oauth-connect-button";
+import { ProviderConfig, getProvider } from "@/lib/integrations/providers";
 
 export default function OnboardingConnectionsPage() {
-  const [connecting, setConnecting] = useState<string | null>(null);
   const [connectedCount, setConnectedCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
-
-  const handleConnect = useCallback(async (provider: ProviderConfig) => {
-    setConnecting(provider.key);
-    setError(null);
-    try {
-      const sessionRes = await fetch("/api/nango/session", { method: "POST" });
-      if (!sessionRes.ok) throw new Error("Failed to create a secure session. Please try again.");
-      const { token } = await sessionRes.json();
-
-      const nango = new Nango({ connectSessionToken: token });
-
-      nango.openConnectUI({
-        onEvent: async (event) => {
-          if (event.type === "connect") {
-            const nangoKey = event.payload.providerConfigKey;
-            const internalKey = NANGO_KEY_MAP[nangoKey] ?? provider.key;
-
-            const saveRes = await fetch("/api/admin/integrations", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                connectionId: event.payload.connectionId,
-                provider: internalKey,
-              }),
-            });
-
-            if (saveRes.ok) {
-              setConnectedCount(prev => prev + 1);
-            } else {
-              setError("Connection authenticated but failed to save. Please try again.");
-            }
-            setConnecting(null);
-          }
-          if (event.type === "close") {
-            setConnecting(null);
-          }
-        },
-      });
-    } catch (e: any) {
-      setConnecting(null);
-      setError(e?.message ?? "Something went wrong. Please try again.");
-    }
-  }, []);
 
   const topProviders = [
     getProvider("sharepoint"),
@@ -130,29 +78,21 @@ export default function OnboardingConnectionsPage() {
                 className="group relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-[2rem] p-8 flex flex-col items-center text-center transition-all duration-500 hover:border-secondary/30 hover:bg-white/10"
               >
                  <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center mb-6 shadow-xl transition-transform duration-500 group-hover:scale-110">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={provider.icon} alt={provider.displayName} className="w-10 h-10 object-contain" />
                  </div>
                  <h3 className="font-bold text-sm mb-2">{provider.displayName}</h3>
                  <p className="text-[10px] text-slate-500 mb-6 line-clamp-2 leading-relaxed">
                    {provider.description}
                  </p>
-                 <Button
-                   onClick={() => handleConnect(provider)}
-                   disabled={connecting !== null}
-                   className={cn(
-                     "w-full h-10 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all",
-                     connecting !== null ? "bg-white/10 text-slate-400" : "bg-white text-black hover:bg-white/90"
-                   )}
-                 >
-                    {connecting === provider.key ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <>
-                        <Plus className="w-3 h-3 mr-2" />
-                        Connect
-                      </>
-                    )}
-                 </Button>
+                 {/* OAuthConnectButton opens the provider's OAuth consent screen directly —
+                     no Nango catalog modal. Each card manages its own connection state. */}
+                 <OAuthConnectButton
+                   provider={provider}
+                   onConnected={() => setConnectedCount(prev => prev + 1)}
+                   onError={(msg) => setError(msg)}
+                   className="w-full h-10 rounded-xl bg-white text-black hover:bg-white/90"
+                 />
               </div>
            ))}
         </div>

@@ -26,10 +26,8 @@ import { cn } from "@/lib/utils";
 import { VERTICAL_MODULES } from "@/lib/knowledge-graph/modules/registry";
 import { ResourceBrowser } from "@/components/integrations/resource-browser";
 
-// Reverse map: Nango integration ID (e.g. "google-drive") → internal key (e.g. "google_drive")
-const NANGO_KEY_MAP: Record<string, string> = Object.fromEntries(
-  Object.values(PROVIDER_REGISTRY).map((p) => [p.nangoIntegrationId, p.key])
-);
+// NANGO_KEY_MAP removed — handleConnect now passes provider.key directly
+// (using nango.auth() instead of openConnectUI(), so we always know which provider was selected)
 
 function ConfirmDialog({
   open,
@@ -144,6 +142,9 @@ export default function IntegrationsPage() {
     }
   }, [integrations]);
 
+  // handleConnect uses nango.auth() to open the provider's OAuth consent screen directly,
+  // bypassing the Nango catalog modal (openConnectUI). The internal provider key is passed
+  // to the save endpoint, so NANGO_KEY_MAP is no longer required.
   const handleConnect = useCallback(async (provider: ProviderConfig) => {
     setConnecting(provider.key);
     try {
@@ -172,45 +173,39 @@ export default function IntegrationsPage() {
 
       const nango = new Nango({ connectSessionToken: token });
 
-      nango.openConnectUI({
-        onEvent: async (event) => {
-          if (event.type === "close") {
-            setConnecting(null);
-            setShowAddDialog(false);
-            fetchIntegrations();
-          }
+      // Generate a collision-free connection ID (crypto.randomUUID avoids Date.now() races).
+      const connectionId = `${provider.key}_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
 
-          if (event.type === "connect") {
-            const nangoKey = event.payload.providerConfigKey;
-            const internalKey = NANGO_KEY_MAP[nangoKey] ?? nangoKey;
-            const displayName = PROVIDER_REGISTRY[internalKey as keyof typeof PROVIDER_REGISTRY]?.displayName ?? internalKey;
+      // nango.auth() opens the provider's OAuth consent screen directly in a popup.
+      const result = await nango.auth(provider.nangoIntegrationId, connectionId);
+      if (!result) throw new Error("OAuth authorization was cancelled or failed.");
 
-            const saveRes = await fetch("/api/admin/integrations", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                connectionId: event.payload.connectionId,
-                provider: internalKey,
-              }),
-            });
-
-            if (!saveRes.ok) {
-              setToast({ msg: `Access granted but save failed: ${saveRes.statusText}`, type: "error" });
-            } else {
-              setToast({ msg: `${displayName} connected successfully.`, type: "success" });
-              const saveData = await saveRes.json().catch(() => ({}));
-
-              if (isBrowsable(internalKey as any) && saveData.internalConnectionId) {
-                pendingConfigureQueue.current.push({
-                  internalConnectionId: saveData.internalConnectionId,
-                  provider: internalKey,
-                });
-              }
-            }
-            setConnecting(null);
-          }
-        },
+      const saveRes = await fetch("/api/admin/integrations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          connectionId,
+          provider: provider.key,
+        }),
       });
+
+      if (!saveRes.ok) {
+        setToast({ msg: `Access granted but save failed: ${saveRes.statusText}`, type: "error" });
+      } else {
+        setToast({ msg: `${provider.displayName} connected successfully.`, type: "success" });
+        const saveData = await saveRes.json().catch(() => ({}));
+
+        if (isBrowsable(provider.key as any) && saveData.internalConnectionId) {
+          pendingConfigureQueue.current.push({
+            internalConnectionId: saveData.internalConnectionId,
+            provider: provider.key,
+          });
+        }
+      }
+
+      setConnecting(null);
+      setShowAddDialog(false);
+      fetchIntegrations();
     } catch (e: any) {
       setToast({ msg: `Integration failed: ${e.message}`, type: "error" });
       setConnecting(null);

@@ -83,11 +83,17 @@ async function safeFetch(
   }
 }
 
-/** Convert chunks to a condensed text block for LLM context */
+/**
+ * Convert chunks to a condensed text block for LLM context.
+ * Content is truncated per-chunk to prevent context-window overflow:
+ * 40 chunks × 2 000 chars ≈ 80 000 chars before joining separators.
+ */
+const CHUNK_CONTENT_MAX = 2000;
+
 function chunksToContext(chunks: FetchedChunk[], limit = 40): string {
   return chunks
     .slice(0, limit)
-    .map(c => `### ${c.title}\n${c.content}`)
+    .map(c => `### ${c.title}\n${c.content.slice(0, CHUNK_CONTENT_MAX)}`)
     .join('\n\n---\n\n')
 }
 
@@ -128,7 +134,13 @@ DOCS:
 {docsContext}`,
 }
 
+// llm is passed in rather than resolved per-call — resolveModelClient is async
+// and instantiates a new client each time. Initializing once per job and reusing
+// it across all 4 section calls avoids 4× unnecessary init overhead.
+type LLMClient = Awaited<ReturnType<typeof resolveModelClient>>
+
 async function synthesizeSection(
+  llm: LLMClient,
   orgId: string,
   key: Exclude<keyof BriefingContent, 'section_status'>,
   context: string,
@@ -138,7 +150,6 @@ async function synthesizeSection(
     return { text: '', status: 'no_data' }
   }
 
-  const llm = await resolveModelClient('medium', orgId)
   let prompt = SECTION_PROMPTS[key].replace('{context}', context)
 
   if (extraContext) {
@@ -254,17 +265,21 @@ export async function POST(request: Request): Promise<Response> {
   )
 
   // ── 3. Synthesize each section ────────────────────────────
+  // Initialize the LLM client once — reused across all 4 section calls.
+  const llm = await resolveModelClient('medium', internalOrgId)
+
   const calendarCtx = chunksToContext(calendarChunks, 30)
   const emailCtx = chunksToContext(emailChunks, 30)
   const docsCtx = chunksToContext(driveChunks, 20)
 
   const [calendarResult, emailsResult, docsResult] = await Promise.all([
-    synthesizeSection(internalOrgId, 'calendar', calendarCtx),
-    synthesizeSection(internalOrgId, 'emails', emailCtx),
-    synthesizeSection(internalOrgId, 'docs', docsCtx),
+    synthesizeSection(llm, internalOrgId, 'calendar', calendarCtx),
+    synthesizeSection(llm, internalOrgId, 'emails', emailCtx),
+    synthesizeSection(llm, internalOrgId, 'docs', docsCtx),
   ])
 
-  const knowledgeResult = await synthesizeSection(internalOrgId, 'knowledge', '', {
+  // Knowledge synthesis runs after the parallel sections — it needs their context
+  const knowledgeResult = await synthesizeSection(llm, internalOrgId, 'knowledge', '', {
     calendarContext: calendarCtx,
     emailContext: emailCtx,
     docsContext: docsCtx,
@@ -283,9 +298,16 @@ export async function POST(request: Request): Promise<Response> {
     }
   }
 
-  // One-line summary for history sidebar: first sentence of knowledge or emails
+  // One-line summary for history sidebar: first sentence of knowledge or emails.
+  // Strip markdown symbols before splitting so headings (## ...) and bold (**...**)
+  // don't appear verbatim in the sidebar chip.
   const rawSummary = knowledgeResult.text || emailsResult.text || calendarResult.text || ''
-  const summary = rawSummary.split(/[.!?]/)[0]?.trim() ?? ''
+  const plainSummary = rawSummary
+    .replace(/^#+\s*/gm, '')       // remove heading markers
+    .replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1') // remove bold/italic markers
+    .replace(/`[^`]+`/g, '')       // remove inline code
+    .trim()
+  const summary = plainSummary.split(/[.!?]/)[0]?.trim() ?? ''
 
   // ── 4. Persist briefing ───────────────────────────────────
   const { error: insertErr } = await supabaseAdmin.from('briefings').insert({
@@ -303,7 +325,7 @@ export async function POST(request: Request): Promise<Response> {
 
   if (insertErr) {
     logger.error({ internalOrgId, internalUserId, err: insertErr.message }, '[morning-briefing] Failed to insert briefing')
-    return NextResponse.json({ error: `Failed to store briefing: ${insertErr.message}` }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to store briefing' }, { status: 500 })
   }
 
   logger.info({ internalOrgId, internalUserId }, '[morning-briefing] Briefing generated and stored successfully')

@@ -8,11 +8,11 @@
 import { salesforceFetch } from './client'
 import type { FetchedChunk } from '@/lib/integrations/base'
 
-const SOQL = [
+const SOQL_BASE = [
   'SELECT',
   'Id,Name,StageName,Description,',
   'Amount,CloseDate,Probability,',
-  'Account.Name,Owner.Name',
+  'Account.Name,Owner.Name,LastModifiedDate',
   'FROM Opportunity',
 ].join('')
 
@@ -26,15 +26,20 @@ interface SFOpportunity {
   Probability: number | null
   Account: { Name: string } | null
   Owner: { Name: string } | null
+  LastModifiedDate: string | null
 }
 
 export async function fetchSalesforceOpportunities(
   connectionId: string,
   instanceUrl: string,
-  orgId: string
+  orgId: string,
+  options?: { since?: string }
 ): Promise<FetchedChunk[]> {
+  const soql = options?.since
+    ? `${SOQL_BASE} WHERE LastModifiedDate >= ${options.since}`
+    : SOQL_BASE
   const chunks: FetchedChunk[] = []
-  let nextUrl: string | null = `/query?q=${encodeURIComponent(SOQL)}`
+  let nextUrl: string | null = `/query?q=${encodeURIComponent(soql)}`
 
   while (nextUrl) {
     const data = await salesforceFetch(connectionId, nextUrl, orgId, instanceUrl) as {
@@ -68,6 +73,7 @@ export async function fetchSalesforceOpportunities(
           id:            r.Id,
           stage:         r.StageName,
           amount:        r.Amount != null ? String(r.Amount) : null,
+          last_modified: r.LastModifiedDate ?? undefined,
         },
       })
     }

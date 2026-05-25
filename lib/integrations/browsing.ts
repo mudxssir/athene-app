@@ -614,20 +614,6 @@ async function browseSharePoint(
 
 // ---- Group C: CRM / PM providers ----------------------------
 
-async function browseHubSpot(
-  _connectionId: string,
-  _orgId: string
-): Promise<BrowseResult> {
-  return {
-    resources: [
-      { id: 'contacts', name: 'Contacts', type: 'object_type', hasChildren: false, path: '/contacts' },
-      { id: 'companies', name: 'Companies', type: 'object_type', hasChildren: false, path: '/companies' },
-      { id: 'deals', name: 'Deals', type: 'object_type', hasChildren: false, path: '/deals' },
-      { id: 'notes', name: 'Notes', type: 'object_type', hasChildren: false, path: '/notes' },
-    ],
-  }
-}
-
 async function browseSalesforce(
   _connectionId: string,
   _orgId: string
@@ -692,18 +678,6 @@ async function browseLinear(connectionId: string, orgId: string): Promise<Browse
 }
 
 // ---- Group D: BI tools ---------------------------------------
-
-async function browseZendesk(
-  _connectionId: string,
-  _orgId: string
-): Promise<BrowseResult> {
-  return {
-    resources: [
-      { id: 'tickets', name: 'Tickets', type: 'object_type', hasChildren: false, path: '/tickets' },
-      { id: 'articles', name: 'Help Center Articles', type: 'object_type', hasChildren: false, path: '/articles' },
-    ],
-  }
-}
 
 async function browseLooker(connectionId: string, orgId: string): Promise<BrowseResult> {
   const [looks, dashboards] = await Promise.all([
@@ -822,13 +796,13 @@ const providerBrowserMap: Partial<Record<ProviderKey, ProviderBrowser>> = {
   onedrive: browseOneDrive,
   sharepoint: browseSharePoint,
   // CRM / PM
-  hubspot: browseHubSpot,
+  // hubspot removed — static hardcoded list, not real API; isBrowsable() returns false
   salesforce: browseSalesforce,
   jira: browseJira,
   confluence: browseConfluence,
   linear: browseLinear,
   // BI tools
-  zendesk: browseZendesk,
+  // zendesk removed — static hardcoded list, not real API; isBrowsable() returns false
   looker: browseLooker,
   tableau: browseTableau,
   metabase: browseMetabase,

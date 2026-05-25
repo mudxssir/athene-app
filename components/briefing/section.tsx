@@ -1,7 +1,8 @@
-import React from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Calendar, Mail, FileText, ChevronRight, Brain, AlertCircle } from 'lucide-react';
+import remarkGfm from 'remark-gfm';
+import { Calendar, Mail, FileText, ChevronRight, Brain, AlertCircle, WifiOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 type SectionType = 'calendar' | 'emails' | 'docs' | 'knowledge';
 
@@ -13,11 +14,14 @@ interface BriefingSectionProps {
   status?: 'ok' | 'failed' | 'no_data';
 }
 
-const icons = {
-  calendar: <Calendar className="w-5 h-5 text-primary" />,
-  emails: <Mail className="w-5 h-5 text-secondary" />,
-  docs: <FileText className="w-5 h-5 text-accent" />,
-  knowledge: <Brain className="w-5 h-5 text-primary" />,
+// Icons pre-sized at w-8 h-8 with correct per-type color.
+// Defined as ReactNode (not ReactElement) so we render directly — no
+// cloneElement needed (which would silently strip the color className).
+const icons: Record<SectionType, React.ReactNode> = {
+  calendar: <Calendar className="w-8 h-8 text-primary" />,
+  emails:   <Mail     className="w-8 h-8 text-secondary" />,
+  docs:     <FileText className="w-8 h-8 text-accent" />,
+  knowledge:<Brain    className="w-8 h-8 text-primary" />,
 };
 
 const gradients = {
@@ -34,10 +38,20 @@ const borderColors = {
   knowledge: 'border-primary/20',
 };
 
+/** Label shown for each section when no data source is connected */
+const noDataLabels: Record<SectionType, string> = {
+  calendar: 'calendar',
+  emails:   'email',
+  docs:     'document',
+  knowledge:'knowledge',
+};
+
 export function BriefingSection({ type, title, content, className, status }: BriefingSectionProps) {
   return (
     <div className={cn(
-      "group relative overflow-hidden rounded-[3rem] border bg-card/40 p-10 transition-all duration-700 hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-2 backdrop-blur-2xl font-['Space_Grotesk']",
+      // hover:-translate-y-2 removed — cards lift while users are reading,
+      // causing text to jump and making selection awkward.
+      "group relative overflow-hidden rounded-[3rem] border bg-card/40 p-10 transition-all duration-700 hover:shadow-2xl hover:shadow-primary/5 backdrop-blur-2xl font-['Space_Grotesk']",
       borderColors[type],
       className
     )}>
@@ -52,7 +66,7 @@ export function BriefingSection({ type, title, content, className, status }: Bri
           "flex h-16 w-16 shrink-0 items-center justify-center rounded-[1.5rem] border bg-muted/50 backdrop-blur-3xl shadow-2xl transition-all duration-700 group-hover:scale-110 group-hover:rotate-6",
           borderColors[type]
         )}>
-          {React.cloneElement(icons[type] as React.ReactElement<any>, { className: "w-8 h-8" })}
+          {icons[type]}
         </div>
 
         <div className="flex-1 space-y-6">
@@ -69,15 +83,27 @@ export function BriefingSection({ type, title, content, className, status }: Bri
             </div>
           </div>
 
+          {/* Synthesis failed banner */}
           {status === 'failed' && (
             <div className="text-amber-500 text-xs flex items-center gap-1.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 font-bold">
-              <AlertCircle className="w-3.5 h-3.5" />
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               Synthesis failed for this segment. Displaying raw activity stream.
             </div>
           )}
 
+          {/* No data banner — distinct from a failed synthesis */}
+          {status === 'no_data' && (
+            <div className="text-muted-foreground text-xs flex items-center gap-1.5 p-3 rounded-xl bg-muted/40 border border-border font-bold">
+              <WifiOff className="w-3.5 h-3.5 shrink-0" />
+              No {noDataLabels[type]} data available — connect a source to populate this section.{' '}
+              <Link href="/admin/integrations" className="underline underline-offset-2 hover:text-foreground transition-colors">
+                Connect sources
+              </Link>
+            </div>
+          )}
+
           <div className="prose prose-invert prose-p:text-muted-foreground prose-p:leading-relaxed prose-p:font-bold prose-strong:text-foreground prose-strong:font-black prose-sm max-w-none prose-headings:text-foreground prose-headings:font-black prose-li:text-muted-foreground prose-li:font-bold">
-            <ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {content || "_System currently indexing updates for this sector..._"}
             </ReactMarkdown>
           </div>
@@ -86,4 +112,3 @@ export function BriefingSection({ type, title, content, className, status }: Bri
     </div>
   );
 }
-

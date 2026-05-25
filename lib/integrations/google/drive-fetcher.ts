@@ -40,9 +40,10 @@ const GOOGLE_SLIDES_MIME = 'application/vnd.google-apps.presentation'
 const GOOGLE_FOLDER_MIME = 'application/vnd.google-apps.folder'
 
 /** MIME types we can extract real text from */
-const EXTRACTABLE_BINARY: Record<string, 'pdf' | 'docx'> = {
+const EXTRACTABLE_BINARY: Record<string, 'pdf' | 'docx' | 'xlsx'> = {
   'application/pdf': 'pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
 }
 
 // ─── Listing & Searching ─────────────────────────────────────────────────────
@@ -159,6 +160,10 @@ export async function fetchDriveFileContent(
     return extractDocxText(Buffer.from(buffer))
   }
 
+  if (EXTRACTABLE_BINARY[mimeType] === 'xlsx') {
+    return extractXlsxText(Buffer.from(buffer))
+  }
+
   return `[Unsupported binary format: ${mimeType}] (${buffer.byteLength} bytes)`
 }
 
@@ -189,6 +194,51 @@ async function extractDocxText(buffer: Buffer): Promise<string> {
   } catch (err) {
     logger.warn({ err: err instanceof Error ? err.message : String(err) }, '[drive-fetcher] DOCX extraction failed')
     return '[DOCX text extraction failed]'
+  }
+}
+
+async function extractXlsxText(buffer: Buffer): Promise<string> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const XLSX = require('xlsx') as typeof import('xlsx')
+    const workbook = XLSX.read(buffer, { type: 'buffer' })
+    const sections: string[] = []
+
+    const CHUNK_ROWS = 200 // Rows per sub-chunk within a sheet
+
+    for (const sheetName of workbook.SheetNames) {
+      const sheet = workbook.Sheets[sheetName]
+      // header: 1 → each row is a string[] (index 0 = first row / headers)
+      const rows = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: '' }) as string[][]
+      if (rows.length === 0) continue
+
+      const headers = rows[0]
+      const headerLine = headers.join(',')
+      const dataRows = rows.slice(1)
+
+      sections.push(`=== Sheet: ${sheetName} ===`)
+
+      if (dataRows.length === 0) {
+        // Sheet has only headers — emit them so the column names are indexed
+        sections.push(headerLine)
+        continue
+      }
+
+      // Emit data in CHUNK_ROWS windows, each prefixed with the header row so
+      // every downstream chunk is self-contained and queryable even after splitting
+      for (let i = 0; i < dataRows.length; i += CHUNK_ROWS) {
+        const window = dataRows.slice(i, i + CHUNK_ROWS)
+        const csvChunk = [headerLine, ...window.map((r) => r.join(','))].join('\n')
+        sections.push(csvChunk)
+      }
+    }
+
+    const text = sections.join('\n\n').trim()
+    if (!text) return '[XLSX contains no extractable text]'
+    return text
+  } catch (err) {
+    logger.warn({ err: err instanceof Error ? err.message : String(err) }, '[drive-fetcher] XLSX extraction failed')
+    return '[XLSX text extraction failed]'
   }
 }
 
@@ -255,20 +305,51 @@ export async function fetchDriveChunks(
 
   if (selectedIds && selectedIds.size > 0) {
     const chunks: FetchedChunk[] = []
+
+    // Build a quick type lookup from syncConfig so we can route files vs folders
+    const resourceTypeMap = new Map<string, string>()
+    for (const r of syncConfig?.selectedResources ?? []) {
+      resourceTypeMap.set(r.id, r.type)
+    }
+
     for (const resourceId of selectedIds) {
       if (excludedIds.has(resourceId)) continue
-      const folderChunks = await fetchDriveFolder(
-        connectionId,
-        orgId,
-        resourceId,
-        excludedIds,
-        excludedMimeTypes,
-        '/',
-        undefined,
-        departmentId,
-        visited
-      )
-      chunks.push(...folderChunks)
+
+      const resourceType = resourceTypeMap.get(resourceId) ?? 'folder'
+
+      if (resourceType === 'file') {
+        // Fetch file metadata then extract content directly
+        try {
+          const metaUrl = `https://www.googleapis.com/drive/v3/files/${resourceId}?fields=id,name,mimeType,webViewLink,modifiedTime,owners&supportsAllDrives=true`
+          const fileMeta = await googleFetch<DriveFile>(connectionId, orgId, metaUrl)
+          if (fileMeta.mimeType === GOOGLE_FOLDER_MIME) {
+            // Misclassified as file — treat as folder
+            const folderChunks = await fetchDriveFolder(connectionId, orgId, resourceId, excludedIds, excludedMimeTypes, '/', undefined, departmentId, visited)
+            chunks.push(...folderChunks)
+          } else {
+            const content = await fetchDriveFileContent(connectionId, orgId, fileMeta.id, fileMeta.mimeType)
+            if (!content.startsWith('[Unsupported binary format:')) {
+              chunks.push(driveFileToChunk(fileMeta, content, '/'))
+            }
+          }
+        } catch (err) {
+          logger.warn({ resourceId, err: err instanceof Error ? err.message : String(err) }, '[drive-fetcher] Failed to fetch selected file')
+        }
+      } else {
+        // Folder — recurse into it
+        const folderChunks = await fetchDriveFolder(
+          connectionId,
+          orgId,
+          resourceId,
+          excludedIds,
+          excludedMimeTypes,
+          '/',
+          undefined,
+          departmentId,
+          visited
+        )
+        chunks.push(...folderChunks)
+      }
     }
     return chunks
   }

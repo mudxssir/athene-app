@@ -23,7 +23,6 @@ interface BriefingContent {
   docs?: string;
   knowledge?: string;
   section_status?: Record<string, 'ok' | 'failed' | 'no_data'>;
-  [key: string]: any;
 }
 
 /* ── Types ──────────────────────────────────────────────── */
@@ -31,17 +30,17 @@ interface Briefing { id: string; org_id: string; user_id: string; content: Brief
 
 /* ── Page ───────────────────────────────────────────────── */
 export default function BriefingPage() {
-  const [loading, setLoading]           = useState(true);
-  const [refreshing, setRefreshing]     = useState(false);
-  const [histItemLoading, setHIL]       = useState(false);
-  const [briefing, setBriefing]         = useState<Briefing | null>(null);
-  const [history, setHistory]           = useState<Briefing[]>([]);
-  const [stats, setStats]               = useState<UsageStats | null>(null);
-  const [enqueuing, setEnqueuing]       = useState(false);
-  const [pollingTimedOut, setPTO]       = useState(false);
-  const [historyError, setHistErr]      = useState(false);
-  const [sheetOpen, setSheetOpen]       = useState(false);
-  const [insufficientData, setInsufficientData] = useState(false);
+  const [loading, setLoading]                       = useState(true);
+  const [refreshing, setRefreshing]                 = useState(false);
+  const [historyItemLoading, setHistoryItemLoading] = useState(false);
+  const [briefing, setBriefing]                     = useState<Briefing | null>(null);
+  const [history, setHistory]                       = useState<Briefing[]>([]);
+  const [stats, setStats]                           = useState<UsageStats | null>(null);
+  const [enqueuing, setEnqueuing]                   = useState(false);
+  const [pollingTimedOut, setPollingTimedOut]       = useState(false);
+  const [historyError, setHistoryError]             = useState(false);
+  const [sheetOpen, setSheetOpen]                   = useState(false);
+  const [insufficientData, setInsufficientData]     = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
@@ -62,12 +61,12 @@ export default function BriefingPage() {
 
   const fetchHistory = useCallback(async () => {
     try {
-      setHistErr(false);
+      setHistoryError(false);
       const res = await fetchWithTimeout('/api/briefing?type=history');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setHistory(Array.isArray(data) ? data : []);
-    } catch { setHistory([]); setHistErr(true); }
+    } catch { setHistory([]); setHistoryError(true); }
   }, []);
 
   const fetchStats = useCallback(async () => {
@@ -81,27 +80,27 @@ export default function BriefingPage() {
   useEffect(() => {
     const init = async () => { setLoading(true); await Promise.all([fetchToday(), fetchHistory(), fetchStats()]); setLoading(false); };
     init();
-  }, [fetchToday, fetchHistory]);
+  }, [fetchToday, fetchHistory, fetchStats]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([fetchToday(), fetchHistory()]);
+    await Promise.all([fetchToday(), fetchHistory(), fetchStats()]);
     setRefreshing(false);
-  }, [fetchToday, fetchHistory]);
+  }, [fetchToday, fetchHistory, fetchStats]);
 
   const handleHistoryItem = useCallback(async (item: Briefing) => {
-    setSheetOpen(false); setHIL(true);
+    setSheetOpen(false); setHistoryItemLoading(true);
     try {
       const res = await fetchWithTimeout(`/api/briefing?id=${encodeURIComponent(item.id)}`);
       if (!res.ok) { toast.error(`Failed to load past briefing (${res.status})`); return; }
       const data = await res.json();
       if (data && !data.error) { setBriefing(data as Briefing); toast.success(`Viewing briefing from ${new Date(item.generated_at).toLocaleDateString()}`); }
       else toast.error('Could not load that briefing');
-    } catch { toast.error('Failed to load past briefing'); } finally { setHIL(false); }
+    } catch { toast.error('Failed to load past briefing'); } finally { setHistoryItemLoading(false); }
   }, []);
 
   const handleGenerate = useCallback(async () => {
-    setEnqueuing(true); setPTO(false);
+    setEnqueuing(true); setPollingTimedOut(false);
     try {
       const res = await fetchWithTimeout('/api/briefing', { method: 'POST', timeout: 30000 } as any);
       if (!res.ok) {
@@ -126,7 +125,7 @@ export default function BriefingPage() {
           toast.success('Briefing ready!');
         } else if (attempts >= 18) {
           if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-          setEnqueuing(false); setPTO(true);
+          setEnqueuing(false); setPollingTimedOut(true);
           toast.info('Synthesis is taking longer than expected. Try again below.');
         }
       }, 5_000);
@@ -194,7 +193,7 @@ export default function BriefingPage() {
                   <SheetTitle style={{ fontFamily: 'var(--font-sans)', fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 14, color: 'var(--fg)' }}>
                     <IconTile icon={History} size={40} tone="primary" />History
                   </SheetTitle>
-                  <p className="eyebrow" style={{ marginTop: 6 }}>Last 7 briefings</p>
+                  <p className="eyebrow" style={{ marginTop: 6 }}>Recent briefings</p>
                 </SheetHeader>
                 <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto', maxHeight: 'calc(100vh - 200px)', paddingRight: 4 }} className="custom-scrollbar">
                   {historyError && (
@@ -236,11 +235,11 @@ export default function BriefingPage() {
             </Sheet>
 
             {/* Refresh */}
-            <button onClick={handleRefresh} disabled={refreshing || enqueuing || histItemLoading}
+            <button onClick={handleRefresh} disabled={refreshing || enqueuing || historyItemLoading}
               style={{ width: 58, height: 58, borderRadius: 18, background: 'var(--bg-muted)', border: '1px solid var(--border)', color: 'var(--fg-muted)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all .2s var(--ease-out)' }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(160,74,27,.4)'; (e.currentTarget as HTMLElement).style.color = 'var(--primary)'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--fg-muted)'; }}>
-              <RefreshCw size={20} strokeWidth={1.7} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+              <RefreshCw size={20} strokeWidth={1.7} className={refreshing ? 'animate-spin' : ''} />
             </button>
 
             {/* Trigger synthesis */}
@@ -248,7 +247,7 @@ export default function BriefingPage() {
               style={{ height: 58, padding: '0 28px', borderRadius: 18, background: 'var(--primary)', color: '#fff', border: 'none', fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 800, letterSpacing: '0.28em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer', boxShadow: '0 14px 30px -10px rgba(160,74,27,.55)', transition: 'all .15s var(--ease-out)' }}
               onMouseDown={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(1px)'; }}
               onMouseUp={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; }}>
-              {enqueuing ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />Synthesizing…</> : <><Sparkles size={16} />{briefing ? 'Refresh' : 'Trigger synthesis'}</>}
+              {enqueuing ? <><Loader2 size={16} className="animate-spin" />Synthesizing…</> : <><Sparkles size={16} />{briefing ? 'Refresh' : 'Trigger synthesis'}</>}
             </button>
           </div>
         </div>
@@ -275,9 +274,9 @@ export default function BriefingPage() {
         </TCard>
       )}
 
-      {histItemLoading && (
+      {historyItemLoading && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 0', color: 'var(--fg-muted)' }}>
-          <Loader2 size={16} style={{ animation: 'spin 1s linear infinite', color: 'var(--primary)' }} />
+          <Loader2 size={16} className="animate-spin" style={{ color: 'var(--primary)' }} />
           <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Loading briefing…</span>
         </div>
       )}
@@ -311,7 +310,7 @@ export default function BriefingPage() {
             )}
             <button onClick={handleGenerate} disabled={enqueuing}
               style={{ height: 58, padding: '0 30px', borderRadius: 18, background: 'var(--primary)', border: 'none', color: '#fff', fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 800, letterSpacing: '0.28em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer', boxShadow: '0 14px 30px -10px rgba(160,74,27,.55)' }}>
-              {enqueuing ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />Synthesizing…</> : <><Sparkles size={16} />Trigger neural synthesis</>}
+              {enqueuing ? <><Loader2 size={16} className="animate-spin" />Synthesizing…</> : <><Sparkles size={16} />Trigger neural synthesis</>}
             </button>
           </TCard>
         )
@@ -354,7 +353,6 @@ export default function BriefingPage() {
         </div>
       )}
 
-      <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }

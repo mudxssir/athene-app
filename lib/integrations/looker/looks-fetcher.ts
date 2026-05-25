@@ -94,3 +94,89 @@ export async function fetchLookerContent(
 
   return chunks
 }
+
+// ─── LookML Explore Indexing ─────────────────────────────────────────────────
+
+interface LookerModel {
+  name: string
+  label: string | null
+  explores: Array<{ name: string; label: string | null }>
+}
+
+interface LookerExplore {
+  name: string
+  label: string | null
+  description: string | null
+  fields?: {
+    dimensions?: Array<{ name: string; label: string | null; type: string }>
+    measures?: Array<{ name: string; label: string | null; type: string }>
+  }
+}
+
+/**
+ * Indexes LookML model/explore definitions — the core BI layer analysts query.
+ * Each explore becomes a chunk listing its dimensions and measures so users can
+ * ask "what metrics are available in the Sales explore?" and get answers.
+ */
+export async function fetchLookerExplores(
+  connectionId: string,
+  orgId: string,
+): Promise<FetchedChunk[]> {
+  const instanceUrl = await lookerInstanceUrl(connectionId, orgId)
+  const chunks: FetchedChunk[] = []
+
+  let models: LookerModel[] = []
+  try {
+    models = await lookerFetch<LookerModel[]>(connectionId, orgId, '/lookml_models?limit=50') ?? []
+  } catch (err) {
+    logger.error({ err: err instanceof Error ? err.message : String(err) }, '[looker] Failed to fetch LookML models')
+    return chunks
+  }
+
+  for (const model of models) {
+    for (const exploreRef of model.explores ?? []) {
+      try {
+        const explore = await lookerFetch<LookerExplore>(
+          connectionId,
+          orgId,
+          `/lookml_models/${encodeURIComponent(model.name)}/explores/${encodeURIComponent(exploreRef.name)}`,
+        )
+        if (!explore) continue
+
+        const dims = (explore.fields?.dimensions ?? []).slice(0, 50)
+        const measures = (explore.fields?.measures ?? []).slice(0, 20)
+
+        const dimLine = dims.map((d) => `${d.label ?? d.name} (${d.type})`).join(', ')
+        const measureLine = measures.map((m) => `${m.label ?? m.name} (${m.type})`).join(', ')
+
+        const lines: string[] = [
+          `Explore: ${explore.label ?? exploreRef.name}`,
+          `Model: ${model.name}`,
+        ]
+        if (explore.description) lines.push(`Description: ${explore.description}`)
+        if (dimLine) lines.push(`\nDimensions: ${dimLine}`)
+        if (measureLine) lines.push(`Measures: ${measureLine}`)
+
+        chunks.push({
+          chunk_id: `looker_explore_${model.name}_${exploreRef.name}`,
+          title: `Looker Explore: ${explore.label ?? exploreRef.name} (${model.label ?? model.name})`,
+          content: lines.join('\n'),
+          source_url: `${instanceUrl}/explore/${model.name}/${exploreRef.name}`,
+          metadata: {
+            provider: 'looker',
+            resource_type: 'explore',
+            model_name: model.name,
+            explore_name: exploreRef.name,
+          },
+        })
+      } catch (err) {
+        logger.warn(
+          { model: model.name, explore: exploreRef.name, err: err instanceof Error ? err.message : String(err) },
+          '[looker] Failed to fetch explore definition — skipping',
+        )
+      }
+    }
+  }
+
+  return chunks
+}

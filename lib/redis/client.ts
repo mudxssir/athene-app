@@ -1,8 +1,12 @@
 import { Redis } from "@upstash/redis";
 import { logger } from "@/lib/logger";
+import { MemoryCache } from "./memory-cache";
 
-// Graceful fallback: if Redis env vars aren't set, use a no-op stub
-// so the app doesn't crash during local dev without Upstash.
+// Graceful fallback: if Upstash env vars aren't set, use an in-memory cache
+// so rate-limiting, caching, and counters all work correctly during local dev
+// or in single-instance deployments without Upstash Redis.
+// NOTE: MemoryCache is process-local — not shared across serverless instances.
+// Use Upstash Redis for production multi-instance setups.
 const url = process.env.UPSTASH_REDIS_REST_URL;
 const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
@@ -11,14 +15,7 @@ const isValidUrl = !!(url && url.startsWith("https://"));
 export const redis =
   isValidUrl && token
     ? new Redis({ url, token })
-    : ({
-        get: async () => null,
-        set: async () => "OK",
-        incr: async () => null,
-        decr: async () => null,
-        expire: async () => true,
-        del: async () => 0,
-      } as unknown as Redis);
+    : (new MemoryCache() as unknown as Redis);
 
 /**
  * Helper to cache a value in Redis.

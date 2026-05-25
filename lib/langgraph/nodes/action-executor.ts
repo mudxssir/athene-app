@@ -6,6 +6,7 @@
 // appropriate integration, and stores the result or error.
 // ============================================================
 
+import { AIMessage } from "@langchain/core/messages";
 import type { AtheneState, AtheneStateUpdate, PendingWriteAction } from "../state";
 import { sendEmail as sendMicrosoftEmail } from "@/lib/integrations/microsoft/outlook-fetcher";
 import type { EmailDraft as MicrosoftEmailDraft } from "@/lib/integrations/microsoft/outlook-fetcher";
@@ -245,6 +246,92 @@ export async function actionExecutorNode(
     recordHitlApprovalDuration(pendingMs, { tool: action.tool });
   }
   incrementHitlDecision({ decision: "approved", tool: action.tool });
+
+  // ── Integration tools ─────────────────────────────────────────────────────
+  // Handled before resolveConnection() — that helper is email/calendar-specific
+  // and would throw for these tool names.
+
+  if (action.tool === "integration-connect") {
+    // The OAuth popup was completed by the frontend before the user clicked Approve.
+    // The connection is already saved in nango_connections by /api/admin/integrations.
+    // Nothing to execute server-side — just confirm and resume the graph.
+    const displayName = typeof action.payload?.displayName === "string"
+      ? action.payload.displayName
+      : "The integration";
+    logger.info(
+      { orgId: state.orgId, provider: action.payload?.provider },
+      "[action-executor] integration-connect approved",
+    );
+    return {
+      action_result: { success: true, provider: action.payload?.provider },
+      action_error: null,
+      pending_write_action: null,
+      awaiting_approval: false,
+      run_status: "running",
+      messages: [new AIMessage({
+        content: `✓ **${displayName}** connected successfully. Your documents will begin syncing in the background — ask me "sync status" anytime to check progress.`,
+      })],
+    };
+  }
+
+  if (action.tool === "integration-disconnect") {
+    const { connectionId, provider, displayName } = (action.payload ?? {}) as Record<string, string>;
+    if (!connectionId || !provider) {
+      logger.error(
+        { orgId: state.orgId, payload: action.payload },
+        "[action-executor] integration-disconnect missing connectionId or provider",
+      );
+      return {
+        action_result: null,
+        action_error: "Missing connection details in disconnect payload",
+        pending_write_action: null,
+        awaiting_approval: false,
+        run_status: "running",
+        messages: [new AIMessage({
+          content: "I couldn't complete the disconnection — connection details were missing. Please try again.",
+        })],
+      };
+    }
+
+    try {
+      const { deleteConnection } = await import("@/lib/nango/client");
+      await withTimeout(
+        deleteConnection(connectionId, provider, state.orgId),
+        "integration-disconnect",
+      );
+      logger.info(
+        { orgId: state.orgId, provider, connectionId },
+        "[action-executor] integration-disconnect completed",
+      );
+      return {
+        action_result: { success: true, provider },
+        action_error: null,
+        pending_write_action: null,
+        awaiting_approval: false,
+        run_status: "running",
+        messages: [new AIMessage({
+          content: `✓ **${displayName ?? provider}** disconnected. All indexed documents from this source have been removed.`,
+        })],
+      };
+    } catch (err) {
+      logger.error(
+        { orgId: state.orgId, provider, err: err instanceof Error ? err.message : String(err) },
+        "[action-executor] integration-disconnect failed",
+      );
+      return {
+        action_result: null,
+        action_error: err instanceof Error ? err.message : String(err),
+        pending_write_action: null,
+        awaiting_approval: false,
+        run_status: "running",
+        messages: [new AIMessage({
+          content: `I couldn't disconnect **${displayName ?? provider}**. Please try again or remove it from the integrations page.`,
+        })],
+      };
+    }
+  }
+
+  // ── Email / Calendar tools ────────────────────────────────────────────────
 
   try {
     let result: unknown;

@@ -8,7 +8,7 @@
 import { salesforceFetch } from './client'
 import type { FetchedChunk } from '@/lib/integrations/base'
 
-const SOQL = [
+const SOQL_BASE = [
   'SELECT',
   'Id,Subject,Description,Status,Priority,Type,',
   'Account.Name,CreatedDate,LastModifiedDate',
@@ -30,10 +30,14 @@ interface SFCase {
 export async function fetchSalesforceCases(
   connectionId: string,
   instanceUrl: string,
-  orgId: string
+  orgId: string,
+  options?: { since?: string }
 ): Promise<FetchedChunk[]> {
+  const soql = options?.since
+    ? `${SOQL_BASE} WHERE LastModifiedDate >= ${options.since}`
+    : SOQL_BASE
   const chunks: FetchedChunk[] = []
-  let nextUrl: string | null = `/query?q=${encodeURIComponent(SOQL)}`
+  let nextUrl: string | null = `/query?q=${encodeURIComponent(soql)}`
 
   while (nextUrl) {
     const data = await salesforceFetch(connectionId, nextUrl, orgId, instanceUrl) as {

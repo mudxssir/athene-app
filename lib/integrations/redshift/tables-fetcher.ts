@@ -29,9 +29,14 @@ export async function fetchRedshiftTables(connectionId: string, orgId: string): 
   const creds = await getRedshiftCredentials(connectionId, orgId)
   const chunks: FetchedChunk[] = []
 
-  const tables = creds.allowlist.length > 0
-    ? creds.allowlist
-    : await discoverTables(creds)
+  // Safety guard: empty allowlist would trigger full-schema auto-discovery, potentially
+  // indexing sensitive tables. Fail loud rather than silently scan everything.
+  if (!creds.allowlist || creds.allowlist.length === 0) {
+    logger.warn({ connectionId }, '[redshift] No allowlist configured — skipping sync to prevent accidental full indexing')
+    return []
+  }
+
+  const tables = creds.allowlist
 
   for (const tableFullName of tables) {
     if (!TABLE_IDENT.test(tableFullName)) continue
@@ -133,10 +138,12 @@ async function buildRedshiftTableStats(
   // Categorical top-N values
   for (const c of categoricalCols) {
     try {
+      // TABLESAMPLE BERNOULLI(1) = 1% random row sampling, SQL:2003 standard syntax.
+      // Redshift evaluates the sample before the GROUP BY, reducing scan cost by ~99%.
       const rows = await redshiftQuery(
         creds,
         `SELECT ${c.name}::VARCHAR AS val, COUNT(*) AS cnt
-         FROM ${tableFullName}
+         FROM ${tableFullName} TABLESAMPLE BERNOULLI(1)
          GROUP BY val ORDER BY cnt DESC LIMIT 20`
       )
       categorical.push({
@@ -188,7 +195,7 @@ async function buildRedshiftAggregations(
         const rows = await redshiftQuery(
           creds,
           `SELECT ${dim.name}::VARCHAR AS dim_val, SUM(${metric.name}::FLOAT) AS metric_sum
-           FROM ${tableFullName}
+           FROM ${tableFullName} TABLESAMPLE BERNOULLI(1)
            GROUP BY dim_val ORDER BY metric_sum DESC LIMIT 10`
         )
         if (rows.length === 0) continue

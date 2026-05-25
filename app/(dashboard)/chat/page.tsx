@@ -6,6 +6,7 @@ import { Sparkles, Send, Plus, RefreshCw, Database, AlertTriangle, AlertCircle, 
 import { IconTile, Chip, TCard } from "@/components/ui/kit";
 import { Composer } from "@/components/chat/composer";
 import { HitlModal } from "@/components/chat/hitl-modal";
+import { MarkdownMessage } from "@/components/chat/markdown-message";
 import { toast } from "sonner";
 
 /* ── Reference cards (right sidebar) ───────────────────── */
@@ -216,18 +217,6 @@ export default function ChatPage() {
             <div style={{ maxWidth: 880, margin: "0 auto", display: "flex", flexDirection: "column", gap: 28 }}>
               {messages.map((msg) => {
                 const isA = msg.role === "assistant";
-                function renderContent(content: string) {
-                  const parts: React.ReactNode[] = [];
-                  const re = /\[([a-zA-Z0-9_-]+)\]/g;
-                  let last = 0, m;
-                  while ((m = re.exec(content)) !== null) {
-                    if (m.index > last) parts.push(<span key={`t${last}`}>{content.slice(last, m.index)}</span>);
-                    parts.push(<span key={`c${m.index}`} style={{ display: "inline-flex", alignItems: "center", padding: "2px 8px", margin: "0 2px", borderRadius: 6, background: "rgba(217,122,46,.14)", border: "1px solid rgba(217,122,46,.28)", color: "var(--secondary)", fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 700 }}>[{m[1]}]</span>);
-                    last = re.lastIndex;
-                  }
-                  if (last < content.length) parts.push(<span key={`t${last}`}>{content.slice(last)}</span>);
-                  return parts;
-                }
                 return (
                   <div key={msg.id} className="reveal" style={{ display: "flex", justifyContent: isA ? "flex-start" : "flex-end" }}>
                     <div style={{ display: "flex", gap: 14, maxWidth: "82%", flexDirection: isA ? "row" : "row-reverse" }}>
@@ -257,7 +246,7 @@ export default function ChatPage() {
                               {isA && msg.isAnalytical && (
                                 <div className="eyebrow" style={{ color: "var(--primary)", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}><Database size={9} />BI Synthesis</div>
                               )}
-                              {msg.content ? renderContent(msg.content) : (
+                              {msg.content ? <MarkdownMessage content={msg.content} /> : (
                                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                                   <div style={{ display: "flex", gap: 4 }}>
                                     {[0,1,2].map(j => <div key={j} style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--primary)", animation: `dot-bounce 1.2s infinite ${j * 0.18}s` }} />)}

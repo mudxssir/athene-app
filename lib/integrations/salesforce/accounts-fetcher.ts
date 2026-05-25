@@ -8,12 +8,12 @@
 import { salesforceFetch } from './client'
 import type { FetchedChunk } from '@/lib/integrations/base'
 
-const SOQL = [
+const SOQL_BASE = [
   'SELECT',
   'Id,Name,Industry,Description,',
   'AnnualRevenue,NumberOfEmployees,',
   'BillingCity,BillingCountry,Phone,Website,',
-  'Owner.Name',
+  'Owner.Name,LastModifiedDate',
   'FROM Account',
 ].join('')
 
@@ -29,15 +29,20 @@ interface SFAccount {
   Phone: string | null
   Website: string | null
   Owner: { Name: string } | null
+  LastModifiedDate: string | null
 }
 
 export async function fetchSalesforceAccounts(
   connectionId: string,
   instanceUrl: string,
-  orgId: string
+  orgId: string,
+  options?: { since?: string }
 ): Promise<FetchedChunk[]> {
+  const soql = options?.since
+    ? `${SOQL_BASE} WHERE LastModifiedDate >= ${options.since}`
+    : SOQL_BASE
   const chunks: FetchedChunk[] = []
-  let nextUrl: string | null = `/query?q=${encodeURIComponent(SOQL)}`
+  let nextUrl: string | null = `/query?q=${encodeURIComponent(soql)}`
 
   while (nextUrl) {
     const data = await salesforceFetch(connectionId, nextUrl, orgId, instanceUrl) as {
@@ -71,6 +76,7 @@ export async function fetchSalesforceAccounts(
           resource_type: 'accounts',
           id:            r.Id,
           industry:      r.Industry ?? null,
+          last_modified: r.LastModifiedDate ?? undefined,
         },
       })
     }

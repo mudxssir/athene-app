@@ -1,32 +1,59 @@
 import { paginate, graphDownload, graphFetch } from './graph-client'
 import { parseDocument } from './document-parser'
-export async function listOneDriveDocs(connectionId: string, orgId: string, itemId: string = 'root') {
+import { type SyncConfig, getSelectedResourceIds } from '../sync-config'
+
+/**
+ * Recursively fetches all file items under a given drive item ID.
+ * Extracted as a standalone helper so multiple roots can be processed in parallel.
+ */
+async function fetchFolderRecursive(connectionId: string, orgId: string, itemId: string): Promise<any[]> {
   const items: any[] = []
-  const endpoint = itemId === 'root' 
-    ? `/me/drive/root/children` 
+  const endpoint = itemId === 'root'
+    ? `/me/drive/root/children`
     : `/me/drive/items/${itemId}/children`
-    
+
   for await (const item of paginate(connectionId, orgId, endpoint)) {
     if (item.file) {
       items.push(item)
     } else if (item.folder) {
-      const children = await listOneDriveDocs(connectionId, orgId, item.id)
+      const children = await fetchFolderRecursive(connectionId, orgId, item.id)
       items.push(...children)
     }
   }
   return items
 }
 
+/**
+ * Lists OneDrive files, scoped to selected folders when syncConfig is provided.
+ * Falls back to full drive root enumeration when no resources are selected.
+ */
+export async function listOneDriveDocs(
+  connectionId: string,
+  orgId: string,
+  syncConfig?: SyncConfig,
+): Promise<any[]> {
+  const selectedIds = syncConfig ? getSelectedResourceIds(syncConfig) : null
+  const roots = selectedIds && selectedIds.size > 0
+    ? Array.from(selectedIds)
+    : ['root']
+
+  const results = await Promise.all(
+    roots.map((itemId) => fetchFolderRecursive(connectionId, orgId, itemId))
+  )
+  return results.flat()
+}
+
 export async function fetchOneDriveDocContent(connectionId: string, orgId: string, itemId: string): Promise<string> {
   // 1. Get metadata
   const item = await graphFetch(connectionId, orgId, `/me/drive/items/${itemId}`)
   const fileName = item.name.toLowerCase()
-  
+
   // 2. Download content
   const arrayBuffer = await graphDownload(connectionId, orgId, `/me/drive/items/${itemId}/content`)
   const buffer = Buffer.from(arrayBuffer)
-  
-  return parseDocument(fileName, buffer)}
+
+  return parseDocument(fileName, buffer)
+}
 
 /**
  * Fetches the assigned permissions for a specific OneDrive item.

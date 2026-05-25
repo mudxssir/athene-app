@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import { getContextFromHeaders } from '@/lib/supabase/rls-client'
 import { supabaseAdmin } from '@/lib/supabase/server'
 import { logger } from '@/lib/logger'
+import { classifyFileLayer } from '@/lib/files/classify-layer'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,6 +12,10 @@ export const dynamic = 'force-dynamic'
  *
  * Returns all directly-uploaded files for the org, ordered most-recent first.
  * Reads from the documents table where source_type = 'direct_upload'.
+ *
+ * Response shape: { files: FileRecord[]; total: number }
+ *   - total = real DB row count (may exceed files.length when > 200 rows)
+ *   - storagePath is intentionally omitted — download uses document ID instead
  */
 export async function GET() {
   const context = getContextFromHeaders(await headers())
@@ -18,9 +23,9 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error, count } = await supabaseAdmin
     .from('documents')
-    .select('id, title, mime_type, metadata, created_at, external_id, last_indexed_at')
+    .select('id, title, mime_type, metadata, created_at, last_indexed_at', { count: 'exact' })
     .eq('org_id', context.org_id)
     .eq('source_type', 'direct_upload')
     .order('created_at', { ascending: false })
@@ -31,10 +36,11 @@ export async function GET() {
     return NextResponse.json({ error: 'Failed to load files' }, { status: 500 })
   }
 
-  // Normalize to the shape the files page expects
   const files = (data ?? []).map((doc) => {
     const meta = (doc.metadata ?? {}) as Record<string, string>
     const ext = doc.title?.split('.').pop()?.toUpperCase() ?? meta.type ?? 'FILE'
+
+    // Human-readable relative date
     const now = Date.now()
     const created = new Date(doc.created_at).getTime()
     const diffMs = now - created
@@ -49,23 +55,8 @@ export async function GET() {
     else if (diffDays === 1) date = 'Yesterday'
     else date = `${diffDays} days ago`
 
-    // Derive real indexing status from DB rather than assuming all docs are indexed
-    const docAny = doc as any
-    const status = docAny.last_indexed_at ? 'Indexed' : 'Indexing'
-
-    const nameLower = (doc.title ?? '').toLowerCase()
-    let layer = meta.layer
-    if (!layer) {
-      if (nameLower.includes('invoice') || nameLower.includes('financial') || nameLower.includes('tax') || ext === 'XLSX' || ext === 'CSV') {
-        layer = 'Financial Records'
-      } else if (nameLower.includes('contract') || nameLower.includes('legal') || nameLower.includes('nda') || nameLower.includes('agreement')) {
-        layer = 'Legal Discovery'
-      } else if (nameLower.includes('audit') || nameLower.includes('log')) {
-        layer = 'Audit Logs'
-      } else {
-        layer = 'Internal Wiki'
-      }
-    }
+    const status = doc.last_indexed_at ? 'Indexed' : 'Indexing'
+    const layer = meta.layer ?? classifyFileLayer(doc.title ?? '', ext)
 
     return {
       id: doc.id,
@@ -76,11 +67,11 @@ export async function GET() {
       status,
       risk: 'Low',
       layer,
-      storagePath: doc.external_id ?? undefined,
+      // storagePath intentionally omitted — clients use /api/files/download?id= instead
     }
   })
 
-  return NextResponse.json(files)
+  return NextResponse.json({ files, total: count ?? files.length })
 }
 
 /**

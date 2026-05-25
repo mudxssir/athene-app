@@ -8,9 +8,17 @@ import { dispatchThrottled } from "@/lib/qstash/client";
 import { logger } from "@/lib/logger";
 import { parseBody, uuidSchema } from "@/lib/validation";
 
+const SelectedResourceSchema = z.object({
+  id:              z.string(),
+  name:            z.string(),
+  type:            z.string(),
+  includeChildren: z.boolean(),
+});
+
 const ConfigureSchema = z.object({
   provider:              z.string().min(1).max(100),
   selectedFolderIds:     z.array(z.string()).optional(),
+  selectedResources:     z.array(SelectedResourceSchema).optional(),
   selectedWorkspaceIds:  z.array(z.string()).optional(),
   allowlist:             z.array(z.string()).optional(),
   excludedMimeTypes:     z.array(z.string()).optional(),
@@ -43,7 +51,7 @@ export async function PATCH(request: Request, { params }: Params) {
   try { raw = await request.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
   const parsed = parseBody(ConfigureSchema, raw);
   if (!parsed.success) return parsed.response;
-  const { provider, selectedFolderIds, allowlist, excludedMimeTypes, departmentId, selectedWorkspaceIds } = parsed.data;
+  const { provider, selectedFolderIds, selectedResources, allowlist, excludedMimeTypes, departmentId, selectedWorkspaceIds } = parsed.data;
 
   // Resolve Clerk orgId → internal UUID
   const { data: orgData, error: orgErr } = await supabaseAdmin
@@ -96,15 +104,29 @@ export async function PATCH(request: Request, { params }: Params) {
 
   // ── Google Drive ──────────────────────────────────────────
   if (provider === "google_drive") {
-    if (!Array.isArray(selectedFolderIds) || selectedFolderIds.length === 0) {
-      return NextResponse.json({ error: "selectedFolderIds must be a non-empty array" }, { status: 400 });
+    const ids = selectedFolderIds ?? selectedResources?.map((r) => r.id) ?? [];
+    if (ids.length === 0) {
+      return NextResponse.json({ error: "At least one file or folder must be selected" }, { status: 400 });
     }
+
+    // Build proper SyncConfig so the fetcher scopes to selected items
+    const syncConfig = {
+      mode: "selected" as const,
+      selectedResources: selectedResources ?? ids.map((id) => ({
+        id,
+        name: id,
+        type: "folder" as const,
+        includeChildren: true,
+      })),
+      lastConfiguredAt: new Date().toISOString(),
+    };
 
     const { error: updateErr } = await supabaseAdmin
       .from("connections")
-      .update({ 
-        metadata: { ...existingMeta, selected_folder_ids: selectedFolderIds, excluded_mime_types: excludedMimeTypes ?? [] },
-        department_id: departmentId ?? null
+      .update({
+        metadata: { ...existingMeta, selected_folder_ids: ids, excluded_mime_types: excludedMimeTypes ?? [] },
+        sync_config: syncConfig,
+        department_id: departmentId ?? null,
       })
       .eq("id", connectionId);
 
@@ -114,7 +136,7 @@ export async function PATCH(request: Request, { params }: Params) {
     }
 
     const { dispatched } = await dispatchSync();
-    logger.info({ connectionId, folderCount: selectedFolderIds.length, dispatched }, "[configure] Drive configured");
+    logger.info({ connectionId, itemCount: ids.length, dispatched }, "[configure] Drive configured");
     return NextResponse.json({ success: true, dispatched });
   }
 
@@ -244,6 +266,48 @@ export async function PATCH(request: Request, { params }: Params) {
 
     const { dispatched } = await dispatchSync();
     logger.info({ connectionId, tableCount: allowlist.length, dispatched }, "[configure] Redshift configured");
+    return NextResponse.json({ success: true, dispatched });
+  }
+
+  // ── Generic browsable providers ───────────────────────────
+  // Covers: sharepoint, notion, slack, hubspot, zendesk (and future additions).
+  // For these providers, saving a SyncConfig with the selected resources is enough —
+  // the fetchers already respect sync_config.selectedResources via getSelectedResourceIds().
+  const GENERIC_BROWSABLE = [
+    'sharepoint', 'notion', 'slack', 'hubspot', 'zendesk',
+    // Dev tools (Issue 10)
+    'github', 'jira', 'confluence', 'linear',
+    // RevOps (Issue 9)
+    'salesforce',
+    // Legal/Compliance (Issue 13)
+    'onedrive',
+    // BI tools (Issues 14, 15)
+    'tableau', 'looker', 'metabase',
+  ]
+  if (GENERIC_BROWSABLE.includes(provider)) {
+    const resources = selectedResources ?? []
+    const mode: 'selected' | 'all' = resources.length > 0 ? 'selected' : 'all'
+    const syncConfig = {
+      mode,
+      selectedResources: resources,
+      lastConfiguredAt: new Date().toISOString(),
+    }
+
+    const { error: updateErr } = await supabaseAdmin
+      .from("connections")
+      .update({
+        sync_config: syncConfig,
+        department_id: departmentId ?? null,
+      })
+      .eq("id", connectionId)
+
+    if (updateErr) {
+      logger.error({ connectionId, err: updateErr.message }, "[configure] Failed to save selection");
+      return NextResponse.json({ error: "Failed to save selection" }, { status: 500 });
+    }
+
+    const { dispatched } = await dispatchSync();
+    logger.info({ connectionId, provider, resourceCount: resources.length, dispatched }, "[configure] Generic provider configured");
     return NextResponse.json({ success: true, dispatched });
   }
 

@@ -10,7 +10,12 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const type = searchParams.get('type') || 'today';
+  const rawType = searchParams.get('type') ?? 'today';
+  const ALLOWED_TYPES = ['today', 'history'] as const;
+  if (!ALLOWED_TYPES.includes(rawType as (typeof ALLOWED_TYPES)[number])) {
+    return NextResponse.json({ error: `Invalid type — must be one of: ${ALLOWED_TYPES.join(', ')}` }, { status: 400 });
+  }
+  const type = rawType as (typeof ALLOWED_TYPES)[number];
   const context = getContextFromHeaders(request.headers);
 
   if (!context) {
@@ -22,11 +27,13 @@ export async function GET(request: Request) {
       const id = searchParams.get('id');
       
       if (id) {
-        // Fetch specific briefing
+        // Fetch specific briefing — scope to the caller's org_id as defense-in-depth
+        // even though RLS policies already restrict cross-org reads.
         const { data, error } = await supabase
           .from('briefings')
           .select('*')
           .eq('id', id)
+          .eq('org_id', context.org_id)
           .maybeSingle();
 
         if (error) throw error;
@@ -137,8 +144,7 @@ export async function POST(request: Request) {
       });
     } catch (error: any) {
       logger.error({ err: error?.message, org_id: context.org_id }, '[briefing] POST QStash enqueue failed');
-      const message = error instanceof Error ? error.message : String(error);
-      return NextResponse.json({ error: `Failed to enqueue job: ${message}` }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to enqueue briefing job — try again shortly' }, { status: 500 });
     }
   }
 
@@ -167,7 +173,6 @@ export async function POST(request: Request) {
     });
   } catch (error: any) {
     logger.error({ err: error?.message, org_id: context.org_id }, '[briefing] POST direct worker call failed');
-    const message = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: `Failed to generate briefing: ${message}` }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to generate briefing — try again shortly' }, { status: 500 });
   }
 }

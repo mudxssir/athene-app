@@ -1,0 +1,137 @@
+# ============================================================
+# docker-compose.yml — Self-Hosted Athene Dev Stack
+#
+# Provides local replacements for managed services:
+#   - PostgreSQL 16 + pgvector (replaces Supabase)
+#   - Redis 7 (replaces Upstash Redis)
+#   - Nango Server (replaces Nango Cloud)
+#
+# Usage:
+#   docker compose up -d          # Start all services
+#   docker compose ps             # Check health
+#   docker compose logs -f nango  # Follow Nango logs
+#   docker compose down           # Stop all services
+#   docker compose down -v        # Stop + remove volumes
+#
+# After starting, set these in .env.local:
+#   DATABASE_URL=postgresql://athene:athene_dev@localhost:5432/athene
+#   UPSTASH_REDIS_REST_URL=http://localhost:6379
+#   NANGO_SECRET_KEY=<from Nango dashboard at localhost:3003>
+#   NANGO_HOST=http://localhost:3003
+#
+# ISOLATION: This file is standalone. It does not affect any
+# existing configuration or deployment pipeline.
+# ============================================================
+
+services:
+  # ── PostgreSQL + pgvector ────────────────────────────────
+  # Drop-in for Supabase's managed Postgres.
+  # Includes pgvector extension for embedding storage.
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: athene-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: athene
+      POSTGRES_PASSWORD: athene_dev
+      POSTGRES_DB: athene
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U athene -d athene"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ── Redis ────────────────────────────────────────────────
+  # Drop-in for Upstash Redis. Used for caching, rate
+  # limiting, and session data. Use lib/redis/memory-cache.ts
+  # as an alternative if Docker is not available.
+  redis:
+    image: redis:7-alpine
+    container_name: athene-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  # ── Nango Server ─────────────────────────────────────────
+  # Self-hosted Nango for OAuth brokering. Replaces
+  # Nango Cloud (api.nango.dev). Dashboard at localhost:3003.
+  #
+  # After first boot:
+  #   1. Open http://localhost:3003
+  #   2. Create an account (local only)
+  #   3. Copy your Secret Key from Settings
+  #   4. Set NANGO_SECRET_KEY in .env.local
+  #   5. Run: npx tsx scripts/setup-nango-providers.ts
+  nango:
+    image: nangohq/nango-server:latest
+    container_name: athene-nango
+    restart: unless-stopped
+    ports:
+      - "3003:3003"
+    environment:
+      # Nango's internal Postgres (separate from app DB)
+      NANGO_DB_HOST: nango-db
+      NANGO_DB_PORT: "5432"
+      NANGO_DB_USER: nango
+      NANGO_DB_PASSWORD: nango_dev
+      NANGO_DB_NAME: nango
+      NANGO_DB_SSL: "false"
+      # Server config
+      SERVER_PORT: "3003"
+      NANGO_SERVER_URL: http://localhost:3003
+      NANGO_CALLBACK_URL: http://localhost:3003/oauth/callback
+      # Encryption key for stored tokens — MUST be exactly 32 bytes = 64 hex chars.
+      # This placeholder is for local dev only. Generate a real one with:
+      #   openssl rand -hex 32
+      NANGO_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    depends_on:
+      nango-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3003/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── Nango's Postgres (internal) ──────────────────────────
+  # Separate Postgres instance for Nango's own data.
+  # Kept separate from the app DB to avoid schema conflicts.
+  nango-db:
+    image: postgres:16-alpine
+    container_name: athene-nango-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nango
+      POSTGRES_PASSWORD: nango_dev
+      POSTGRES_DB: nango
+    volumes:
+      - nangodata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nango -d nango"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  pgdata:
+    driver: local
+  redisdata:
+    driver: local
+  nangodata:
+    driver: local
