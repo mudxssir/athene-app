@@ -33,11 +33,14 @@ export async function GET(request: Request) {
 
 
   const { searchParams } = new URL(request.url);
-  const search = searchParams.get("search") || "";
-
-  const page = parseInt(searchParams.get("page") || "1");
-  const limit = parseInt(searchParams.get("limit") || "50");
+  // Clamp and validate pagination params to prevent negative offsets or unbounded fetches
+  const rawPage  = parseInt(searchParams.get("page")  ?? "1",  10);
+  const rawLimit = parseInt(searchParams.get("limit") ?? "50", 10);
+  const page  = Math.max(1,   isNaN(rawPage)  ? 1  : rawPage);
+  const limit = Math.min(200, Math.max(1, isNaN(rawLimit) ? 50 : rawLimit));
   const offset = (page - 1) * limit;
+  // Cap search length to prevent oversized ilike queries
+  const search = (searchParams.get("search") ?? "").slice(0, 200);
 
 
   try {
@@ -190,7 +193,9 @@ export async function POST(request: Request) {
       });
     }
 
-    return NextResponse.json({ success: true, invitation, member: newMember });
+    // Return only display-safe fields — the raw Clerk invitation object and
+    // internal member row contain tokens and org UUIDs the client doesn't need.
+    return NextResponse.json({ success: true, email: parsed.data.email });
 
   } catch (err: any) {
     logger.error({ err: err.message, orgId }, "[admin-users] POST failed");

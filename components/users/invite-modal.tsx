@@ -1,64 +1,52 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   DialogDescription,
   DialogFooter
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2, Mail, Users, Building2 } from "lucide-react";
+
+interface Department {
+  id: string;
+  name: string;
+}
 
 interface InviteModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  /** Departments are loaded by the parent page and passed in — no extra fetch needed */
+  departments: Department[];
 }
 
-export function InviteModal({ isOpen, onClose, onSuccess }: InviteModalProps) {
+export function InviteModal({ isOpen, onClose, onSuccess, departments }: InviteModalProps) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("member");
   const [departmentId, setDepartmentId] = useState("");
-  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(false);
-  const [fetchingDepts, setFetchingDepts] = useState(false);
 
+  // Set a default department selection when departments become available
   useEffect(() => {
-    if (isOpen) {
-      fetchDepartments();
+    if (departments.length > 0 && !departmentId) {
+      setDepartmentId(departments[0].id);
     }
-  }, [isOpen]);
-
-  const fetchDepartments = async () => {
-    setFetchingDepts(true);
-    try {
-      const res = await fetch("/api/admin/departments");
-      const data = await res.json();
-      if (res.ok) {
-        setDepartments(data.departments);
-        if (data.departments.length > 0 && !departmentId) {
-          setDepartmentId(data.departments[0].id);
-        }
-      }
-    } catch (err) {
-      console.error("Failed to fetch departments", err);
-    } finally {
-      setFetchingDepts(false);
-    }
-  };
+  }, [departments, departmentId]);
 
   const resetForm = () => {
     setEmail("");
@@ -69,13 +57,6 @@ export function InviteModal({ isOpen, onClose, onSuccess }: InviteModalProps) {
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      toast.error("Please enter a valid email address");
-      setLoading(false);
-      return;
-    }
 
     try {
       const res = await fetch("/api/admin/users", {
@@ -111,7 +92,7 @@ export function InviteModal({ isOpen, onClose, onSuccess }: InviteModalProps) {
             Provision access to the AtheneAI neural grid.
           </DialogDescription>
         </DialogHeader>
-        
+
         <form onSubmit={handleInvite} className="space-y-8 p-8">
           <div className="space-y-3">
             <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/60 flex items-center gap-3 px-2">
@@ -152,9 +133,9 @@ export function InviteModal({ isOpen, onClose, onSuccess }: InviteModalProps) {
                 <Building2 className="w-3.5 h-3.5" />
                 Sector Node
               </Label>
-              <Select value={departmentId} onValueChange={setDepartmentId} disabled={fetchingDepts || departments.length === 0}>
+              <Select value={departmentId} onValueChange={setDepartmentId} disabled={departments.length === 0}>
                 <SelectTrigger className="h-14 bg-muted/20 border-border rounded-2xl font-bold text-xs px-6 hover:bg-muted/30 transition-all">
-                  <SelectValue placeholder={fetchingDepts ? "Syncing..." : departments.length === 0 ? "No Nodes" : "Select Sector"} />
+                  <SelectValue placeholder={departments.length === 0 ? "No Nodes" : "Select Sector"} />
                 </SelectTrigger>
                 <SelectContent className="bg-card border-border text-foreground rounded-xl">
                   {departments.map((dept) => (
@@ -164,24 +145,24 @@ export function InviteModal({ isOpen, onClose, onSuccess }: InviteModalProps) {
                   ))}
                 </SelectContent>
               </Select>
-              {departments.length === 0 && !fetchingDepts && (
+              {departments.length === 0 && (
                 <p className="text-[9px] text-destructive font-black uppercase tracking-widest mt-2 px-2">Initialize sectors first.</p>
               )}
             </div>
           </div>
 
           <DialogFooter className="pt-4 gap-4">
-            <Button 
-              type="button" 
-              variant="ghost" 
+            <Button
+              type="button"
+              variant="ghost"
               onClick={onClose}
               className="h-14 rounded-2xl font-black uppercase tracking-widest text-[10px] text-muted-foreground hover:text-foreground hover:bg-muted transition-all px-8"
             >
               Cancel
             </Button>
-            <Button 
-              type="submit" 
-              disabled={loading || fetchingDepts || !departmentId || !email}
+            <Button
+              type="submit"
+              disabled={loading || !departmentId || !email}
               className="h-14 bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-[0.2em] text-[10px] rounded-2xl px-12 shadow-2xl shadow-primary/20 transition-all active:scale-95 flex items-center gap-3"
             >
               {loading ? (

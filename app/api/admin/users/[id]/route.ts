@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 import { invalidateRBACCache, resolveUserAccess } from "@/lib/auth/rbac";
 import { parseBody, uuidSchema, internalRoleSchema } from "@/lib/validation";
+import { rateLimit } from "@/lib/redis/client";
 
 const UserPatchSchema = z.object({
   role: internalRoleSchema.optional(),
@@ -44,6 +45,9 @@ export async function PATCH(
     return new NextResponse("Forbidden", { status: 403 });
   }
 
+  // Rate limit: 100 user updates per org per hour
+  const { allowed } = await rateLimit(`admin:update:${orgId}`, 100, 3600);
+  if (!allowed) return NextResponse.json({ error: "Rate limit exceeded — try again later" }, { status: 429 });
 
   let raw: unknown;
   try { raw = await request.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
@@ -64,10 +68,10 @@ export async function PATCH(
     }
 
 
-    // 3. Fetch current state for audit
+    // 3. Fetch current state for audit — select only the fields we actually use
     const { data: currentMember, error: fetchError } = await supabaseAdmin
       .from("org_members")
-      .select("*")
+      .select("id, clerk_user_id, role, active, department_id")
       .eq("id", targetMemberId)
       .eq("org_id", orgData.id)
       .single();
@@ -84,9 +88,12 @@ export async function PATCH(
       .eq("org_id", orgData.id)
       .single();
 
-    // 5. Self-deactivation guard
+    // 5. Self-modification guards
     if (adminMember?.id === targetMemberId && active === false) {
       return NextResponse.json({ error: "You cannot deactivate your own account" }, { status: 400 });
+    }
+    if (adminMember?.id === targetMemberId && newRole !== undefined && newRole !== "admin") {
+      return NextResponse.json({ error: "You cannot demote your own admin account" }, { status: 400 });
     }
 
     // 6. Update Supabase
@@ -111,6 +118,10 @@ export async function PATCH(
     if (updateError) throw updateError;
 
     // 7. Sync role change to Clerk (Clerk is auth source-of-truth — must stay in sync)
+    // If Clerk sync fails we surface a warning in the response rather than silently
+    // returning success — the DB role is updated but effective permissions won't change
+    // until Clerk is back in sync, so the admin should be informed.
+    let clerkSyncWarning: string | undefined;
     if (newRole !== undefined && newRole !== currentMember.role && updatedMember.clerk_user_id) {
       const clerkRole = INTERNAL_TO_CLERK_ROLE[newRole];
       if (clerkRole) {
@@ -126,6 +137,7 @@ export async function PATCH(
             { err: clerkErr.message, targetClerkUserId: updatedMember.clerk_user_id, orgId, newRole },
             "[admin-users] Clerk role sync failed — DB updated but Clerk role may diverge"
           );
+          clerkSyncWarning = "Role saved in database, but Clerk sync failed. Effective permissions may take a few minutes to update.";
         }
       }
     }
@@ -144,7 +156,7 @@ export async function PATCH(
     // 10. Audit Log (Security-sensitive actions should always be logged)
     await supabaseAdmin.from("admin_actions").insert({
       org_id: orgData.id,
-      admin_user_id: adminMember?.id || null, // Fallback to null if adminMember missing (e.g. system action)
+      admin_user_id: adminMember?.id || null,
       action: action,
       target_user_id: targetMemberId,
       details: {
@@ -153,8 +165,10 @@ export async function PATCH(
       },
     });
 
-
-    return NextResponse.json({ success: true, member: updatedMember });
+    return NextResponse.json(
+      { success: true, member: updatedMember, ...(clerkSyncWarning ? { warning: clerkSyncWarning } : {}) },
+      { status: clerkSyncWarning ? 207 : 200 }
+    );
 
   } catch (err: any) {
     logger.error({ err: err.message, orgId, targetMemberId }, "[admin-users] PATCH failed");
