@@ -7,14 +7,33 @@ import { localDispatcher } from '@/lib/jobs/local-dispatcher';
 const qstashToken = process.env.QSTASH_TOKEN;
 
 /**
+ * True when the app is running on localhost.
+ * QStash's cloud servers cannot call back to loopback addresses, so we always
+ * use the localDispatcher for publishJSON() in this case — even when QSTASH_TOKEN
+ * is configured. dispatchThrottled() already has an equivalent guard (lines 79-89),
+ * but raw qstash.publishJSON() callers (e.g. graph/build, morning-briefing) need it too.
+ */
+function isLocalhostDev(): boolean {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? '';
+  return appUrl.startsWith('http://localhost') || appUrl.startsWith('http://127.0.0.1');
+}
+
+/**
  * Lazily initialised QStash client.
- * Falls back to localDispatcher when QSTASH_TOKEN is absent — direct HTTP
- * dispatch with HMAC-SHA256 signing and exponential-backoff retry, so
- * background jobs work in local dev and self-hosted deployments without Upstash.
+ * Falls back to localDispatcher when:
+ *   a) QSTASH_TOKEN is absent, OR
+ *   b) NEXT_PUBLIC_APP_URL is a loopback address (QStash can't reach localhost)
  */
 function getQStashClient(): Client {
   if (!qstashToken) {
     logger.warn({}, "[qstash] QSTASH_TOKEN not set — using local dispatcher (direct HTTP). Set QSTASH_TOKEN for production.");
+    return {
+      publishJSON: async (options: Parameters<typeof localDispatcher.publishJSON>[0]) =>
+        localDispatcher.publishJSON(options),
+    } as unknown as Client;
+  }
+  if (isLocalhostDev()) {
+    logger.info({}, "[qstash] Localhost detected — using local dispatcher for publishJSON() (QStash cannot reach loopback addresses).");
     return {
       publishJSON: async (options: Parameters<typeof localDispatcher.publishJSON>[0]) =>
         localDispatcher.publishJSON(options),

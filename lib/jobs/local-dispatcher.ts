@@ -92,6 +92,14 @@ export class LocalDispatcher {
     // Generate HMAC signature
     const signature = this.sign(bodyStr)
 
+    // In non-production environments the verifyQStashSignature() function accepts
+    // the x-dev-internal-bypass header (same bypass used by dispatchThrottled() for
+    // localhost). Without this, the worker returns 401 even though the call is local.
+    const devBypassHeaders: Record<string, string> =
+      process.env.NODE_ENV !== 'production'
+        ? { 'x-dev-internal-bypass': '1' }
+        : {}
+
     let lastError: string | undefined
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
@@ -102,6 +110,7 @@ export class LocalDispatcher {
             'X-Local-Signature': signature,
             'X-Local-Message-Id': messageId,
             'X-Local-Timestamp': String(Date.now()),
+            ...devBypassHeaders,
             ...headers,
           },
           body: bodyStr,
