@@ -78,7 +78,9 @@ function parseThinkingContent(content: string): ThinkingResult {
 
 // ── Citation regex ───────────────────────────────────────────
 
-const CITATION_REGEX = /\[([a-zA-Z0-9_-]+)\]/g;
+// Pattern only — no /g flag. A new RegExp instance with /g is created per render
+// call below because stateful global regexes share lastIndex across invocations.
+const CITATION_PATTERN = /\[([a-zA-Z0-9_-]+)\]/;
 
 // ── Main component ───────────────────────────────────────────
 
@@ -93,7 +95,9 @@ export function MarkdownMessage({
     <div className={cn("space-y-3", className)}>
       {/* ── Thinking disclosure ───────────────────────────── */}
       {(thinking || isThinking) && (
-        <details className="group">
+        // Auto-open while still streaming so the user can read in-progress tokens.
+        // Collapses automatically once the </think> block closes (isThinking → false).
+        <details className="group" open={isThinking}>
           <summary className="flex items-center gap-2 cursor-pointer select-none list-none text-[11px] font-bold uppercase tracking-widest text-muted-foreground/50 hover:text-muted-foreground/80 transition-colors">
             <Brain className="w-3.5 h-3.5 flex-shrink-0" />
             <span>{isThinking ? "Thinking…" : "Reasoning"}</span>
@@ -155,7 +159,7 @@ function MarkdownWithCitations({ content, citedSources }: MarkdownWithCitationsP
 
   // Slow path: split on citation tokens, interleave chips + markdown segments
   const parts: React.ReactNode[] = [];
-  const regex = new RegExp(CITATION_REGEX.source, "g");
+  const regex = new RegExp(CITATION_PATTERN.source, "g");
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let segKey = 0;

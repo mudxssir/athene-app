@@ -186,18 +186,20 @@ export async function POST(req: NextRequest) {
 
     // --- 4. Extract text and index immediately ------------------
     // Runs fire-and-forget so the 200 response is not blocked by extraction.
-    // A 5-minute AbortSignal timeout prevents runaway serverless function
-    // lifetimes on very large documents. If indexing times out or throws, the
-    // document stays in "Indexing" status and the error is logged for alerting.
+    // A 5-minute timeout guards against runaway serverless lifetimes on very
+    // large documents. If indexing times out or throws, the document stays in
+    // "Indexing" status and the error is logged for alerting.
     const INDEXING_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
-    const { signal } = new AbortController();
+    let timedOut = false;
     const timeoutId = setTimeout(() => {
+      timedOut = true;
       logger.error({ docId: doc.id, name: file.name }, "[files/upload] Background indexing timed out after 5 min");
     }, INDEXING_TIMEOUT_MS);
 
     (async () => {
       try {
         const text = await parseDocument(file.name, buffer);
+        if (timedOut) return; // abort after timeout — don't attempt to write stale data
         if (text && text.trim().length > 0) {
           await indexDocument(
             {
@@ -217,6 +219,7 @@ export async function POST(req: NextRequest) {
             "restricted",
             ownerId,
           );
+          if (timedOut) return;
           // Mark document as indexed in the DB
           await supabaseAdmin
             .from("documents")
@@ -232,7 +235,6 @@ export async function POST(req: NextRequest) {
         clearTimeout(timeoutId);
       }
     })();
-    void signal; // suppress unused-variable lint
 
     // Gap 4 fix: storagePath removed from response — it embeds the internal org UUID
     // and Supabase storage key, neither of which the client needs.

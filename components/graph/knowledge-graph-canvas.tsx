@@ -491,6 +491,12 @@ function KnowledgeGraphCanvasInternal({ userRole, focusNodeId }: KnowledgeGraphC
   // The QStash worker may take 10–60+ seconds to finish — a fixed 5s
   // timeout would almost always arrive before the worker completes.
   const handleBuildGraph = useCallback(async () => {
+    // Clear any existing poll interval before starting a new one — prevents
+    // double-polling if the user clicks "Build" again while a poll is running.
+    if (buildPollRef.current) {
+      clearInterval(buildPollRef.current);
+      buildPollRef.current = null;
+    }
     setIsBuildingGraph(true);
     try {
       const res = await fetch("/api/graph/build", {

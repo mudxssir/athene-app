@@ -12,9 +12,10 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const rawType = searchParams.get('type') ?? 'today';
   const ALLOWED_TYPES = ['today', 'history'] as const;
-  const type = ALLOWED_TYPES.includes(rawType as (typeof ALLOWED_TYPES)[number])
-    ? (rawType as (typeof ALLOWED_TYPES)[number])
-    : 'today';
+  if (!ALLOWED_TYPES.includes(rawType as (typeof ALLOWED_TYPES)[number])) {
+    return NextResponse.json({ error: `Invalid type — must be one of: ${ALLOWED_TYPES.join(', ')}` }, { status: 400 });
+  }
+  const type = rawType as (typeof ALLOWED_TYPES)[number];
   const context = getContextFromHeaders(request.headers);
 
   if (!context) {

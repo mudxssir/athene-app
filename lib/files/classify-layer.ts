@@ -30,7 +30,7 @@ export function classifyFileLayer(name: string, ext: string): IntelligenceLayer 
     lower.includes("financial") ||
     lower.includes("tax") ||
     upperExt === "XLSX" ||
-    upperExt === "XLS" ||
+    upperExt === "XLS" ||  // legacy Excel format — intentionally added vs. original duplicated logic
     upperExt === "CSV"
   ) {
     return "Financial Records";

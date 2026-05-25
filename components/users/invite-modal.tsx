@@ -51,7 +51,9 @@ export function InviteModal({ isOpen, onClose, onSuccess, departments }: InviteM
   const resetForm = () => {
     setEmail("");
     setRole("member");
-    setDepartmentId(departments[0]?.id || "");
+    // departmentId intentionally preserved — admins batch-inviting to the
+    // same department don't need to re-select it after each invite.
+    // The useEffect above will set a default when departmentId is empty (first open).
   };
 
   const handleInvite = async (e: React.FormEvent) => {

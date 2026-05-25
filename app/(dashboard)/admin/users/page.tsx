@@ -198,6 +198,26 @@ export default function UsersPage() {
       const data = await res.json();
 
       if (res.ok || res.status === 207) {
+        // Sync local state from the authoritative server response rather than
+        // keeping the optimistic value — the DB may have coerced fields or the
+        // Clerk role may have diverged (207 partial-success case).
+        if (data.member) {
+          setUsers(prev =>
+            prev.map(u => {
+              if (u.id !== userId) return u;
+              const m = data.member;
+              return {
+                ...u,
+                role:          m.role          ?? u.role,
+                active:        m.active        ?? u.active,
+                department_id: m.department_id ?? u.department_id,
+                departments:   m.department_id
+                  ? (departments.find(d => d.id === m.department_id) ?? u.departments)
+                  : u.departments,
+              };
+            })
+          );
+        }
         if (data.warning) {
           // 207 — DB updated but Clerk sync failed; surface the partial-success warning
           toast.warning(data.warning, { duration: 6000 });
