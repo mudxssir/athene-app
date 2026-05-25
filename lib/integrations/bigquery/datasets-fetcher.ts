@@ -176,10 +176,12 @@ async function buildBigQueryTableStats(
   // Categorical top-N values
   for (const c of categoricalCols) {
     try {
+      // TABLESAMPLE SYSTEM (1 PERCENT) is BigQuery's standard sampling syntax —
+      // evaluated server-side before the GROUP BY, dramatically reducing slot usage.
       const rows = await runQuery(
         connectionId, orgId,
-        `SELECT CAST(${c.name} AS STRING) AS val, COUNT(*) AS cnt
-         FROM ${backtickId}
+        `SELECT val, COUNT(*) AS cnt
+         FROM (SELECT CAST(${c.name} AS STRING) AS val FROM ${backtickId} TABLESAMPLE SYSTEM (1 PERCENT))
          GROUP BY val ORDER BY cnt DESC LIMIT 20`
       )
       categorical.push({
@@ -236,7 +238,7 @@ async function buildBigQueryAggregations(
           connectionId, orgId,
           `SELECT CAST(${dim.name} AS STRING) AS dim_val,
                   SUM(CAST(${metric.name} AS FLOAT64)) AS metric_sum
-           FROM ${backtickId}
+           FROM ${backtickId} TABLESAMPLE SYSTEM (1 PERCENT)
            GROUP BY dim_val ORDER BY metric_sum DESC LIMIT 10`
         )
         if (rows.length === 0) continue

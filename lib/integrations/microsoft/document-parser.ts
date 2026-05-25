@@ -27,8 +27,13 @@ export async function parseDocument(fileName: string, buffer: Buffer): Promise<s
     return text
   } else if (fileName.endsWith('.txt')) {
     return buffer.toString('utf-8')
-  } else {
-    // Fallback for other text-based files or try as UTF-8
+  } else if (fileName.endsWith('.csv') || fileName.endsWith('.tsv')) {
+    // Plain text delimited files — UTF-8 decode is correct
     return buffer.toString('utf-8')
+  } else {
+    // Unknown binary format (e.g. .pptx, images, .zip) — returning raw bytes as
+    // UTF-8 produces garbage that corrupts the vector store. Skip cleanly instead.
+    const ext = fileName.includes('.') ? `.${fileName.split('.').pop()}` : ''
+    return `[Unsupported file type: ${ext || 'unknown'} — skipped]`
   }
 }

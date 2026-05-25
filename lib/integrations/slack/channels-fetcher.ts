@@ -105,6 +105,8 @@ async function fetchChannelMessages(
   const chunks: FetchedChunk[] = []
   for (const msg of rawMessages) {
     if (!msg.text?.trim()) continue
+    // Skip bot messages — CI alerts, Jira bots, Datadog pings produce noise, not knowledge
+    if (msg.subtype === 'bot_message' || msg.bot_id) continue
 
     let content = msg.text
     const replyText = msg.thread_ts ? replyMap.get(msg.thread_ts) : undefined

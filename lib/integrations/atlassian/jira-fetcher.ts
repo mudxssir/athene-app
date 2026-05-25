@@ -49,7 +49,7 @@ export async function fetchJiraIssues(
       cloudId,
       `/rest/api/3/search?jql=${encodeURIComponent(
         jql
-      )}&startAt=${startAt}&maxResults=${maxResults}&fields=summary,description,status,assignee,reporter,created,updated,priority,sprint`,
+      )}&startAt=${startAt}&maxResults=${maxResults}&fields=summary,description,status,assignee,reporter,created,updated,priority,sprint,comment`,
       orgId,
       "jira"
     );
@@ -70,6 +70,17 @@ export async function fetchJiraIssues(
       if (priority) lines.push(`Priority: ${priority}`)
       if (sprint)   lines.push(`Sprint: ${sprint}`)
       if (description) lines.push('', description)
+
+      // Inline comments — expanded via field=comment at zero extra API cost
+      const comments: any[] = issue.fields.comment?.comments ?? []
+      if (comments.length > 0) {
+        const commentLines = comments.map((c: any) => {
+          const author = c.author?.displayName ?? 'Unknown'
+          const text = extractTextFromADF(c.body)
+          return `${author}: ${text}`
+        }).join('\n---\n')
+        lines.push('', 'Comments:', commentLines)
+      }
 
       const chunk: FetchedChunk = {
         chunk_id: `jira_${issue.id}`,

@@ -44,7 +44,7 @@ export async function fetchConfluencePages(
     }>(
       connectionId,
       cloudId,
-      `/wiki/api/v2/pages?limit=${limit}&body-format=storage${spaceFilter}${cursorParam}`,
+      `/wiki/api/v2/pages?limit=${limit}&body-format=storage${spaceFilter}${cursorParam}${options?.since ? `&modified-after=${encodeURIComponent(options.since)}` : ''}`,
       orgId,
       "confluence"
     );

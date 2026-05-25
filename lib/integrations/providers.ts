@@ -46,6 +46,13 @@ export interface ProviderConfig {
   resources: string[];
   capabilities: ProviderCapabilities;
   hidden?: boolean;
+  /**
+   * True for meta-providers (e.g. "google", "microsoft") that are represented
+   * in the UI by their concrete sub-connectors (google_drive, gmail, etc.).
+   * Umbrella entries are excluded from the "Available Integrations" grid so
+   * users are never prompted to connect the parent instead of a specific tool.
+   */
+  isUmbrella?: boolean;
 }
 
 export const PROVIDER_REGISTRY: Record<ProviderKey, ProviderConfig> = {
@@ -64,6 +71,7 @@ export const PROVIDER_REGISTRY: Record<ProviderKey, ProviderConfig> = {
       requiresScopes: ['https://www.googleapis.com/auth/drive.readonly', 'https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/calendar.readonly'],
     },
     hidden: true,
+    isUmbrella: true,
   },
   microsoft: {
     key: 'microsoft',
@@ -80,6 +88,7 @@ export const PROVIDER_REGISTRY: Record<ProviderKey, ProviderConfig> = {
       requiresScopes: ['Mail.Read', 'Files.Read.All', 'Sites.Read.All'],
     },
     hidden: true,
+    isUmbrella: true,
   },
   google_drive: {
     key: 'google_drive',
@@ -514,8 +523,10 @@ export const BROWSABLE_PROVIDERS = new Set<ProviderKey>([
   'google_drive', 'google', 'gmail', 'google_calendar',
   'slack', 'notion', 'github',
   'outlook', 'ms_calendar', 'onedrive', 'sharepoint',
-  'hubspot', 'salesforce', 'jira', 'confluence', 'linear',
-  'zendesk', 'looker', 'tableau', 'metabase', 'dbt',
+  // hubspot — browse returns a static hardcoded list, not real API data; always syncs all objects
+  'salesforce', 'jira', 'confluence', 'linear',
+  // zendesk — browse returns a static hardcoded list; always syncs tickets + articles
+  'looker', 'tableau', 'metabase', 'dbt',
   'snowflake', 'bigquery', 'redshift', 'powerbi',
 ]);
 

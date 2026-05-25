@@ -77,7 +77,7 @@ Additional relation types:
   {
     id: "engineering",
     name: "Engineering Intelligence",
-    activating_sources: ["github", "linear", "jira", "pagerduty"],
+    activating_sources: ["github", "linear", "jira"],
     entity_types: [
       "incident",
       "runbook",
