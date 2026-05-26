@@ -191,9 +191,9 @@ export class LocalDispatcher {
 // ---- Helpers ────────────────────────────────────────────────
 
 function generateMessageId(): string {
-  const timestamp = Date.now().toString(36)
-  const random = Math.random().toString(36).slice(2, 10)
-  return `local_${timestamp}_${random}`
+  // crypto.randomUUID() is available in Node 14.17+ and all modern browsers;
+  // strip hyphens to keep the ID compact.
+  return `local_${crypto.randomUUID().replace(/-/g, '')}`
 }
 
 function sleep(ms: number): Promise<void> {

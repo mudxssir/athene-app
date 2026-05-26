@@ -40,6 +40,21 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "4mb",
     },
+    // Tree-shake large barrel-export packages so only imported symbols land in
+    // client bundles. Lucide ships 1,000+ icons as a single export — without
+    // this every route that imports one icon pulls in all of them.
+    optimizePackageImports: [
+      "lucide-react",
+      "@radix-ui/react-dialog",
+      "@radix-ui/react-dropdown-menu",
+      "@radix-ui/react-select",
+      "@radix-ui/react-tooltip",
+      "@radix-ui/react-tabs",
+      "@radix-ui/react-popover",
+      "@radix-ui/react-alert-dialog",
+      "@radix-ui/react-accordion",
+      "@radix-ui/react-checkbox",
+    ],
   },
   images: {
     // SVG is intentionally excluded — use <img> tags for SVG assets to avoid XSS risk
@@ -48,9 +63,15 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },
-  // Allow @xenova/transformers to run in the Node.js server runtime
-  // without being bundled by webpack (it uses dynamic requires + FS access)
-  serverExternalPackages: ["@xenova/transformers"],
+  // Keep heavy server-only libraries out of the webpack bundle entirely.
+  // These run in Node.js server routes and must not be included in client JS.
+  serverExternalPackages: [
+    "@xenova/transformers",
+    "pdf-parse",
+    "mammoth",
+    "exceljs",
+    "xlsx",
+  ],
   webpack: (config) => {
     // Prevent webpack from trying to bundle ONNX .wasm files
     config.resolve.alias = {

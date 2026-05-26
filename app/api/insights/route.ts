@@ -1,9 +1,14 @@
+export const maxDuration = 60; // agent query can run up to 55s
+
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { mapRole } from "@/lib/auth/clerk";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
-import { rateLimit } from "@/lib/redis/client";
+import { rateLimit, redis } from "@/lib/redis/client";
+
+const INSIGHTS_TTL = 120 // 2 min — insight cards change only on explicit user action
+const insightsKey  = (orgId: string) => `insights:${orgId}`
 import { HumanMessage } from "@langchain/core/messages";
 import { z } from "zod";
 
@@ -136,6 +141,12 @@ export async function GET(_req: NextRequest) {
     const { userId, orgId: clerkOrgId } = await ensureAdminOrAnalyst();
     const { orgId } = await resolveContext(userId, clerkOrgId);
 
+    const key = insightsKey(orgId)
+    const hit = await redis.get<unknown>(key).catch(() => null)
+    if (hit !== null) {
+      return NextResponse.json(hit, { headers: { 'X-Cache': 'HIT' } })
+    }
+
     const { data, error } = await supabaseAdmin
       .from("insights")
       .select("*")
@@ -144,7 +155,9 @@ export async function GET(_req: NextRequest) {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return NextResponse.json(data ?? []);
+    const payload = data ?? []
+    redis.set(key, payload, { ex: INSIGHTS_TTL }).catch(() => {})
+    return NextResponse.json(payload, { headers: { 'X-Cache': 'MISS' } });
   } catch (err: any) {
     logger.error({ err: err.message }, "[insights] GET failed");
     if (err.message === "Unauthorized") return new NextResponse("Unauthorized", { status: 401 });
@@ -204,6 +217,7 @@ export async function POST(req: NextRequest) {
       );
       throw error;
     }
+    redis.del(insightsKey(orgId)).catch(() => {})
     return NextResponse.json(data, { status: 201 });
   } catch (err: any) {
     logger.error({ err: err.message }, "[insights] POST failed");
@@ -263,6 +277,7 @@ export async function PATCH(req: NextRequest) {
       .single();
 
     if (error) throw error;
+    redis.del(insightsKey(orgId)).catch(() => {})
     return NextResponse.json(data);
   } catch (err: any) {
     logger.error({ err: err.message }, "[insights] PATCH failed");
@@ -299,7 +314,7 @@ export async function DELETE(req: NextRequest) {
       .eq("id", id)
       .eq("org_id", orgId);
     if (error) throw error;
-
+    redis.del(insightsKey(orgId)).catch(() => {})
     return NextResponse.json({ success: true });
   } catch (err: any) {
     logger.error({ err: err.message }, "[insights] DELETE failed");

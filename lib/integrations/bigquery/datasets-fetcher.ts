@@ -170,15 +170,17 @@ async function buildBigQueryTableStats(
           })
         }
       }
-    } catch { /* non-fatal */ }
+    } catch (err: any) {
+      logger.warn({ fullTableId: backtickId, err: err.message ?? String(err) }, '[bigquery] Failed numeric stats — skipping')
+    }
   }
 
-  // Categorical top-N values
+  // Categorical top-N values — run all column queries in parallel (each is independent)
   // TABLESAMPLE is only cost-effective above 10k rows; below that a full scan is
   // cheaper and avoids returning an empty sample from 1% of a tiny table.
   const useSample = rowCount > 10_000
-  for (const c of categoricalCols) {
-    try {
+  const categoricalResults = await Promise.allSettled(
+    categoricalCols.map(async (c) => {
       // TABLESAMPLE SYSTEM (1 PERCENT) is BigQuery's standard sampling syntax —
       // evaluated server-side before the GROUP BY, dramatically reducing slot usage.
       const source = useSample
@@ -188,12 +190,19 @@ async function buildBigQueryTableStats(
         connectionId, orgId,
         `SELECT val, COUNT(*) AS cnt FROM ${source} GROUP BY val ORDER BY cnt DESC LIMIT 20`
       )
-      categorical.push({
+      return {
         col: c.name,
         distinct: rows.length,
         topValues: rows.map((r) => ({ value: String(r['val'] ?? ''), count: String(r['cnt'] ?? '') })),
-      })
-    } catch { /* non-fatal */ }
+      }
+    })
+  )
+  for (const result of categoricalResults) {
+    if (result.status === 'fulfilled') {
+      categorical.push(result.value)
+    } else {
+      logger.warn({ fullTableId: backtickId, err: result.reason?.message ?? String(result.reason) }, '[bigquery] Failed categorical stats for column — skipping')
+    }
   }
 
   // Date ranges in one query
@@ -217,7 +226,9 @@ async function buildBigQueryTableStats(
           })
         }
       }
-    } catch { /* non-fatal */ }
+    } catch (err: any) {
+      logger.warn({ fullTableId: backtickId, err: err.message ?? String(err) }, '[bigquery] Failed date range stats — skipping')
+    }
   }
 
   return { tableName: fullTableId, rowCount, schema, numeric, categorical, dates }
@@ -259,7 +270,9 @@ async function buildBigQueryAggregations(
             metricValue: String(r['metric_sum'] ?? ''),
           })),
         })
-      } catch { /* non-fatal */ }
+      } catch (err: any) {
+        logger.warn({ backtickId, metric: metric.name, dimension: dim.name, err: err.message ?? String(err) }, '[bigquery] Failed aggregation query — skipping')
+      }
     }
   }
 

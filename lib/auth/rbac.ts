@@ -60,61 +60,55 @@ export const resolveUserAccess = cache(async (
   let result: UserAccess | null = null;
 
   // 1. Try Supabase
+  // Combine org lookup + member lookup into a single JOIN query (saves one DB round-trip).
+  // org_members.org_id FK → organizations.id; PostgREST !inner filter on clerk_org_id.
   try {
-    // Resolve internal org UUID from Clerk org ID
-    const { data: orgData } = await supabaseAdmin
-      .from("organizations")
-      .select("id")
-      .eq("clerk_org_id", orgId)
+    const { data: memberData, error: memberError } = await supabaseAdmin
+      .from("org_members")
+      .select("id, role, department_id, org_id, organizations!inner(id)")
+      .eq("clerk_user_id", userId)
+      .eq("organizations.clerk_org_id", orgId)
       .limit(1)
       .maybeSingle();
 
-    if (orgData) {
-      // 1. Fetch Member Basic Data
-      const { data: memberData, error: memberError } = await supabaseAdmin
-        .from("org_members")
-        .select("id, role, department_id")
-        .eq("clerk_user_id", userId)
-        .eq("org_id", orgData.id)
-        .limit(1)
-        .maybeSingle();
+    if (memberError) {
+      logger.warn({ userId, orgId, err: memberError.message }, "[rbac] Member+org query failed");
+    }
 
-      if (memberError) {
-        logger.warn({ userId, orgId, err: memberError.message }, "[rbac] Member query failed");
+    if (memberData) {
+      const internalOrgId: string = (memberData as any).organizations?.id ?? memberData.org_id;
+
+      // Fetch Grants — one remaining round-trip after we have org + member IDs
+      const { data: grantData, error: grantError } = await supabaseAdmin
+        .from("access_grants")
+        .select("id, scope_type, scope_id, expires_at")
+        .eq("user_id", memberData.id)
+        .eq("org_id", internalOrgId);
+
+      if (grantError) {
+        logger.warn({ userId, orgId, err: grantError.message }, "[rbac] Grants query failed");
       }
 
-      if (memberData) {
-        // 2. Fetch Grants Separately (Resilient to missing relationships)
-        const { data: grantData, error: grantError } = await supabaseAdmin
-          .from("access_grants")
-          .select("id, scope_type, scope_id, expires_at")
-          .eq("user_id", memberData.id)
-          .eq("org_id", orgData.id);
+      const grants = Array.isArray(grantData) ? grantData : [];
+      const now = new Date();
+      const activeGrants = grants.filter(
+        (g) => !g.expires_at || new Date(g.expires_at) > now
+      );
 
-        if (grantError) {
-          logger.warn({ userId, orgId, err: grantError.message }, "[rbac] Grants query failed");
-        }
-
-        const grants = Array.isArray(grantData) ? grantData : [];
-        const now = new Date();
-        const activeGrants = grants.filter(
-          (g) => !g.expires_at || new Date(g.expires_at) > now
-        );
-
-        const accessible_dept_ids = activeGrants
+      const accessible_dept_ids = [...new Set(
+        activeGrants
           .filter((g) => g.scope_type === "department")
           .map((g) => g.scope_id)
-          .filter((val, idx, self) => self.indexOf(val) === idx);
+      )];
 
-        result = {
-          internal_user_id: memberData.id,
-          internal_org_id: orgData.id,
-          role: memberData.role,
-          dept_id: memberData.department_id ?? null,
-          accessible_dept_ids: accessible_dept_ids.length ? accessible_dept_ids : null,
-          bi_grant_id: activeGrants[0]?.id ?? null,
-        };
-      }
+      result = {
+        internal_user_id: memberData.id,
+        internal_org_id: internalOrgId,
+        role: memberData.role,
+        dept_id: memberData.department_id ?? null,
+        accessible_dept_ids: accessible_dept_ids.length ? accessible_dept_ids : null,
+        bi_grant_id: activeGrants[0]?.id ?? null,
+      };
     }
   } catch (dbError) {
     logger.error({ userId, orgId, err: (dbError as Error).message }, "[rbac] Supabase resolution fatal error");

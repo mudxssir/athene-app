@@ -31,6 +31,10 @@ interface PipelineCommand {
  * In-memory cache that implements the subset of the Upstash Redis
  * interface used by the Athene app (get, set, incr, decr, expire, del, pipeline).
  */
+// Maximum number of cache entries before the oldest entry is evicted (LRU-lite).
+// Prevents unbounded growth in long-running processes with many unique keys.
+const MAX_CACHE_SIZE = 10_000
+
 export class MemoryCache {
   private store = new Map<string, CacheEntry>()
   private cleanupInterval: ReturnType<typeof setInterval> | null = null
@@ -93,6 +97,12 @@ export class MemoryCache {
       expiry = Date.now() + options.ex * 1000
     } else if (options?.px) {
       expiry = Date.now() + options.px
+    }
+
+    // Evict the oldest entry when at capacity (Map preserves insertion order)
+    if (this.store.size >= MAX_CACHE_SIZE) {
+      const oldest = this.store.keys().next().value
+      if (oldest !== undefined) this.store.delete(oldest)
     }
 
     this.store.set(key, { value, expiry })

@@ -13,6 +13,7 @@
 import { HumanMessage, AIMessage } from "@langchain/core/messages";
 import { resolveModelClient } from "../langgraph/llm-factory";
 import type { AtheneState, AtheneStateUpdate } from "../langgraph/state";
+import { TOOL_NAMES, buildApprovalUpdate } from "../langgraph/tool-names";
 import { logger } from "../logger";
 
 
@@ -141,13 +142,5 @@ export async function emailAgentNode(
   // Set pending_write_action and pause for HITL approval.
   // The graph's interrupt_before: ["approval_node"] will halt
   // execution before the approval_node runs.
-  return {
-    run_status: "awaiting_approval",
-    awaiting_approval: true,
-    pending_write_action: {
-      tool: "email-send",
-      payload: draft,
-      requested_at: new Date().toISOString(),
-    },
-  };
+  return buildApprovalUpdate(TOOL_NAMES.EMAIL_SEND, draft);
 }

@@ -95,10 +95,9 @@ export async function dispatchThrottled({
       return { dispatched: false };
     }
 
-    // Dev bypass: QStash can't reach localhost, so call the worker directly.
+    // QStash cannot reach loopback addresses — call the worker directly.
     // x-dev-internal-bypass tells verifyQStashSignature to skip signature check.
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? '';
-    if (appUrl.startsWith('http://localhost') || appUrl.startsWith('http://127.0.0.1')) {
+    if (isLocalhostDev()) {
       fetch(url, {
         method: 'POST',
         headers: {

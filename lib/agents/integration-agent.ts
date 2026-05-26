@@ -24,6 +24,7 @@ import type { AtheneState, AtheneStateUpdate } from '../langgraph/state'
 import { logger } from '../logger'
 import { PROVIDER_REGISTRY, getAllProviders } from '../integrations/providers'
 import type { ProviderConfig } from '../integrations/providers'
+import { TOOL_NAMES, buildApprovalUpdate } from '../langgraph/tool-names'
 
 // ---- System Prompt ─────────────────────────────────────────
 
@@ -119,25 +120,22 @@ async function handleList(
     const { listConnections } = await import('../nango/client')
     const connections = await listConnections(orgId)
 
-    const connectedKeys = new Set(
-      connections.map((c: any) => {
-        const raw = c.provider_config_key || c.provider || ''
-        return normalizeKey(raw)
-      })
-    )
+    // Build a lookup Map once — avoids O(N×M) Array.find inside the render loop
+    const connByKey = new Map<string, any>()
+    for (const c of connections) {
+      connByKey.set(normalizeKey(c.provider_config_key || c.provider || ''), c)
+    }
 
     const available = getAllProviders()
-    const connected = available.filter((p) => connectedKeys.has(normalizeKey(p.key)))
-    const notConnected = available.filter((p) => !connectedKeys.has(normalizeKey(p.key)))
+    const connected = available.filter((p) => connByKey.has(normalizeKey(p.key)))
+    const notConnected = available.filter((p) => !connByKey.has(normalizeKey(p.key)))
 
     const lines: string[] = []
 
     if (connected.length > 0) {
       lines.push('**Connected integrations:**')
       for (const p of connected) {
-        const conn = connections.find(
-          (c: any) => normalizeKey(c.provider_config_key || c.provider || '') === normalizeKey(p.key)
-        )
+        const conn = connByKey.get(normalizeKey(p.key))
         const syncStatus = conn?.sync_status ?? 'unknown'
         const lastSync = conn?.last_synced_at
           ? new Date(conn.last_synced_at).toLocaleString()
@@ -193,42 +191,30 @@ async function handleConnect(
   state: AtheneState,
   provider: ProviderConfig,
 ): Promise<AtheneStateUpdate> {
-  // The actual OAuth flow is handled entirely by the frontend — not by action-executor.
-  //
   // HITL contract for tool: "integration-connect"
   // ─────────────────────────────────────────────
   // 1. This function sets awaiting_approval=true and pending_write_action.tool="integration-connect".
   // 2. The graph pauses (interruptBefore: ["action_executor"]) and the client receives the state.
   // 3. The frontend detects pending_write_action.tool === "integration-connect" and renders
   //    an Approve button that, when clicked, calls nango.auth(nangoIntegrationId, connectionId)
-  //    directly (e.g. via <OAuthConnectButton>) — no server round-trip for the OAuth popup.
+  //    directly (via <OAuthConnectButton>) — no server round-trip for the OAuth popup.
   // 4. After OAuth completes, the frontend POSTs to /api/admin/integrations to save the connection.
   // 5. The frontend then POSTs to /api/agent/approve to resume the graph.
-  //
-  // IMPORTANT: action-executor.ts must NOT try to execute this action server-side.
-  // When wiring in, add a pass-through case in action-executor.ts:
-  //   case "integration-connect":
-  //     // No-op: OAuth flow was handled client-side before approval was sent.
-  //     return { messages: [new AIMessage({ content: "Connected successfully!" })] }
+  // 6. action-executor.ts receives the resumed state and handles "integration-connect" as a
+  //    no-op confirmation (the connection was already saved in step 4).
   //
   // The agent's role here is to:
   // 1. Confirm which provider to connect and explain what permissions will be requested
-  // 2. Set pending_write_action so the frontend knows to render the OAuth trigger UI
+  // 2. Set pending_write_action so the frontend renders the OAuth trigger UI
   // 3. Pause execution until the user explicitly approves (opens the consent screen)
 
   return {
-    run_status: 'awaiting_approval',
-    awaiting_approval: true,
-    pending_write_action: {
-      tool: 'integration-connect',
-      payload: {
-        provider: provider.key,
-        displayName: provider.displayName,
-        nangoIntegrationId: provider.nangoIntegrationId,
-        scopes: provider.capabilities.requiresScopes,
-      },
-      requested_at: new Date().toISOString(),
-    },
+    ...buildApprovalUpdate(TOOL_NAMES.INTEGRATION_CONNECT, {
+      provider: provider.key,
+      displayName: provider.displayName,
+      nangoIntegrationId: provider.nangoIntegrationId,
+      scopes: provider.capabilities.requiresScopes,
+    }),
     messages: [
       new AIMessage({
         content: [
@@ -277,21 +263,28 @@ async function handleDisconnect(
       }
     }
 
+    // Nango connections may use either connection_id (from API) or id (from Supabase row)
+    const resolvedConnectionId: string | undefined =
+      (existing as any).connection_id ?? (existing as any).id
+    if (!resolvedConnectionId) {
+      return {
+        messages: [
+          new AIMessage({
+            content: `I found ${provider.displayName} in your connections but couldn't determine the connection ID. Please disconnect it from the integrations page instead.`,
+          }),
+        ],
+      }
+    }
+
     return {
-      run_status: 'awaiting_approval',
-      awaiting_approval: true,
-      pending_write_action: {
-        tool: 'integration-disconnect',
-        payload: {
-          // provider.key is the internal key (e.g. "google_drive") — action-executor
-          // passes this to deleteConnection() as providerConfigKey, which resolves
-          // to nangoIntegrationId internally via getProvider().
-          provider: provider.key,
-          displayName: provider.displayName,
-          connectionId: (existing as any).connection_id ?? (existing as any).id,
-        },
-        requested_at: new Date().toISOString(),
-      },
+      ...buildApprovalUpdate(TOOL_NAMES.INTEGRATION_DISCONNECT, {
+        // provider.key is the internal key (e.g. "google_drive") — action-executor
+        // passes this to deleteConnection() as providerConfigKey, which resolves
+        // to nangoIntegrationId internally via getProvider().
+        provider: provider.key,
+        displayName: provider.displayName,
+        connectionId: resolvedConnectionId,
+      }),
       messages: [
         new AIMessage({
           content: [
@@ -334,9 +327,11 @@ async function handleStatus(
   try {
     const { supabaseAdmin } = await import('../supabase/server')
 
+    // Embed document count inline via PostgREST relational select — one query instead of two.
+    // documents(count) uses the FK connection_id → connections.id to aggregate server-side.
     let query = supabaseAdmin
       .from('connections')
-      .select('id, provider, source_type, status, last_synced_at, created_at')
+      .select('id, provider, source_type, status, last_synced_at, created_at, documents(count)')
       .eq('org_id', orgId)
 
     if (provider) {
@@ -353,24 +348,12 @@ async function handleStatus(
       return { messages: [new AIMessage({ content: msg })] }
     }
 
-    // Get document counts per connection
-    const connectionIds = connections.map((c: any) => c.id)
-    const { data: docCounts } = await supabaseAdmin
-      .from('documents')
-      .select('connection_id')
-      .in('connection_id', connectionIds)
-
-    const countMap = new Map<string, number>()
-    for (const doc of docCounts ?? []) {
-      const key = doc.connection_id
-      countMap.set(key, (countMap.get(key) ?? 0) + 1)
-    }
-
     const lines = ['**Sync Status:**', '']
-    for (const conn of connections) {
+    for (const conn of connections as any[]) {
       const config = resolveProvider(conn.provider)
       const name = config?.displayName ?? conn.provider
-      const docs = countMap.get(conn.id) ?? 0
+      // PostgREST returns embedded count as [{ count: N }]
+      const docs = (conn.documents as Array<{ count: number }> | null)?.[0]?.count ?? 0
       const lastSync = conn.last_synced_at
         ? new Date(conn.last_synced_at).toLocaleString()
         : 'never'
@@ -386,7 +369,7 @@ async function handleStatus(
     return { messages: [new AIMessage({ content: lines.join('\n') })] }
   } catch (err) {
     logger.error(
-      { orgId, err: err instanceof Error ? err.message : String(err) },
+      { orgId, provider: provider?.key ?? null, err: err instanceof Error ? err.message : String(err) },
       '[integration-agent] Error fetching status',
     )
     return {
@@ -422,10 +405,10 @@ async function handleSync(
   try {
     const { supabaseAdmin } = await import('../supabase/server')
 
-    // Find the connection
+    // Fetch all fields needed to build the dispatch payload in one query
     const { data: conn } = await supabaseAdmin
       .from('connections')
-      .select('id, nango_connection_id')
+      .select('id, nango_connection_id, source_type, department_id')
       .eq('org_id', orgId)
       .eq('provider', provider.key)
       .single()
@@ -440,29 +423,47 @@ async function handleSync(
       }
     }
 
-    // Mark as syncing
-    await supabaseAdmin
-      .from('connections')
-      .update({ status: 'syncing' })
-      .eq('id', conn.id)
+    // Dispatch via QStash/localDispatcher — same path as the configure route
+    const { dispatchThrottled } = await import('../qstash/client')
+    const workerUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/api/worker/nango-fetch`
+    const { dispatched } = await dispatchThrottled({
+      orgId,
+      sourceType: conn.source_type as string,
+      url: workerUrl,
+      body: {
+        orgId,
+        connectionId: conn.id,
+        nangoConnectionId: conn.nango_connection_id,
+        provider: provider.key,
+        sourceType: conn.source_type,
+        departmentId: (conn as any).department_id ?? null,
+      },
+    })
 
-    // In production, this would dispatch via QStash:
-    //   await dispatchThrottled(orgId, conn.id, conn.nango_connection_id, provider.key, provider.key)
-    // For isolation, we log the intent.
+    // Only mark as syncing if the job was actually dispatched
+    if (dispatched) {
+      await supabaseAdmin
+        .from('connections')
+        .update({ status: 'syncing' })
+        .eq('id', conn.id)
+    }
+
     logger.info(
-      { orgId, connectionId: conn.id, provider: provider.key },
-      '[integration-agent] Would dispatch re-sync job (not wired)',
+      { orgId, connectionId: conn.id, provider: provider.key, dispatched },
+      '[integration-agent] Re-sync dispatched',
     )
 
     return {
       messages: [
         new AIMessage({
-          content: [
-            `Re-syncing **${provider.displayName}**...`,
-            '',
-            'The sync will run in the background and typically takes 1-5 minutes depending on the amount of data.',
-            'You can check the progress anytime by asking me "sync status".',
-          ].join('\n'),
+          content: dispatched
+            ? [
+                `Re-syncing **${provider.displayName}**...`,
+                '',
+                'The sync will run in the background and typically takes 1–5 minutes depending on the amount of data.',
+                'You can check progress anytime by asking me "sync status".',
+              ].join('\n')
+            : `A sync for **${provider.displayName}** is already running. Check back in a few minutes.`,
         }),
       ],
     }
@@ -481,6 +482,16 @@ async function handleSync(
   }
 }
 
+// ---- Memoized system prompt ────────────────────────────────
+// Built once at module load — PROVIDER_REGISTRY is a static constant so the
+// providers list never changes at runtime. Re-building it on every LLM call
+// allocates the same string repeatedly for no benefit.
+const _ALL_PROVIDERS = getAllProviders()
+const _PROVIDERS_LIST = _ALL_PROVIDERS
+  .map((p) => `- ${p.key}: ${p.displayName} (${p.category}) — ${p.description}`)
+  .join('\n')
+const COMPILED_SYSTEM_PROMPT = SYSTEM_PROMPT.replace('{providers_list}', _PROVIDERS_LIST)
+
 // ---- Main Node Function ────────────────────────────────────
 
 /**
@@ -495,13 +506,7 @@ export async function integrationAgentNode(
 ): Promise<AtheneStateUpdate> {
   const { orgId, messages } = state
 
-  // Build providers list for the system prompt
-  const providers = getAllProviders()
-  const providersList = providers
-    .map((p) => `- ${p.key}: ${p.displayName} (${p.category}) — ${p.description}`)
-    .join('\n')
-
-  const systemContent = SYSTEM_PROMPT.replace('{providers_list}', providersList)
+  const systemContent = COMPILED_SYSTEM_PROMPT
 
   // Extract user intent via LLM
   try {
@@ -541,7 +546,7 @@ export async function integrationAgentNode(
                 content:
                   "I'd like to help you connect an integration, but I'm not sure which one you mean. " +
                   'Here are the available options:\n\n' +
-                  providers.map((p) => `- **${p.displayName}** — ${p.description}`).join('\n'),
+                  _ALL_PROVIDERS.map((p: ProviderConfig) => `- **${p.displayName}** — ${p.description}`).join('\n'),
               }),
             ],
           }

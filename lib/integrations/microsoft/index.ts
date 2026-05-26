@@ -221,44 +221,60 @@ export async function microsoftFetcher(
 
     const sitesData = await graphFetch(connectionId, orgId, '/sites?search=*')
     if (sitesData.value) {
-      for (const site of sitesData.value) {
-        // Skip sites not in selection — unless we have drive-level selections (need to visit all sites)
-        if (selectedIds && selectedIds.size > 0 && !hasDriveOnlySelection) {
-          const siteSelected = selectedIds.has(`site:${site.id}`) || selectedIds.has(site.id)
-          if (!siteSelected) continue
-        }
-
-        try {
-          const siteDocs = await listSharePointDocs(connectionId, orgId, site.id)
-          for (const doc of siteDocs) {
-            const driveId = doc.parentReference?.driveId
-            if (!driveId) continue
-            // Per-doc drive filter: skip if user made a selection but this drive isn't in it.
-            // A whole-site selection ("site:ID") passes all docs in that site.
-            // An item: selection (subfolder drill-down) is scoped by the driveId embedded in its prefix.
-            const hasItemSelectionForDrive = selectedItemIds && selectedItemIds.length > 0
-              && selectedItemIds.some(itemId => itemId.startsWith(`item:${driveId}:`))
-            if (selectedIds && selectedIds.size > 0 &&
-                !selectedIds.has(`site:${site.id}`) &&
-                !selectedIds.has(`drive:${driveId}`) &&
-                !hasItemSelectionForDrive) {
-              continue
+      // Fetch all sites in parallel — independent per-site calls
+      const siteChunks = await Promise.allSettled(
+        sitesData.value
+          .filter((site: any) => {
+            // Skip sites not in selection — unless we have drive-level selections (need to visit all sites)
+            if (selectedIds && selectedIds.size > 0 && !hasDriveOnlySelection) {
+              return selectedIds.has(`site:${site.id}`) || selectedIds.has(site.id)
             }
-            const content = await fetchSharePointDocContent(connectionId, orgId, driveId, doc.id)
-            chunks.push({
-              chunk_id: `ms_sharepoint_${doc.id}`,
-              title: `SharePoint: ${doc.name}`,
-              content,
-              source_url: doc.webLink,
-              metadata: {
-                provider: 'microsoft',
-                resource_type: 'sharepoint_doc',
-                id: doc.id
-              }
-            })
+            return true
+          })
+          .map(async (site: any) => {
+            const siteDocs = await listSharePointDocs(connectionId, orgId, site.id)
+            // Fetch all docs within the site in parallel — independent per-doc calls
+            return Promise.allSettled(
+              siteDocs
+                .filter((doc: any) => {
+                  const driveId = doc.parentReference?.driveId
+                  if (!driveId) return false
+                  const hasItemSelectionForDrive = selectedItemIds && selectedItemIds.length > 0
+                    && selectedItemIds.some((itemId: string) => itemId.startsWith(`item:${driveId}:`))
+                  if (selectedIds && selectedIds.size > 0 &&
+                      !selectedIds.has(`site:${site.id}`) &&
+                      !selectedIds.has(`drive:${driveId}`) &&
+                      !hasItemSelectionForDrive) {
+                    return false
+                  }
+                  return true
+                })
+                .map(async (doc: any) => {
+                  const driveId = doc.parentReference.driveId
+                  const content = await fetchSharePointDocContent(connectionId, orgId, driveId, doc.id)
+                  return {
+                    chunk_id: `ms_sharepoint_${doc.id}`,
+                    title: `SharePoint: ${doc.name}`,
+                    content,
+                    source_url: doc.webLink,
+                    metadata: { provider: 'microsoft', resource_type: 'sharepoint_doc', id: doc.id },
+                  } satisfies FetchedChunk
+                })
+            )
+          })
+      )
+
+      for (const siteResult of siteChunks) {
+        if (siteResult.status === 'rejected') {
+          logger.error({ err: siteResult.reason instanceof Error ? siteResult.reason.message : String(siteResult.reason) }, '[microsoft] Error fetching SharePoint site docs')
+          continue
+        }
+        for (const docResult of siteResult.value) {
+          if (docResult.status === 'fulfilled') {
+            chunks.push(docResult.value)
+          } else {
+            logger.warn({ err: docResult.reason instanceof Error ? docResult.reason.message : String(docResult.reason) }, '[microsoft] Error fetching SharePoint doc — skipping')
           }
-        } catch (siteError) {
-          logger.error({ siteId: site.id, err: siteError instanceof Error ? siteError.message : String(siteError) }, '[microsoft] Error fetching docs for SharePoint site');
         }
       }
     }

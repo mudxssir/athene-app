@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300; // briefing generation can take 2-3 min (LLM + retrieval)
 
 // ============================================================
 // app/api/worker/morning-briefing/route.ts — Morning briefing worker

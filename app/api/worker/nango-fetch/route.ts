@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300; // integration indexing can take several minutes for large orgs
 
 // ============================================================
 // api/worker/nango-fetch/route.ts — Background fetch worker
@@ -28,6 +29,8 @@ import { logger } from '@/lib/logger'
 import { parseSyncConfig, type SyncConfig } from '@/lib/integrations/sync-config'
 import { supabaseAdmin } from '@/lib/supabase/server'
 import { parseBody, uuidSchema } from '@/lib/validation'
+import { redis } from '@/lib/redis/client'
+import { connectionsKey } from '@/app/api/connections/route'
 
 // --- Google ---
 import { fetchCalendarChunks } from '@/lib/integrations/google/calendar-fetcher'
@@ -401,6 +404,12 @@ export async function POST(request: Request): Promise<Response> {
         .update(updateFields)
         .eq('id', connectionId)
     } catch { /* best-effort */ }
+
+    // Bust stale caches: the sync just changed doc counts + last_synced_at
+    redis.del(
+      `dashboard_stats:${orgId}`,
+      connectionsKey(orgId),
+    ).catch(() => {})
   }
 
   if (workerErr) {

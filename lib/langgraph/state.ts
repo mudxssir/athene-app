@@ -31,7 +31,7 @@ export const AtheneState = Annotation.Root({
     reducer: (_x, y) => y,
     default: () => false,
   }),
-  pending_write_action: Annotation<any | null>({
+  pending_write_action: Annotation<PendingWriteAction | null>({
     reducer: (_x, y) => y,
     default: () => null,
   }),

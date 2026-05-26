@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { redis } from "@/lib/redis/client";
 import { logger } from "@/lib/logger";
+
+const STATS_CACHE_TTL = 30; // seconds
+const CACHE_HEADERS = {
+  "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",
+} as const;
 
 export async function GET(req: NextRequest) {
   try {
@@ -23,6 +29,19 @@ export async function GET(req: NextRequest) {
     }
 
     const internalOrgId = orgRow.id;
+
+    // Serve from Redis cache when available — eliminates 6 Supabase queries on repeat calls
+    const cacheKey = `dashboard_stats:${internalOrgId}`;
+    try {
+      const cached = await redis.get<string>(cacheKey);
+      if (cached) {
+        return NextResponse.json(JSON.parse(cached), {
+          headers: { ...CACHE_HEADERS, "X-Cache": "HIT" },
+        });
+      }
+    } catch {
+      // Redis unavailable — fall through to live queries
+    }
 
     // Fetch counts in parallel — log individual failures but don't crash
     const [
@@ -64,7 +83,7 @@ export async function GET(req: NextRequest) {
       edited: 'Edited',
     };
 
-    return NextResponse.json({
+    const payload = {
       stats: {
         documents: docsCount ?? 0,
         knowledge_nodes: nodesCount ?? 0,
@@ -82,6 +101,13 @@ export async function GET(req: NextRequest) {
         time: d.decided_at,
         status: decisionStatusMap[d.decision] ?? 'Pending',
       }))
+    };
+
+    // Write to cache for next poll — best-effort, non-blocking
+    redis.set(cacheKey, JSON.stringify(payload), { ex: STATS_CACHE_TTL }).catch(() => {});
+
+    return NextResponse.json(payload, {
+      headers: { ...CACHE_HEADERS, "X-Cache": "MISS" },
     });
   } catch (error: any) {
     logger.error({ err: error?.message ?? String(error) }, "[dashboard/stats] Error");

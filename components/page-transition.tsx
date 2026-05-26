@@ -23,7 +23,7 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
       const cls = SPIN_ROUTES.has(pathname) ? "page-spin-in" : "page-cube-in";
       setAnimClass(cls);
       // Clear after animation finishes so it can re-trigger next nav
-      const t = setTimeout(() => setAnimClass(""), 700);
+      const t = setTimeout(() => setAnimClass(""), 200);
       return () => clearTimeout(t);
     }
     prevPath.current = pathname;

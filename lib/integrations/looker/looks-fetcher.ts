@@ -121,51 +121,56 @@ export async function fetchLookerExplores(
     return chunks
   }
 
-  // Flatten all (model, explore) pairs and fetch all explore definitions in parallel
+  // Flatten all (model, explore) pairs then fetch definitions in capped batches.
+  // Unbounded Promise.allSettled over hundreds of explores would hit Looker rate limits.
   const pairs = models.flatMap((m) => (m.explores ?? []).map((e) => ({ model: m, explore: e })))
+  const EXPLORE_BATCH = 10
 
-  const exploreChunks = await Promise.allSettled(
-    pairs.map(async ({ model, explore: exploreRef }) => {
-      const explore = await lookerFetch<LookerExplore>(
-        connectionId,
-        orgId,
-        `/lookml_models/${encodeURIComponent(model.name)}/explores/${encodeURIComponent(exploreRef.name)}`,
-      )
-      if (!explore) return null
+  for (let i = 0; i < pairs.length; i += EXPLORE_BATCH) {
+    const batch = pairs.slice(i, i + EXPLORE_BATCH)
+    const exploreChunks = await Promise.allSettled(
+      batch.map(async ({ model, explore: exploreRef }) => {
+        const explore = await lookerFetch<LookerExplore>(
+          connectionId,
+          orgId,
+          `/lookml_models/${encodeURIComponent(model.name)}/explores/${encodeURIComponent(exploreRef.name)}`,
+        )
+        if (!explore) return null
 
-      const dims = (explore.fields?.dimensions ?? []).slice(0, 50)
-      const measures = (explore.fields?.measures ?? []).slice(0, 20)
-      const dimLine = dims.map((d) => `${d.label ?? d.name} (${d.type})`).join(', ')
-      const measureLine = measures.map((m) => `${m.label ?? m.name} (${m.type})`).join(', ')
+        const dims = (explore.fields?.dimensions ?? []).slice(0, 50)
+        const measures = (explore.fields?.measures ?? []).slice(0, 20)
+        const dimLine = dims.map((d) => `${d.label ?? d.name} (${d.type})`).join(', ')
+        const measureLine = measures.map((m) => `${m.label ?? m.name} (${m.type})`).join(', ')
 
-      const lines: string[] = [
-        `Explore: ${explore.label ?? exploreRef.name}`,
-        `Model: ${model.name}`,
-      ]
-      if (explore.description) lines.push(`Description: ${explore.description}`)
-      if (dimLine) lines.push(`\nDimensions: ${dimLine}`)
-      if (measureLine) lines.push(`Measures: ${measureLine}`)
+        const lines: string[] = [
+          `Explore: ${explore.label ?? exploreRef.name}`,
+          `Model: ${model.name}`,
+        ]
+        if (explore.description) lines.push(`Description: ${explore.description}`)
+        if (dimLine) lines.push(`\nDimensions: ${dimLine}`)
+        if (measureLine) lines.push(`Measures: ${measureLine}`)
 
-      return {
-        chunk_id: `looker_explore_${model.name}_${exploreRef.name}`,
-        title: `Looker Explore: ${explore.label ?? exploreRef.name} (${model.label ?? model.name})`,
-        content: lines.join('\n'),
-        source_url: `${instanceUrl}/explore/${model.name}/${exploreRef.name}`,
-        metadata: {
-          provider: 'looker',
-          resource_type: 'explore',
-          model_name: model.name,
-          explore_name: exploreRef.name,
-        },
-      } satisfies FetchedChunk
-    })
-  )
+        return {
+          chunk_id: `looker_explore_${model.name}_${exploreRef.name}`,
+          title: `Looker Explore: ${explore.label ?? exploreRef.name} (${model.label ?? model.name})`,
+          content: lines.join('\n'),
+          source_url: `${instanceUrl}/explore/${model.name}/${exploreRef.name}`,
+          metadata: {
+            provider: 'looker',
+            resource_type: 'explore',
+            model_name: model.name,
+            explore_name: exploreRef.name,
+          },
+        } satisfies FetchedChunk
+      })
+    )
 
-  for (const result of exploreChunks) {
-    if (result.status === 'fulfilled' && result.value) {
-      chunks.push(result.value)
-    } else if (result.status === 'rejected') {
-      logger.warn({ err: result.reason instanceof Error ? result.reason.message : String(result.reason) }, '[looker] Failed to fetch explore definition — skipping')
+    for (const result of exploreChunks) {
+      if (result.status === 'fulfilled' && result.value) {
+        chunks.push(result.value)
+      } else if (result.status === 'rejected') {
+        logger.warn({ err: result.reason instanceof Error ? result.reason.message : String(result.reason) }, '[looker] Failed to fetch explore definition — skipping')
+      }
     }
   }
 

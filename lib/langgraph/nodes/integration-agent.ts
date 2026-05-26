@@ -4,26 +4,8 @@
 // LangGraph node wrapper for the integration management agent.
 // Follows the same thin-wrapper pattern as email-agent.ts.
 //
-// ISOLATION: This node is not registered in graph.ts yet.
-// To wire it in, add to graph.ts:
-//
-//   import { integrationAgentNode } from "./nodes/integration-agent"
-//
-//   // In the StateGraph builder:
-//   .addNode("integration_agent", integrationAgentNode)
-//   .addEdge("integration_agent", "supervisor")
-//
-//   // In the conditional edges map:
-//   { ..., integration_agent: "integration_agent" }
-//
-// And add to supervisor.ts ALL_AGENTS:
-//   "integration_agent",
-//
-// And add to the supervisor prompt:
-//   "- integration_agent: Manage data source connections — list,
-//      connect, disconnect, check sync status, trigger re-sync.
-//      Route here when the user asks about integrations, data
-//      sources, or connecting/disconnecting services."
+// Registered in lib/langgraph/graph.ts as "integration_agent" node.
+// Routed by supervisor when user asks about integrations.
 // ============================================================
 
 import type { AtheneState, AtheneStateUpdate } from '../state'

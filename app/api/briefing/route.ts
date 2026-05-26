@@ -3,8 +3,12 @@ import { getContextFromHeaders, withRLS } from '@/lib/supabase/rls-client';
 import { qstash } from '@/lib/qstash/client';
 import { getServerBaseUrl } from '@/lib/url/server-base-url';
 import { logger } from '@/lib/logger';
-import { rateLimit } from '@/lib/redis/client';
+import { rateLimit, redis } from '@/lib/redis/client';
 import { supabaseAdmin } from '@/lib/supabase/server';
+
+const BRIEFING_TODAY_TTL   = 120  // 2 min — today's briefing rarely changes
+const BRIEFING_HISTORY_TTL = 300  // 5 min — history is essentially immutable
+const BRIEFING_ITEM_TTL    = 300  // 5 min — specific briefing by id
 
 export const dynamic = 'force-dynamic';
 
@@ -23,9 +27,23 @@ export async function GET(request: Request) {
   }
 
   try {
+    const id = searchParams.get('id');
+
+    // Build a per-org, per-query cache key so different orgs never share data
+    const cacheKey = id
+      ? `briefing:${context.org_id}:id:${id}`
+      : `briefing:${context.org_id}:${type}`
+    const cacheTtl = id ? BRIEFING_ITEM_TTL
+      : type === 'history' ? BRIEFING_HISTORY_TTL
+      : BRIEFING_TODAY_TTL
+
+    // Serve from Redis when available — skips Supabase entirely
+    const hit = await redis.get<unknown>(cacheKey).catch(() => null)
+    if (hit !== null) {
+      return NextResponse.json(hit, { headers: { 'X-Cache': 'HIT' } })
+    }
+
     const result = await withRLS(context, async (supabase) => {
-      const id = searchParams.get('id');
-      
       if (id) {
         // Fetch specific briefing — scope to the caller's org_id as defense-in-depth
         // even though RLS policies already restrict cross-org reads.
@@ -69,7 +87,13 @@ export async function GET(request: Request) {
       }
     });
 
-    return NextResponse.json(result);
+    // Only cache non-null results — a null today-briefing means none generated yet;
+    // don't cache that so the next request picks it up immediately after generation.
+    if (result !== null) {
+      redis.set(cacheKey, result, { ex: cacheTtl }).catch(() => {})
+    }
+
+    return NextResponse.json(result, { headers: { 'X-Cache': 'MISS' } });
   } catch (error: any) {
     logger.error({ err: error?.message, org_id: context.org_id }, '[briefing] GET error');
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
@@ -131,6 +155,13 @@ export async function POST(request: Request) {
     user_id: context.user_id,
     triggered_by: 'user_manual',
   };
+
+  // Invalidate cached today + history for this org so the new briefing is picked up
+  // immediately rather than waiting for TTL expiry. Fire-and-forget — non-fatal.
+  redis.del(
+    `briefing:${context.org_id}:today`,
+    `briefing:${context.org_id}:history`,
+  ).catch(() => {})
 
   const hasQStash = !!process.env.QSTASH_TOKEN;
 

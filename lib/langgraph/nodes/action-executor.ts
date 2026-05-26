@@ -18,6 +18,7 @@ import type { EventDraft as GoogleEventDraft } from "@/lib/integrations/google/c
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 import { recordHitlApprovalDuration, incrementHitlDecision } from "@/lib/telemetry/metrics";
+import { TOOL_NAMES } from "../tool-names";
 
 const MS_PROVIDER_KEY = "microsoft";
 const GOOGLE_PROVIDER_KEY = "google";
@@ -75,7 +76,8 @@ async function resolveConnection(
     .select("connection_id, provider_config_key")
     .eq("org_id", orgId)
     .in("provider_config_key", candidates)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(1);
 
   if (error) {
     throw new Error(`Failed to resolve connections: ${error.message}`);
@@ -251,7 +253,7 @@ export async function actionExecutorNode(
   // Handled before resolveConnection() — that helper is email/calendar-specific
   // and would throw for these tool names.
 
-  if (action.tool === "integration-connect") {
+  if (action.tool === TOOL_NAMES.INTEGRATION_CONNECT) {
     // The OAuth popup was completed by the frontend before the user clicked Approve.
     // The connection is already saved in nango_connections by /api/admin/integrations.
     // Nothing to execute server-side — just confirm and resume the graph.
@@ -274,7 +276,7 @@ export async function actionExecutorNode(
     };
   }
 
-  if (action.tool === "integration-disconnect") {
+  if (action.tool === TOOL_NAMES.INTEGRATION_DISCONNECT) {
     const { connectionId, provider, displayName } = (action.payload ?? {}) as Record<string, string>;
     if (!connectionId || !provider) {
       logger.error(
@@ -341,7 +343,7 @@ export async function actionExecutorNode(
     );
 
     switch (action.tool) {
-      case "email-send": {
+      case TOOL_NAMES.EMAIL_SEND: {
         if (provider === MS_PROVIDER_KEY || provider === "outlook") {
           result = await withTimeout(
             sendMicrosoftEmail(
@@ -363,7 +365,7 @@ export async function actionExecutorNode(
         }
         break;
       }
-      case "calendar-create": {
+      case TOOL_NAMES.CALENDAR_CREATE: {
         if (provider === MS_PROVIDER_KEY || provider === "ms_calendar") {
           result = await withTimeout(
             createMicrosoftEvent(

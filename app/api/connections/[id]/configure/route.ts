@@ -69,27 +69,29 @@ export async function PATCH(request: Request, { params }: Params) {
   if (!parsed.success) return parsed.response;
   const { provider, selectedFolderIds, selectedResources, allowlist, excludedMimeTypes, departmentId, selectedWorkspaceIds } = parsed.data;
 
-  // Resolve Clerk orgId → internal UUID
-  const { data: orgData, error: orgErr } = await supabaseAdmin
-    .from("organizations")
-    .select("id")
-    .eq("clerk_org_id", orgId)
-    .maybeSingle();
+  // Resolve org + verify connection in parallel — both queries are independent
+  const [orgResult, connResult] = await Promise.all([
+    supabaseAdmin
+      .from("organizations")
+      .select("id")
+      .eq("clerk_org_id", orgId)
+      .maybeSingle(),
+    // Preliminary connection fetch without org-scope (org check applied after we have internalOrgId)
+    supabaseAdmin
+      .from("connections")
+      .select("id, provider, source_type, nango_connection_id, metadata, department_id, org_id")
+      .eq("id", connectionId)
+      .maybeSingle(),
+  ]);
 
-  if (orgErr || !orgData) {
+  if (orgResult.error || !orgResult.data) {
     return NextResponse.json({ error: "Organization not found" }, { status: 404 });
   }
-  const internalOrgId = orgData.id as string;
+  const internalOrgId = orgResult.data.id as string;
 
-  // Verify connection belongs to this org
-  const { data: conn, error: connErr } = await supabaseAdmin
-    .from("connections")
-    .select("id, provider, source_type, nango_connection_id, metadata, department_id")
-    .eq("id", connectionId)
-    .eq("org_id", internalOrgId)
-    .maybeSingle();
-
-  if (connErr || !conn) {
+  // Verify connection belongs to this org (enforced after both queries resolve)
+  const conn = connResult.data
+  if (connResult.error || !conn || (conn as any).org_id !== internalOrgId) {
     return NextResponse.json({ error: "Connection not found" }, { status: 404 });
   }
 
@@ -116,6 +118,44 @@ export async function PATCH(request: Request, { params }: Params) {
       await supabaseAdmin.from("connections").update({ status: "syncing" }).eq("id", connectionId);
     }
     return { dispatched, msgId };
+  }
+
+  // ── Shared allowlist handler ──────────────────────────────
+  // Snowflake, BigQuery, and Redshift all follow the same flow:
+  //   1. Validate allowlist items against a provider-specific regex
+  //   2. Persist to connections.metadata
+  //   3. Mirror to Nango metadata (non-fatal)
+  //   4. Dispatch sync
+  async function handleAllowlistProvider(
+    identRe: RegExp,
+    formatMsg: string,
+  ): Promise<NextResponse> {
+    if (!Array.isArray(allowlist) || allowlist.length === 0) {
+      return NextResponse.json({ error: "allowlist must be a non-empty array" }, { status: 400 });
+    }
+    const invalid = (allowlist as string[]).filter((t) => !identRe.test(t));
+    if (invalid.length > 0) {
+      return NextResponse.json(
+        { error: `Invalid identifiers (expected ${formatMsg}): ${invalid.join(", ")}` },
+        { status: 400 }
+      );
+    }
+    const { error: updateErr } = await supabaseAdmin
+      .from("connections")
+      .update({ metadata: { ...existingMeta, allowlist } })
+      .eq("id", connectionId);
+    if (updateErr) {
+      logger.error({ connectionId, provider, err: updateErr.message }, "[configure] Failed to save allowlist");
+      return NextResponse.json({ error: "Failed to save allowlist" }, { status: 500 });
+    }
+    try {
+      await updateConnectionNangoMetadata(conn!.nango_connection_id as string, provider, internalOrgId, { allowlist });
+    } catch (nangoErr: any) {
+      logger.warn({ connectionId, err: nangoErr.message }, "[configure] Nango metadata update failed (non-fatal)");
+    }
+    const { dispatched } = await dispatchSync();
+    logger.info({ connectionId, provider, tableCount: (allowlist as string[]).length, dispatched }, "[configure] Allowlist provider configured");
+    return NextResponse.json({ success: true, dispatched });
   }
 
   // ── Google Drive ──────────────────────────────────────────
@@ -181,109 +221,13 @@ export async function PATCH(request: Request, { params }: Params) {
   }
 
   // ── Snowflake ─────────────────────────────────────────────
-  if (provider === "snowflake") {
-    if (!Array.isArray(allowlist) || allowlist.length === 0) {
-      return NextResponse.json({ error: "allowlist must be a non-empty array" }, { status: 400 });
-    }
-
-    const invalid = allowlist.filter((t) => !SNOWFLAKE_IDENT_RE.test(t));
-    if (invalid.length > 0) {
-      return NextResponse.json(
-        { error: `Invalid identifiers (expected DATABASE.SCHEMA.TABLE): ${invalid.join(", ")}` },
-        { status: 400 }
-      );
-    }
-
-    const { error: updateErr } = await supabaseAdmin
-      .from("connections")
-      .update({ metadata: { ...existingMeta, allowlist } })
-      .eq("id", connectionId);
-
-    if (updateErr) {
-      logger.error({ connectionId, err: updateErr.message }, "[configure] Failed to save Snowflake allowlist");
-      return NextResponse.json({ error: "Failed to save allowlist" }, { status: 500 });
-    }
-
-    try {
-      await updateConnectionNangoMetadata(conn.nango_connection_id as string, "snowflake", internalOrgId, { allowlist });
-    } catch (nangoErr: any) {
-      logger.warn({ connectionId, err: nangoErr.message }, "[configure] Nango metadata update failed (non-fatal)");
-    }
-
-    const { dispatched } = await dispatchSync();
-    logger.info({ connectionId, tableCount: allowlist.length, dispatched }, "[configure] Snowflake configured");
-    return NextResponse.json({ success: true, dispatched });
-  }
+  if (provider === "snowflake") return handleAllowlistProvider(SNOWFLAKE_IDENT_RE, "DATABASE.SCHEMA.TABLE");
 
   // ── BigQuery ──────────────────────────────────────────────
-  if (provider === "bigquery") {
-    if (!Array.isArray(allowlist) || allowlist.length === 0) {
-      return NextResponse.json({ error: "allowlist must be a non-empty array" }, { status: 400 });
-    }
-
-    const invalid = allowlist.filter((t) => !BIGQUERY_IDENT_RE.test(t));
-    if (invalid.length > 0) {
-      return NextResponse.json(
-        { error: `Invalid identifiers (expected DATASET.TABLE): ${invalid.join(", ")}` },
-        { status: 400 }
-      );
-    }
-
-    const { error: updateErr } = await supabaseAdmin
-      .from("connections")
-      .update({ metadata: { ...existingMeta, allowlist } })
-      .eq("id", connectionId);
-
-    if (updateErr) {
-      logger.error({ connectionId, err: updateErr.message }, "[configure] Failed to save BigQuery allowlist");
-      return NextResponse.json({ error: "Failed to save allowlist" }, { status: 500 });
-    }
-
-    try {
-      await updateConnectionNangoMetadata(conn.nango_connection_id as string, "bigquery", internalOrgId, { allowlist });
-    } catch (nangoErr: any) {
-      logger.warn({ connectionId, err: nangoErr.message }, "[configure] Nango metadata update failed (non-fatal)");
-    }
-
-    const { dispatched } = await dispatchSync();
-    logger.info({ connectionId, tableCount: allowlist.length, dispatched }, "[configure] BigQuery configured");
-    return NextResponse.json({ success: true, dispatched });
-  }
+  if (provider === "bigquery") return handleAllowlistProvider(BIGQUERY_IDENT_RE, "DATASET.TABLE");
 
   // ── Redshift ──────────────────────────────────────────────
-  if (provider === "redshift") {
-    if (!Array.isArray(allowlist) || allowlist.length === 0) {
-      return NextResponse.json({ error: "allowlist must be a non-empty array" }, { status: 400 });
-    }
-
-    const invalid = allowlist.filter((t) => !REDSHIFT_IDENT_RE.test(t));
-    if (invalid.length > 0) {
-      return NextResponse.json(
-        { error: `Invalid identifiers (expected SCHEMA.TABLE or TABLE): ${invalid.join(", ")}` },
-        { status: 400 }
-      );
-    }
-
-    const { error: updateErr } = await supabaseAdmin
-      .from("connections")
-      .update({ metadata: { ...existingMeta, allowlist } })
-      .eq("id", connectionId);
-
-    if (updateErr) {
-      logger.error({ connectionId, err: updateErr.message }, "[configure] Failed to save Redshift allowlist");
-      return NextResponse.json({ error: "Failed to save allowlist" }, { status: 500 });
-    }
-
-    try {
-      await updateConnectionNangoMetadata(conn.nango_connection_id as string, "redshift", internalOrgId, { allowlist });
-    } catch (nangoErr: any) {
-      logger.warn({ connectionId, err: nangoErr.message }, "[configure] Nango metadata update failed (non-fatal)");
-    }
-
-    const { dispatched } = await dispatchSync();
-    logger.info({ connectionId, tableCount: allowlist.length, dispatched }, "[configure] Redshift configured");
-    return NextResponse.json({ success: true, dispatched });
-  }
+  if (provider === "redshift") return handleAllowlistProvider(REDSHIFT_IDENT_RE, "SCHEMA.TABLE or TABLE");
 
   // ── Generic browsable providers ───────────────────────────
   if (GENERIC_BROWSABLE.has(provider)) {

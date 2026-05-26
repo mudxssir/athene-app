@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Activity, Cpu, Database, ChevronRight, Zap, Link2,
@@ -9,37 +9,63 @@ import {
 import { IconTile, Chip, MetricCard, TCard } from "@/components/ui/kit";
 import { fetchWithTimeout } from "@/lib/fetch-timeout";
 
+// Module-level cache — persists across navigations within the same browser session
+// so re-entering the dashboard shows data instantly rather than a blank skeleton.
+type StatsPayload = {
+  stats: { documents: number; knowledge_nodes: number; actions: number; integrations: number; briefings_this_month: number };
+  recent_orchestrations: any[];
+};
+let _cachedPayload: StatsPayload | null = null;
+let _lastFetched = 0;
+const POLL_INTERVAL_MS = 60_000; // 60s — halved DB load vs prior 30s
+
 /* ── Page ───────────────────────────────────────────────── */
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState(_cachedPayload?.stats ?? {
     documents: 0, knowledge_nodes: 0, actions: 0,
     integrations: 0, briefings_this_month: 0,
   });
-  const [orchestrations, setOrchestrations] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [orchestrations, setOrchestrations] = useState<any[]>(_cachedPayload?.recent_orchestrations ?? []);
+  // If we have cached data, start non-loading so the page renders instantly
+  const [loading, setLoading] = useState(_cachedPayload === null);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const isMounted = useRef(true);
 
-  const fetchStats = useCallback(async () => {
+  const fetchStats = useCallback(async (quiet = false) => {
     try {
       const res = await fetchWithTimeout("/api/dashboard_stats", { timeout: 15000 });
       if (!res.ok) throw new Error(`Server error ${res.status}`);
-      const data = await res.json();
+      const data: StatsPayload = await res.json();
+      _cachedPayload = data;
+      _lastFetched = Date.now();
+      if (!isMounted.current) return;
       setStats(data.stats);
       setOrchestrations(data.recent_orchestrations);
       setFetchError(null);
     } catch (error: any) {
+      if (!isMounted.current) return;
       setFetchError(error.message ?? "Failed to load stats");
     } finally {
-      setLoading(false);
+      if (isMounted.current && !quiet) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchStats();
-    const interval = setInterval(fetchStats, 30_000);
-    return () => clearInterval(interval);
+    isMounted.current = true;
+    // Skip fetch if cached data is still fresh (< poll interval old)
+    const age = Date.now() - _lastFetched;
+    if (age > POLL_INTERVAL_MS || _cachedPayload === null) {
+      fetchStats();
+    } else {
+      setLoading(false);
+    }
+    const interval = setInterval(() => fetchStats(true), POLL_INTERVAL_MS);
+    return () => {
+      isMounted.current = false;
+      clearInterval(interval);
+    };
   }, [fetchStats]);
 
   // Computed client-side only to avoid SSR/client hydration mismatch
@@ -97,7 +123,7 @@ export default function DashboardPage() {
             </button>
             {/* Utility icon buttons */}
             <button
-              onClick={fetchStats}
+              onClick={() => fetchStats()}
               title="Refresh"
               style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 12, background: "var(--bg-muted)", border: "1px solid var(--border)", color: "var(--fg-muted)", cursor: "pointer" }}
             >
@@ -119,7 +145,7 @@ export default function DashboardPage() {
         <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", borderRadius: 16, background: "rgba(178,58,26,.10)", border: "1px solid rgba(178,58,26,.25)", color: "var(--danger)", marginBottom: 24 }}>
           <AlertCircle size={16} />
           <span style={{ fontSize: 13, fontWeight: 700 }}>Could not load stats: {fetchError}</span>
-          <button onClick={fetchStats} style={{ marginLeft: "auto", fontSize: 11, fontWeight: 800, letterSpacing: "0.2em", textTransform: "uppercase", background: "none", border: "none", color: "var(--danger)", cursor: "pointer" }}>
+          <button onClick={() => fetchStats()} style={{ marginLeft: "auto", fontSize: 11, fontWeight: 800, letterSpacing: "0.2em", textTransform: "uppercase", background: "none", border: "none", color: "var(--danger)", cursor: "pointer" }}>
             Retry
           </button>
         </div>

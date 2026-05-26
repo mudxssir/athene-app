@@ -1,3 +1,5 @@
+export const maxDuration = 60; // LangGraph agent has 55s internal timeout; keep 5s headroom
+
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { cachedAuth } from "@/lib/auth/cached-clerk";

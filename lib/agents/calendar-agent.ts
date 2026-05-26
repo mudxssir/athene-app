@@ -18,6 +18,7 @@ import { AIMessage } from "@langchain/core/messages";
 import fs from "fs";
 import path from "path";
 import { logger } from "@/lib/logger";
+import { buildApprovalUpdate } from "../langgraph/tool-names";
 
 // ---- Structured output schema --------------------------------
 
@@ -147,14 +148,7 @@ User Timezone: ${timezone}`;
     // BUG-03 FIX: Dynamic tool name based on action_type
     const toolName = `calendar-${draft.action_type}`;
 
-    return {
-      awaiting_approval: true,
-      pending_write_action: {
-        tool: toolName,
-        payload: draft as Record<string, unknown>,
-        requested_at: now.toISOString(),
-      },
-    };
+    return buildApprovalUpdate(toolName, draft as Record<string, unknown>);
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     logger.error({ err: msg }, "[calendarAgent] Error");

@@ -71,41 +71,48 @@ export async function fetchTableauWorkbooks(
       },
     })
 
-    // Fetch all view CSV data samples in parallel — independent per-view calls
-    const viewChunks = await Promise.all(views.map(async (view) => {
-      let dataContent = ''
-      try {
-        const csvUrl = `${session.serverUrl}/api/3.21/sites/${session.siteId}/views/${view.id}/data.csv?pageSize=50`
-        const res = await baseFetchRaw(csvUrl, {
-          headers: { 'X-Tableau-Auth': session.token },
-        })
-        if (res.ok) {
-          const csv = await res.text()
-          if (csv.trim()) dataContent = `\n\nData Sample:\n${csv.trim()}`
+    // Fetch view CSV data samples in batches to avoid overwhelming Tableau with
+    // concurrent requests (large workbooks may have dozens of views).
+    const VIEW_BATCH = 5
+    const viewChunks: FetchedChunk[] = []
+    for (let vi = 0; vi < views.length; vi += VIEW_BATCH) {
+      const viewBatch = views.slice(vi, vi + VIEW_BATCH)
+      const batchResults = await Promise.all(viewBatch.map(async (view) => {
+        let dataContent = ''
+        try {
+          const csvUrl = `${session.serverUrl}/api/3.21/sites/${session.siteId}/views/${view.id}/data.csv?pageSize=50`
+          const res = await baseFetchRaw(csvUrl, {
+            headers: { 'X-Tableau-Auth': session.token },
+          })
+          if (res.ok) {
+            const csv = await res.text()
+            if (csv.trim()) dataContent = `\n\nData Sample:\n${csv.trim()}`
+          }
+        } catch (err) {
+          // Non-fatal: some views require parameters or live connections
+          logger.debug(
+            { viewId: view.id, workbookId: wb.id, err: err instanceof Error ? err.message : String(err) },
+            '[tableau] Failed to fetch view CSV data — indexing metadata only'
+          )
         }
-      } catch (err) {
-        // Non-fatal: some views require parameters or live connections
-        logger.warn(
-          { viewId: view.id, workbookId: wb.id, err: err instanceof Error ? err.message : String(err) },
-          '[tableau] Failed to fetch view CSV data — indexing metadata only'
-        )
-      }
 
-      const baseContent = `View "${view.name}" in workbook "${wb.name}". Project: ${wb.project?.name ?? 'Default'}.`
-      return {
-        chunk_id: `tableau_view_${view.id}`,
-        title: `Tableau View: ${view.name} (${wb.name})`,
-        content: baseContent + dataContent,
-        source_url: `${session.serverUrl}/#/site/default/views/${view.contentUrl}`,
-        metadata: {
-          provider: 'tableau',
-          resource_type: 'view',
-          view_id: view.id,
-          workbook_id: wb.id,
-          workbook_name: wb.name,
-        },
-      } satisfies FetchedChunk
-    }))
+        const baseContent = `View "${view.name}" in workbook "${wb.name}". Project: ${wb.project?.name ?? 'Default'}.`
+        return {
+          chunk_id: `tableau_view_${view.id}`,
+          title: `Tableau View: ${view.name} (${wb.name})`,
+          content: baseContent + dataContent,
+          source_url: `${session.serverUrl}/#/site/default/views/${view.contentUrl}`,
+          metadata: {
+            provider: 'tableau',
+            resource_type: 'view',
+            view_id: view.id,
+            workbook_id: wb.id,
+            workbook_name: wb.name,
+          },
+        } satisfies FetchedChunk
+      }))
+      viewChunks.push(...batchResults)
+    }
 
     chunks.push(...viewChunks)
   }))

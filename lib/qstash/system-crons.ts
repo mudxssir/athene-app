@@ -68,6 +68,13 @@ export async function registerSystemCrons(): Promise<void> {
     return
   }
 
+  // QStash cloud cannot reach loopback addresses, so cron schedules are
+  // meaningless in local dev. Skip silently rather than logging a misleading error.
+  if (APP_URL.startsWith('http://localhost') || APP_URL.startsWith('http://127.0.0.1')) {
+    logger.info({}, '[system-crons] Localhost detected — skipping cron registration (QStash cannot reach loopback)')
+    return
+  }
+
   // ── Step 1: fetch existing schedules ────────────────────────────────────
   let existing: Array<{ destination: string; cron: string; scheduleId: string }>
   try {

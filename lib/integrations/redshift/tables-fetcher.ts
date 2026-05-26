@@ -132,15 +132,17 @@ async function buildRedshiftTableStats(
           })
         }
       }
-    } catch { /* non-fatal */ }
+    } catch (err: any) {
+      logger.warn({ tableFullName, err: err.message ?? String(err) }, '[redshift] Failed numeric stats — skipping')
+    }
   }
 
   // TABLESAMPLE is only cost-effective above 10k rows; below that a full scan is
   // cheaper and avoids returning an empty result set from 1% of a tiny table.
   const useSample = rowCount > 10_000
-  // Categorical top-N values
-  for (const c of categoricalCols) {
-    try {
+  // Categorical top-N values — run all column queries in parallel (each is independent)
+  const categoricalResults = await Promise.allSettled(
+    categoricalCols.map(async (c) => {
       // TABLESAMPLE BERNOULLI(1) = 1% random row sampling, SQL:2003 standard syntax.
       // Redshift evaluates the sample before the GROUP BY, reducing scan cost by ~99%.
       const fromClause = useSample
@@ -152,12 +154,19 @@ async function buildRedshiftTableStats(
          FROM ${fromClause}
          GROUP BY val ORDER BY cnt DESC LIMIT 20`
       )
-      categorical.push({
+      return {
         col: c.name,
         distinct: rows.length,
         topValues: rows.map((r) => ({ value: String(r['val'] ?? ''), count: String(r['cnt'] ?? '') })),
-      })
-    } catch { /* non-fatal */ }
+      }
+    })
+  )
+  for (const result of categoricalResults) {
+    if (result.status === 'fulfilled') {
+      categorical.push(result.value)
+    } else {
+      logger.warn({ tableFullName, err: result.reason?.message ?? String(result.reason) }, '[redshift] Failed categorical stats for column — skipping')
+    }
   }
 
   // Date ranges
@@ -178,7 +187,9 @@ async function buildRedshiftTableStats(
           })
         }
       }
-    } catch { /* non-fatal */ }
+    } catch (err: any) {
+      logger.warn({ tableFullName, err: err.message ?? String(err) }, '[redshift] Failed date range stats — skipping')
+    }
   }
 
   return { tableName: tableFullName, rowCount, schema, numeric, categorical, dates }
@@ -218,7 +229,9 @@ async function buildRedshiftAggregations(
             metricValue: String(r['metric_sum'] ?? ''),
           })),
         })
-      } catch { /* non-fatal */ }
+      } catch (err: any) {
+        logger.warn({ tableFullName, metric: metric.name, dimension: dim.name, err: err.message ?? String(err) }, '[redshift] Failed aggregation query — skipping')
+      }
     }
   }
 

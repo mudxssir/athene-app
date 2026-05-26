@@ -7,8 +7,11 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { dispatchThrottled } from "@/lib/qstash/client";
 import { invalidatePromptCache } from "@/lib/knowledge-graph/modules/resolver";
 import { logger } from "@/lib/logger";
-import { rateLimit } from "@/lib/redis/client";
+import { rateLimit, redis } from "@/lib/redis/client";
 import { parseBody, uuidSchema } from "@/lib/validation";
+
+const CONNECTIONS_TTL = 30 // 30s — connection status changes after syncs complete
+export const connectionsKey = (orgId: string) => `connections:${orgId}`
 
 const ConnectionPostSchema = z.object({
   nangoConnectionId: z.string().min(1).max(255),
@@ -84,6 +87,9 @@ export async function POST(request: Request) {
     logger.warn({ err: err instanceof Error ? err.message : String(err) }, '[connections/post] prompt cache invalidation failed (non-fatal)')
   );
 
+  // Bust the connections list cache so the admin UI shows the new entry immediately
+  redis.del(connectionsKey(internalOrgId)).catch(() => {})
+
   // Providers that require user file/table selection before first sync
   // Providers that require the user to select resources before a first sync can run.
   // Adding a provider here suppresses the auto-dispatch on initial connect so the user
@@ -143,13 +149,17 @@ export async function GET() {
       return NextResponse.json({ success: false, error: "Organization not found" }, { status: 404 });
     }
 
-    const connections = await listConnections(orgData.id);
+    const key = connectionsKey(orgData.id)
+    const hit = await redis.get<unknown>(key).catch(() => null)
+    if (hit !== null) {
+      return NextResponse.json(hit, { headers: { 'X-Cache': 'HIT' } })
+    }
 
-    return NextResponse.json({
-      success: true,
-      data: connections,
-      orgId: orgId
-    });
+    const connections = await listConnections(orgData.id);
+    const payload = { success: true, data: connections, orgId }
+    redis.set(key, payload, { ex: CONNECTIONS_TTL }).catch(() => {})
+
+    return NextResponse.json(payload, { headers: { 'X-Cache': 'MISS' } });
 
   } catch (err: any) {
     logger.error({ err: err?.message }, '[connections/get] Error fetching connections');
