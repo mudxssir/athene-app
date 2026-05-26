@@ -25,7 +25,6 @@ export async function fetchTableauWorkbooks(
   const session = await tableauSignIn(connectionId, orgId)
   const chunks: FetchedChunk[] = []
 
-  // browseTableau returns workbook UUIDs as resource IDs.
   const selectedIds = syncConfig ? getSelectedResourceIds(syncConfig) : null
 
   let workbooks: TableauWorkbook[] = []
@@ -33,13 +32,16 @@ export async function fetchTableauWorkbooks(
     const res = await tableauFetch<any>(session, `/sites/${session.siteId}/workbooks?pageSize=50`)
     workbooks = res?.workbooks?.workbook ?? []
   } catch (err) {
-    logger.error({ err: err instanceof Error ? err.message : String(err) }, '[tableau] Failed to fetch workbooks:')
+    logger.error({ err: err instanceof Error ? err.message : String(err) }, '[tableau] Failed to fetch workbooks')
     return chunks
   }
 
-  for (const wb of workbooks) {
-    if (selectedIds && selectedIds.size > 0 && !selectedIds.has(wb.id)) continue
-    // Get views for this workbook
+  // Fetch all workbook view lists in parallel — independent per-workbook calls
+  const filteredWorkbooks = workbooks.filter(
+    (wb) => !selectedIds || selectedIds.size === 0 || selectedIds.has(wb.id)
+  )
+
+  await Promise.all(filteredWorkbooks.map(async (wb) => {
     let views: TableauView[] = []
     try {
       const viewRes = await tableauFetch<any>(session, `/sites/${session.siteId}/workbooks/${wb.id}/views`)
@@ -69,11 +71,10 @@ export async function fetchTableauWorkbooks(
       },
     })
 
-    // Index each view as its own chunk, enriched with a CSV data sample
-    for (const view of views) {
+    // Fetch all view CSV data samples in parallel — independent per-view calls
+    const viewChunks = await Promise.all(views.map(async (view) => {
       let dataContent = ''
       try {
-        // CSV export: first 50 rows of the view's default query
         const csvUrl = `${session.serverUrl}/api/3.21/sites/${session.siteId}/views/${view.id}/data.csv?pageSize=50`
         const res = await baseFetchRaw(csvUrl, {
           headers: { 'X-Tableau-Auth': session.token },
@@ -82,12 +83,16 @@ export async function fetchTableauWorkbooks(
           const csv = await res.text()
           if (csv.trim()) dataContent = `\n\nData Sample:\n${csv.trim()}`
         }
-      } catch {
-        // Non-fatal: some views require parameters or live connections; fall back to metadata-only
+      } catch (err) {
+        // Non-fatal: some views require parameters or live connections
+        logger.warn(
+          { viewId: view.id, workbookId: wb.id, err: err instanceof Error ? err.message : String(err) },
+          '[tableau] Failed to fetch view CSV data — indexing metadata only'
+        )
       }
 
       const baseContent = `View "${view.name}" in workbook "${wb.name}". Project: ${wb.project?.name ?? 'Default'}.`
-      chunks.push({
+      return {
         chunk_id: `tableau_view_${view.id}`,
         title: `Tableau View: ${view.name} (${wb.name})`,
         content: baseContent + dataContent,
@@ -99,9 +104,11 @@ export async function fetchTableauWorkbooks(
           workbook_id: wb.id,
           workbook_name: wb.name,
         },
-      })
-    }
-  }
+      } satisfies FetchedChunk
+    }))
+
+    chunks.push(...viewChunks)
+  }))
 
   return chunks
 }

@@ -8,10 +8,16 @@ import { dispatchThrottled } from "@/lib/qstash/client";
 import { logger } from "@/lib/logger";
 import { parseBody, uuidSchema } from "@/lib/validation";
 
+// Must stay in sync with SelectedResource.type in sync-config.ts
+const SELECTED_RESOURCE_TYPES = [
+  'folder', 'file', 'channel', 'repo', 'database', 'page',
+  'space', 'project', 'object_type', 'workspace', 'report', 'dataset', 'dashboard',
+] as const;
+
 const SelectedResourceSchema = z.object({
   id:              z.string(),
   name:            z.string(),
-  type:            z.string(),
+  type:            z.enum(SELECTED_RESOURCE_TYPES),
   includeChildren: z.boolean(),
 });
 
@@ -26,6 +32,16 @@ const ConfigureSchema = z.object({
 });
 
 interface Params { params: Promise<{ id: string }> }
+
+// Providers handled by the generic "save syncConfig + dispatch" path.
+// hubspot and zendesk are intentionally excluded — they are not browsable
+// (removed from BROWSABLE_PROVIDERS in providers.ts) so no selection is ever sent.
+const GENERIC_BROWSABLE = new Set([
+  'sharepoint', 'notion', 'slack',
+  'github', 'jira', 'confluence', 'linear',
+  'salesforce', 'onedrive',
+  'tableau', 'looker', 'metabase',
+]);
 
 const SNOWFLAKE_IDENT_RE = /^[A-Za-z0-9_]+\.[A-Za-z0-9_]+\.[A-Za-z0-9_]+$/;
 const BIGQUERY_IDENT_RE  = /^[A-Za-z0-9_]+\.[A-Za-z0-9_]+$/;
@@ -270,21 +286,7 @@ export async function PATCH(request: Request, { params }: Params) {
   }
 
   // ── Generic browsable providers ───────────────────────────
-  // Covers: sharepoint, notion, slack, hubspot, zendesk (and future additions).
-  // For these providers, saving a SyncConfig with the selected resources is enough —
-  // the fetchers already respect sync_config.selectedResources via getSelectedResourceIds().
-  const GENERIC_BROWSABLE = [
-    'sharepoint', 'notion', 'slack', 'hubspot', 'zendesk',
-    // Dev tools (Issue 10)
-    'github', 'jira', 'confluence', 'linear',
-    // RevOps (Issue 9)
-    'salesforce',
-    // Legal/Compliance (Issue 13)
-    'onedrive',
-    // BI tools (Issues 14, 15)
-    'tableau', 'looker', 'metabase',
-  ]
-  if (GENERIC_BROWSABLE.includes(provider)) {
+  if (GENERIC_BROWSABLE.has(provider)) {
     const resources = selectedResources ?? []
     const mode: 'selected' | 'all' = resources.length > 0 ? 'selected' : 'all'
     const syncConfig = {

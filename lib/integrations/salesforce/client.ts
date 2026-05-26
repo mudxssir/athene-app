@@ -49,3 +49,19 @@ export async function salesforceFetch<T = unknown>(
 
   return baseFetch<T>(url, { ...fetchOptions, headers })
 }
+
+// SOQL datetime literals must be ISO 8601 — validate before interpolating
+// to prevent malformed queries or SOQL injection via crafted `since` values.
+const SOQL_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(Z|[+-]\d{2}:\d{2})$/
+
+/**
+ * Appends a `WHERE LastModifiedDate >= {since}` clause to a SOQL base string.
+ * Throws if `since` is not a valid ISO 8601 datetime to prevent SOQL injection.
+ */
+export function applySinceTo(soqlBase: string, since: string | undefined): string {
+  if (!since) return soqlBase
+  if (!SOQL_DATETIME_RE.test(since)) {
+    throw new Error(`[salesforce] Invalid since value — expected ISO 8601 datetime, got: ${since}`)
+  }
+  return `${soqlBase} WHERE LastModifiedDate >= ${since}`
+}

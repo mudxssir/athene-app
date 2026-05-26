@@ -82,7 +82,7 @@ export async function fetchRedshiftTables(connectionId: string, orgId: string): 
       }
 
       // 5. Aggregations
-      const aggResults = await buildRedshiftAggregations(creds, tableFullName, schema)
+      const aggResults = await buildRedshiftAggregations(creds, tableFullName, schema, rowCount)
       if (aggResults.length > 0) {
         chunks.push(buildAggregationChunk(tableFullName, aggResults, 'redshift', sourceUrl))
       }
@@ -135,15 +135,21 @@ async function buildRedshiftTableStats(
     } catch { /* non-fatal */ }
   }
 
+  // TABLESAMPLE is only cost-effective above 10k rows; below that a full scan is
+  // cheaper and avoids returning an empty result set from 1% of a tiny table.
+  const useSample = rowCount > 10_000
   // Categorical top-N values
   for (const c of categoricalCols) {
     try {
       // TABLESAMPLE BERNOULLI(1) = 1% random row sampling, SQL:2003 standard syntax.
       // Redshift evaluates the sample before the GROUP BY, reducing scan cost by ~99%.
+      const fromClause = useSample
+        ? `${tableFullName} TABLESAMPLE BERNOULLI(1)`
+        : tableFullName
       const rows = await redshiftQuery(
         creds,
         `SELECT ${c.name}::VARCHAR AS val, COUNT(*) AS cnt
-         FROM ${tableFullName} TABLESAMPLE BERNOULLI(1)
+         FROM ${fromClause}
          GROUP BY val ORDER BY cnt DESC LIMIT 20`
       )
       categorical.push({
@@ -182,6 +188,7 @@ async function buildRedshiftAggregations(
   creds: import('./client').RedshiftCredentials,
   tableFullName: string,
   schema: ColumnSchema[],
+  rowCount: number,
 ): Promise<AggregationResult[]> {
   const results: AggregationResult[] = []
   const numericCols    = schema.filter((c) => classifyColumn(c.type) === 'numeric').slice(0, 3)
@@ -189,13 +196,17 @@ async function buildRedshiftAggregations(
 
   if (numericCols.length === 0 || categoricalCols.length === 0) return results
 
+  const useSampleAgg = rowCount > 10_000
   for (const metric of numericCols) {
     for (const dim of categoricalCols) {
       try {
+        const fromClause = useSampleAgg
+          ? `${tableFullName} TABLESAMPLE BERNOULLI(1)`
+          : tableFullName
         const rows = await redshiftQuery(
           creds,
           `SELECT ${dim.name}::VARCHAR AS dim_val, SUM(${metric.name}::FLOAT) AS metric_sum
-           FROM ${tableFullName} TABLESAMPLE BERNOULLI(1)
+           FROM ${fromClause}
            GROUP BY dim_val ORDER BY metric_sum DESC LIMIT 10`
         )
         if (rows.length === 0) continue
@@ -212,20 +223,4 @@ async function buildRedshiftAggregations(
   }
 
   return results
-}
-
-async function discoverTables(creds: import('./client').RedshiftCredentials): Promise<string[]> {
-  try {
-    const rows = await redshiftQuery(
-      creds,
-      `SELECT table_schema || '.' || table_name AS full_name
-       FROM information_schema.tables
-       WHERE table_type = 'BASE TABLE'
-         AND table_schema NOT IN ('pg_catalog','information_schema','pg_internal','catalog_history')
-       LIMIT 50`
-    )
-    return rows.map((r) => r.full_name).filter(Boolean)
-  } catch {
-    return []
-  }
 }

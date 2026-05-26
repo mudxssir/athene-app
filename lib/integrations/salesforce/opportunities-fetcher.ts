@@ -5,7 +5,7 @@
 // Returns FetchedChunk[] with cursor-based pagination.
 // ============================================================
 
-import { salesforceFetch } from './client'
+import { salesforceFetch, applySinceTo } from './client'
 import type { FetchedChunk } from '@/lib/integrations/base'
 
 const SOQL_BASE = [
@@ -35,9 +35,7 @@ export async function fetchSalesforceOpportunities(
   orgId: string,
   options?: { since?: string }
 ): Promise<FetchedChunk[]> {
-  const soql = options?.since
-    ? `${SOQL_BASE} WHERE LastModifiedDate >= ${options.since}`
-    : SOQL_BASE
+  const soql = applySinceTo(SOQL_BASE, options?.since)
   const chunks: FetchedChunk[] = []
   let nextUrl: string | null = `/query?q=${encodeURIComponent(soql)}`
 

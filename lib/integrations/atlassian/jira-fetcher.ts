@@ -72,7 +72,9 @@ export async function fetchJiraIssues(
       if (description) lines.push('', description)
 
       // Inline comments — expanded via field=comment at zero extra API cost
-      const comments: any[] = issue.fields.comment?.comments ?? []
+      // Cap at 10 most-recent to prevent runaway chunk size on high-traffic issues
+      const allComments: any[] = issue.fields.comment?.comments ?? []
+      const comments = allComments.slice(-10)
       if (comments.length > 0) {
         const commentLines = comments.map((c: any) => {
           const author = c.author?.displayName ?? 'Unknown'

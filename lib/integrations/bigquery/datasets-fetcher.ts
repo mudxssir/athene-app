@@ -96,7 +96,7 @@ export async function fetchBigQueryDatasets(connectionId: string, orgId: string)
 
         // 5. Aggregations
         const aggResults = await buildBigQueryAggregations(
-          connectionId, orgId, backtickId, schema
+          connectionId, orgId, backtickId, schema, rowCount
         )
         if (aggResults.length > 0) {
           chunks.push(buildAggregationChunk(fullTableId, aggResults, 'bigquery', sourceUrl))
@@ -174,15 +174,19 @@ async function buildBigQueryTableStats(
   }
 
   // Categorical top-N values
+  // TABLESAMPLE is only cost-effective above 10k rows; below that a full scan is
+  // cheaper and avoids returning an empty sample from 1% of a tiny table.
+  const useSample = rowCount > 10_000
   for (const c of categoricalCols) {
     try {
       // TABLESAMPLE SYSTEM (1 PERCENT) is BigQuery's standard sampling syntax —
       // evaluated server-side before the GROUP BY, dramatically reducing slot usage.
+      const source = useSample
+        ? `(SELECT CAST(${c.name} AS STRING) AS val FROM ${backtickId} TABLESAMPLE SYSTEM (1 PERCENT))`
+        : `(SELECT CAST(${c.name} AS STRING) AS val FROM ${backtickId})`
       const rows = await runQuery(
         connectionId, orgId,
-        `SELECT val, COUNT(*) AS cnt
-         FROM (SELECT CAST(${c.name} AS STRING) AS val FROM ${backtickId} TABLESAMPLE SYSTEM (1 PERCENT))
-         GROUP BY val ORDER BY cnt DESC LIMIT 20`
+        `SELECT val, COUNT(*) AS cnt FROM ${source} GROUP BY val ORDER BY cnt DESC LIMIT 20`
       )
       categorical.push({
         col: c.name,
@@ -224,6 +228,7 @@ async function buildBigQueryAggregations(
   orgId: string,
   backtickId: string,
   schema: ColumnSchema[],
+  rowCount: number,
 ): Promise<AggregationResult[]> {
   const results: AggregationResult[] = []
   const numericCols    = schema.filter((c) => classifyColumn(c.type) === 'numeric').slice(0, 3)
@@ -231,14 +236,18 @@ async function buildBigQueryAggregations(
 
   if (numericCols.length === 0 || categoricalCols.length === 0) return results
 
+  const useSampleAgg = rowCount > 10_000
   for (const metric of numericCols) {
     for (const dim of categoricalCols) {
       try {
+        const fromClause = useSampleAgg
+          ? `${backtickId} TABLESAMPLE SYSTEM (1 PERCENT)`
+          : backtickId
         const rows = await runQuery(
           connectionId, orgId,
           `SELECT CAST(${dim.name} AS STRING) AS dim_val,
                   SUM(CAST(${metric.name} AS FLOAT64)) AS metric_sum
-           FROM ${backtickId} TABLESAMPLE SYSTEM (1 PERCENT)
+           FROM ${fromClause}
            GROUP BY dim_val ORDER BY metric_sum DESC LIMIT 10`
         )
         if (rows.length === 0) continue

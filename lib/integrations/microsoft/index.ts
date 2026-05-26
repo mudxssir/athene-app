@@ -187,9 +187,10 @@ export async function microsoftFetcher(
   // 3. OneDrive Documents — scoped to selected folders when syncConfig provides them
   try {
     const driveDocs = await listOneDriveDocs(connectionId, orgId, options?.syncConfig)
-    for (const doc of driveDocs) {
+    // Fetch all document contents in parallel — independent per-doc calls
+    const driveChunks = await Promise.all(driveDocs.map(async (doc) => {
       const content = await fetchOneDriveDocContent(connectionId, orgId, doc.id)
-      chunks.push({
+      return {
         chunk_id: `ms_drive_${doc.id}`,
         title: `OneDrive: ${doc.name}`,
         content,
@@ -199,8 +200,9 @@ export async function microsoftFetcher(
           resource_type: 'onedrive_doc',
           id: doc.id
         }
-      })
-    }
+      } satisfies FetchedChunk
+    }))
+    chunks.push(...driveChunks)
   } catch (error) {
     logger.error({ err: error instanceof Error ? error.message : String(error) }, '[microsoft] Error fetching OneDrive docs');
   }

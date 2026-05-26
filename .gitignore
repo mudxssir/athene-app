@@ -55,3 +55,4 @@ supabase/.temp/
 
 # stale worker backups
 /.worker-backup/
+issues-coddling.md
