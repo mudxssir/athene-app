@@ -173,12 +173,13 @@ export default function IntegrationsPage() {
 
       const nango = new Nango({ connectSessionToken: token });
 
-      // Generate a collision-free connection ID (crypto.randomUUID avoids Date.now() races).
-      const connectionId = `${provider.key}_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
-
       // nango.auth() opens the provider's OAuth consent screen directly in a popup.
-      const result = await nango.auth(provider.nangoIntegrationId, connectionId);
-      if (!result) throw new Error("OAuth authorization was cancelled or failed.");
+      // Do NOT pass connectionId — Nango's connect session API now forbids it.
+      // Nango generates the ID and returns it in result.connectionId.
+      const result = await nango.auth(provider.nangoIntegrationId);
+      if (!result?.connectionId) throw new Error("OAuth authorization was cancelled or failed.");
+
+      const { connectionId } = result;
 
       const saveRes = await fetch("/api/admin/integrations", {
         method: "POST",
@@ -276,6 +277,22 @@ export default function IntegrationsPage() {
     setSyncingAll(false);
     setTimeout(fetchIntegrations, 1500);
   }, [integrations, fetchIntegrations]);
+
+  const handleAbortSync = useCallback(async (integration: Integration) => {
+    try {
+      const res = await fetch(`/api/connections/${integration.internalConnectionId}/abort`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? `HTTP ${res.status}`);
+      }
+      setToast({ msg: `Sync for ${integration.displayName} will stop after the current file.`, type: "success" });
+      setTimeout(fetchIntegrations, 2000);
+    } catch (e: any) {
+      setToast({ msg: `Abort failed: ${e.message}`, type: "error" });
+    }
+  }, [fetchIntegrations]);
 
   const handleCheckStatus = useCallback(async (integration: Integration) => {
     try {
@@ -469,6 +486,7 @@ export default function IntegrationsPage() {
                 onIndex={handleIndex}
                 onConfigureSync={(i) => setConfiguringSync(i)}
                 onCheckStatus={handleCheckStatus}
+                onAbortSync={handleAbortSync}
               />
             );
           })

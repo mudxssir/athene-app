@@ -59,5 +59,6 @@ export async function googleFetchRaw(
       ...options.headers,
       Authorization: `Bearer ${token}`,
     },
+    timeoutMs: 120_000, // binary downloads can be large
   })
 }

@@ -479,9 +479,12 @@ export async function indexDocuments(
   }
 
   return {
-    indexed: prepared.length,
+    // Only count items that actually had new embeddings written — unchanged docs don't count.
+    // This ensures graph-build is only enqueued when content actually changed,
+    // and a Jina/API failure doesn't look like a successful sync.
+    indexed: changedItems.length - errors,
     errors,
-    documentIds: [...new Set(prepared.map(p => p.documentId))]
+    documentIds: [...new Set(changedItems.map(p => p.documentId))]
   }
 }
 

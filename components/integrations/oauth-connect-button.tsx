@@ -83,22 +83,17 @@ export function OAuthConnectButton({
       // bypassing the Nango catalog modal entirely.
       const nango = new Nango({ connectSessionToken: token })
 
-      // Generate a stable, collision-free connection ID for this OAuth flow.
-      // We use crypto.randomUUID() (available in all modern browsers) rather than
-      // Date.now() — the latter can collide if the user opens two tabs or retries
-      // quickly, creating duplicate nango_connections rows instead of upserting.
-      const connectionId = `${provider.key}_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`
-
       // nango.auth() returns a Promise — much cleaner than the event-based
       // openConnectUI() which required callback handling.
-      const result = await nango.auth(
-        provider.nangoIntegrationId,
-        connectionId,
-      )
+      // Do NOT pass connectionId — Nango's connect session API now forbids it.
+      // Nango generates the ID and returns it in result.connectionId.
+      const result = await nango.auth(provider.nangoIntegrationId)
 
-      if (!result) {
+      if (!result?.connectionId) {
         throw new Error("OAuth authorization was cancelled or failed.")
       }
+
+      const { connectionId } = result
 
       // Step 3: Save the connection mapping in our backend
       setStatus("saving")

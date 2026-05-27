@@ -11,6 +11,8 @@ import {
   Calendar,
   Database,
   Settings2,
+  PauseCircle,
+  PlayCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,6 +33,8 @@ export interface Integration {
   metadata?: {
     selected_folder_ids?: string[];
     allowlist?: string[];
+    sync_paused?: boolean;
+    paused_at?: string;
     [key: string]: unknown;
   };
   sync_config?: {
@@ -46,6 +50,7 @@ interface IntegrationCardProps {
   onIndex: (integration: Integration) => Promise<void>;
   onConfigureSync: (integration: Integration) => void;
   onCheckStatus: (integration: Integration) => Promise<void>;
+  onAbortSync: (integration: Integration) => Promise<void>;
 }
 
 function needsConfiguration(integration: Integration): boolean {
@@ -61,9 +66,11 @@ export function IntegrationCard({
   onIndex,
   onConfigureSync,
   onCheckStatus,
+  onAbortSync,
 }: IntegrationCardProps) {
   const [indexing, setIndexing] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [aborting, setAborting] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -85,6 +92,15 @@ export function IntegrationCard({
       await onCheckStatus(integration);
     } finally {
       setChecking(false);
+    }
+  };
+
+  const handleAbortSync = async () => {
+    setAborting(true);
+    try {
+      await onAbortSync(integration);
+    } finally {
+      setAborting(false);
     }
   };
 
@@ -116,6 +132,8 @@ export function IntegrationCard({
 
   const isError = integration.status === "error";
   const isStale = integration.status === "stale";
+  const isSyncing = integration.status === "syncing";
+  const isPaused = !!integration.metadata?.sync_paused;
 
   return (
     <div className={cn(
@@ -181,24 +199,46 @@ export function IntegrationCard({
 
       <div className="flex flex-wrap items-center justify-between gap-2 pt-5 sm:pt-6 border-t border-white/5">
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-          <Button
-            onClick={handleIndex}
-            disabled={indexing || checking || integration.status === 'syncing'}
-            variant="ghost"
-            className={cn(
-              "h-10 px-4 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all gap-2",
-              isError
-                ? "text-amber-400 hover:bg-amber-400/10"
-                : "text-foreground hover:bg-secondary/10 hover:text-secondary"
-            )}
-          >
-            {indexing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-            {isError ? "Retry Sync" : "Force Sync"}
-          </Button>
+          {/* Abort button — only while syncing */}
+          {isSyncing && (
+            <Button
+              onClick={handleAbortSync}
+              disabled={aborting}
+              variant="ghost"
+              className="h-10 px-4 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all gap-2 text-orange-400 hover:bg-orange-400/10"
+            >
+              {aborting ? <Loader2 className="w-3 h-3 animate-spin" /> : <PauseCircle className="w-3 h-3" />}
+              Abort Sync
+            </Button>
+          )}
+
+          {/* Force / Retry / Resume Sync */}
+          {!isSyncing && (
+            <Button
+              onClick={handleIndex}
+              disabled={indexing || checking}
+              variant="ghost"
+              className={cn(
+                "h-10 px-4 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all gap-2",
+                isError
+                  ? "text-amber-400 hover:bg-amber-400/10"
+                  : isPaused
+                  ? "text-orange-400 hover:bg-orange-400/10"
+                  : "text-foreground hover:bg-secondary/10 hover:text-secondary"
+              )}
+            >
+              {indexing
+                ? <Loader2 className="w-3 h-3 animate-spin" />
+                : isPaused
+                ? <PlayCircle className="w-3 h-3" />
+                : <RefreshCw className="w-3 h-3" />}
+              {isError ? "Retry Sync" : isPaused ? "Resume Sync" : "Force Sync"}
+            </Button>
+          )}
 
           <Button
             onClick={handleCheckStatus}
-            disabled={checking || indexing || integration.status === 'syncing'}
+            disabled={checking || indexing || isSyncing}
             variant="ghost"
             className={cn(
               "h-10 px-4 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all gap-2",
@@ -216,6 +256,7 @@ export function IntegrationCard({
           <Button
             variant="ghost"
             onClick={() => onConfigureSync(integration)}
+            disabled={isSyncing}
             className={cn(
               "h-10 px-4 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all gap-2",
               needsConfig

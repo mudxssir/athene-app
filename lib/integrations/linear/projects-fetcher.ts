@@ -1,10 +1,10 @@
 import { linearFetch } from './client';
 import { FetchedChunk } from '../base';
-import { type SyncConfig, getSelectedResourceIds } from '../sync-config';
+import { type SyncConfig } from '../sync-config';
 
 const PROJECTS_QUERY = `
   query GetProjects($cursor: String) {
-    projects(first: 50, after: $cursor) {
+    projects(first: 25, after: $cursor) {
       pageInfo {
         hasNextPage
         endCursor
@@ -39,42 +39,6 @@ const PROJECTS_QUERY = `
   }
 `
 
-const PROJECTS_QUERY_FILTERED = `
-  query GetProjectsFiltered($cursor: String, $teamIds: [ID!]!) {
-    projects(first: 50, after: $cursor, filter: { teams: { some: { id: { in: $teamIds } } } }) {
-      pageInfo {
-        hasNextPage
-        endCursor
-      }
-      nodes {
-        id
-        name
-        description
-        url
-        state
-        startDate
-        targetDate
-        completedAt
-        createdAt
-        updatedAt
-        lead {
-          name
-        }
-        members {
-          nodes {
-            name
-          }
-        }
-        projectUpdates(first: 5) {
-          nodes {
-            body
-            createdAt
-          }
-        }
-      }
-    }
-  }
-`
 
 // Note: Milestones usually reside either globally or within project structure depending on schema version.
 // Here we fetch project with recent updates as part of projects sync. You can incorporate milestones separately.
@@ -82,22 +46,15 @@ const PROJECTS_QUERY_FILTERED = `
 export async function linearProjectsFetcher(
   connectionId: string,
   orgId: string,
-  syncConfig?: SyncConfig,
+  _syncConfig?: SyncConfig,
 ): Promise<FetchedChunk[]> {
-  const selectedTeamIds = syncConfig ? getSelectedResourceIds(syncConfig) : null
-  const teamIds = selectedTeamIds && selectedTeamIds.size > 0 ? Array.from(selectedTeamIds) : null
-
-  const query = teamIds ? PROJECTS_QUERY_FILTERED : PROJECTS_QUERY
-
   const chunks: FetchedChunk[] = [];
   let hasNextPage = true;
   let cursor: string | null = null;
 
   while (hasNextPage) {
     const variables: Record<string, unknown> = { cursor }
-    if (teamIds) variables.teamIds = teamIds
-
-    const data: any = await linearFetch(connectionId, orgId, query, variables);
+    const data: any = await linearFetch(connectionId, orgId, PROJECTS_QUERY, variables);
 
     const projectsResult = data.data?.projects;
     if (!projectsResult) break;

@@ -118,6 +118,8 @@ export interface BaseFetchOptions {
   maxRetries?: number
   /** If true, return the raw Response instead of parsing JSON. */
   rawResponse?: boolean
+  /** Request timeout in ms. Default 30 000. Binary downloads should pass 120 000. */
+  timeoutMs?: number
 }
 
 /**
@@ -143,16 +145,25 @@ export async function baseFetch<T = unknown>(
     body,
     maxRetries = 3,
     rawResponse = false,
+    timeoutMs = 30_000,
   } = options
 
   let attempt = 0
 
   while (attempt <= maxRetries) {
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json', ...headers },
-      body: body ? JSON.stringify(body) : undefined,
-    })
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(new Error(`[baseFetch] Request timed out after ${timeoutMs}ms`)), timeoutMs)
+    let res: Response
+    try {
+      res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: body ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      })
+    } finally {
+      clearTimeout(timer)
+    }
 
     // ── Rate limited — back off and retry ────────────────────────────────
     if (res.status === 429) {

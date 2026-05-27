@@ -14,7 +14,6 @@ import {
   Square,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -34,6 +33,21 @@ interface DriveFile {
 }
 
 const FOLDER_MIME = "application/vnd.google-apps.folder";
+const UNSYNCABLE_MIMES = new Set([
+  "application/vnd.google-apps.shortcut",
+  "application/vnd.google-apps.map",
+  "application/vnd.google-apps.site",
+  "application/vnd.google-apps.form",
+  "application/vnd.google-apps.drawing",
+  "application/vnd.google-apps.fusiontable",
+  "application/vnd.google-apps.script",
+]);
+
+interface SelectedItem {
+  id: string;
+  name: string;
+  type: "folder" | "file";
+}
 
 interface Breadcrumb {
   id: string | undefined;
@@ -42,7 +56,7 @@ interface Breadcrumb {
 
 interface DrivePickerModalProps {
   open: boolean;
-  connectionId: string; // Supabase connections.id UUID
+  connectionId: string;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -52,7 +66,7 @@ export function DrivePickerModal({ open, connectionId, onClose, onSuccess }: Dri
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
   const [currentFolderId, setCurrentFolderId] = useState<string | undefined>(undefined);
   const [breadcrumbs, setBreadcrumbs] = useState<Breadcrumb[]>([{ id: undefined, name: "My Drive" }]);
-  const [selectedFolderIds, setSelectedFolderIds] = useState<Set<string>>(new Set());
+  const [selectedItems, setSelectedItems] = useState<Map<string, SelectedItem>>(new Map());
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(false);
@@ -63,7 +77,6 @@ export function DrivePickerModal({ open, connectionId, onClose, onSuccess }: Dri
   const [departmentId, setDepartmentId] = useState<string | null>(null);
   const [excludedMimeTypes, setExcludedMimeTypes] = useState<string[]>([]);
 
-  // Fetch departments on open
   useEffect(() => {
     if (!open) return;
     fetch("/api/admin/departments").then(res => res.json()).then(data => {
@@ -81,12 +94,11 @@ export function DrivePickerModal({ open, connectionId, onClose, onSuccess }: Dri
   ];
 
   const toggleMimeType = (mimeType: string) => {
-    setExcludedMimeTypes((prev) => 
+    setExcludedMimeTypes((prev) =>
       prev.includes(mimeType) ? prev.filter(m => m !== mimeType) : [...prev, mimeType]
     );
   };
 
-  // Debounce search input
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
     return () => clearTimeout(t);
@@ -97,8 +109,8 @@ export function DrivePickerModal({ open, connectionId, onClose, onSuccess }: Dri
       setLoading(true);
       setError(null);
       try {
-        const params = new URLSearchParams({ type: "drive_files" });
-        if (folderId) params.set("folderId", folderId);
+        const params = new URLSearchParams();
+        if (folderId) params.set("parentId", folderId);
         if (pageToken) params.set("pageToken", pageToken);
         if (searchQuery) params.set("search", searchQuery);
 
@@ -106,7 +118,15 @@ export function DrivePickerModal({ open, connectionId, onClose, onSuccess }: Dri
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
 
-        setFiles((prev) => (pageToken ? [...prev, ...(data.files ?? [])] : (data.files ?? [])));
+        const mapped: DriveFile[] = (data.resources ?? []).map((r: any) => ({
+          id: r.id,
+          name: r.name,
+          mimeType: r.metadata?.mimeType ?? '',
+          webViewLink: r.metadata?.webViewLink,
+          modifiedTime: r.metadata?.modifiedTime,
+          owners: r.metadata?.owner ? [{ displayName: r.metadata.owner, emailAddress: '' }] : [],
+        }));
+        setFiles((prev) => (pageToken ? [...prev, ...mapped] : mapped));
         setNextPageToken(data.nextPageToken ?? null);
       } catch (e: any) {
         setError(e.message ?? "Failed to load Drive files");
@@ -117,7 +137,6 @@ export function DrivePickerModal({ open, connectionId, onClose, onSuccess }: Dri
     [connectionId]
   );
 
-  // Load files on open or when folder/search changes
   useEffect(() => {
     if (!open) return;
     setFiles([]);
@@ -125,12 +144,11 @@ export function DrivePickerModal({ open, connectionId, onClose, onSuccess }: Dri
     browse(currentFolderId, undefined, debouncedSearch || undefined);
   }, [open, currentFolderId, debouncedSearch, browse]);
 
-  // Reset state when modal opens fresh
   useEffect(() => {
     if (open) {
       setCurrentFolderId(undefined);
       setBreadcrumbs([{ id: undefined, name: "My Drive" }]);
-      setSelectedFolderIds(new Set());
+      setSelectedItems(new Map());
       setSearch("");
       setDebouncedSearch("");
       setError(null);
@@ -153,26 +171,37 @@ export function DrivePickerModal({ open, connectionId, onClose, onSuccess }: Dri
     setNextPageToken(null);
   };
 
-  const toggleFolder = (folderId: string) => {
-    setSelectedFolderIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(folderId)) next.delete(folderId);
-      else next.add(folderId);
+  const toggleItem = (file: DriveFile) => {
+    const type = file.mimeType === FOLDER_MIME ? "folder" : "file";
+    setSelectedItems((prev) => {
+      const next = new Map(prev);
+      if (next.has(file.id)) {
+        next.delete(file.id);
+      } else {
+        next.set(file.id, { id: file.id, name: file.name, type });
+      }
       return next;
     });
   };
 
   const handleSave = async () => {
-    if (selectedFolderIds.size === 0) return;
+    if (selectedItems.size === 0) return;
     setSaving(true);
     setError(null);
     try {
+      const selectedResources = Array.from(selectedItems.values()).map(item => ({
+        id: item.id,
+        name: item.name,
+        type: item.type,
+        includeChildren: item.type === "folder",
+      }));
+
       const res = await fetch(`/api/connections/${connectionId}/configure`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           provider: "google_drive",
-          selectedFolderIds: Array.from(selectedFolderIds),
+          selectedResources,
           departmentId,
           excludedMimeTypes,
         }),
@@ -193,6 +222,13 @@ export function DrivePickerModal({ open, connectionId, onClose, onSuccess }: Dri
   if (!open) return null;
 
   const isSearching = !!debouncedSearch;
+  const folderCount = Array.from(selectedItems.values()).filter(i => i.type === "folder").length;
+  const fileCount = Array.from(selectedItems.values()).filter(i => i.type === "file").length;
+
+  const selectionLabel = selectedItems.size === 0
+    ? "Nothing selected"
+    : [folderCount > 0 && `${folderCount} folder${folderCount !== 1 ? "s" : ""}`, fileCount > 0 && `${fileCount} file${fileCount !== 1 ? "s" : ""}`]
+        .filter(Boolean).join(", ") + " selected";
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
@@ -202,9 +238,9 @@ export function DrivePickerModal({ open, connectionId, onClose, onSuccess }: Dri
         <div className="px-8 pt-8 pb-6 border-b border-white/5 flex-shrink-0">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <h2 className="text-2xl font-black text-foreground tracking-tight">Select Folders to Sync</h2>
+              <h2 className="text-2xl font-black text-foreground tracking-tight">Select Files & Folders</h2>
               <p className="text-xs text-muted-foreground font-bold mt-1">
-                Choose which Google Drive folders Athene should index.
+                Choose individual files or entire folders for Athene to index.
               </p>
             </div>
             <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full hover:bg-white/5 -mt-1">
@@ -212,7 +248,7 @@ export function DrivePickerModal({ open, connectionId, onClose, onSuccess }: Dri
             </Button>
           </div>
 
-          {/* Breadcrumb (hidden in search mode) */}
+          {/* Breadcrumb */}
           {!isSearching && breadcrumbs.length > 1 && (
             <div className="flex items-center gap-1 flex-wrap mb-4">
               {breadcrumbs.map((crumb, i) => (
@@ -233,7 +269,7 @@ export function DrivePickerModal({ open, connectionId, onClose, onSuccess }: Dri
             </div>
           )}
 
-          {/* Back button when inside a folder */}
+          {/* Back button */}
           {!isSearching && breadcrumbs.length > 1 && (
             <button
               onClick={() => navigateToBreadcrumb(breadcrumbs[breadcrumbs.length - 2], breadcrumbs.length - 2)}
@@ -263,46 +299,46 @@ export function DrivePickerModal({ open, connectionId, onClose, onSuccess }: Dri
           </div>
         </div>
 
-        {/* Configuration Section (Department & MIME Exclusions) */}
+        {/* Configuration Section */}
         {!isSearching && (
           <div className="px-8 py-4 border-b border-white/5 flex flex-col sm:flex-row gap-6 bg-muted/5">
-             <div className="flex-1 space-y-2">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Department Access</label>
-                <Select value={departmentId || "none"} onValueChange={(val) => setDepartmentId(val === "none" ? null : val)}>
-                  <SelectTrigger className="w-full bg-white/5 border-white/10 rounded-xl">
-                    <SelectValue placeholder="Map to department..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No specific department (Org-wide)</SelectItem>
-                    {departments.map(dept => (
-                      <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-             </div>
-             <div className="flex-[2] space-y-2">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Exclude File Types</label>
-                <div className="flex flex-wrap gap-2">
-                   {MIME_OPTIONS.map(opt => {
-                     const isExcluded = excludedMimeTypes.includes(opt.value);
-                     return (
-                       <Badge 
-                         key={opt.value}
-                         variant="outline"
-                         className={`cursor-pointer transition-colors ${isExcluded ? 'bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/20' : 'bg-white/5 border-white/10 text-muted-foreground hover:bg-white/10'}`}
-                         onClick={() => toggleMimeType(opt.value)}
-                       >
-                         {opt.label}
-                       </Badge>
-                     );
-                   })}
-                </div>
-             </div>
+            <div className="flex-1 space-y-2">
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Department Access</label>
+              <Select value={departmentId || "none"} onValueChange={(val) => setDepartmentId(val === "none" ? null : val)}>
+                <SelectTrigger className="w-full bg-white/5 border-white/10 rounded-xl">
+                  <SelectValue placeholder="Map to department..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No specific department (Org-wide)</SelectItem>
+                  {departments.map(dept => (
+                    <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-[2] space-y-2">
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Exclude File Types</label>
+              <div className="flex flex-wrap gap-2">
+                {MIME_OPTIONS.map(opt => {
+                  const isExcluded = excludedMimeTypes.includes(opt.value);
+                  return (
+                    <Badge
+                      key={opt.value}
+                      variant="outline"
+                      className={`cursor-pointer transition-colors ${isExcluded ? 'bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/20' : 'bg-white/5 border-white/10 text-muted-foreground hover:bg-white/10'}`}
+                      onClick={() => toggleMimeType(opt.value)}
+                    >
+                      {opt.label}
+                    </Badge>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
 
         {/* File List */}
-        <ScrollArea className="flex-1 min-h-0">
+        <div className="flex-1 min-h-0 overflow-y-auto">
           <div className="px-8 py-4 space-y-1">
             {loading && files.length === 0 && (
               <div className="flex items-center justify-center py-12">
@@ -328,41 +364,33 @@ export function DrivePickerModal({ open, connectionId, onClose, onSuccess }: Dri
 
             {files.map((file) => {
               const isFolder = file.mimeType === FOLDER_MIME;
-              const isSelected = isFolder && selectedFolderIds.has(file.id);
+              const isUnsyncable = UNSYNCABLE_MIMES.has(file.mimeType);
+              const isSelected = selectedItems.has(file.id);
+
+              if (isUnsyncable) return null;
 
               return (
                 <div
                   key={file.id}
-                  className={`flex items-center gap-3 p-3 rounded-2xl transition-all ${
-                    isFolder
-                      ? "hover:bg-white/5 cursor-pointer"
-                      : "opacity-40 cursor-default"
-                  } ${isSelected ? "bg-primary/10 border border-primary/20" : "border border-transparent"}`}
+                  onClick={() => toggleItem(file)}
+                  className={`flex items-center gap-3 p-3 rounded-2xl transition-all cursor-pointer
+                    ${isSelected ? "bg-primary/10 border border-primary/20" : "border border-transparent hover:bg-white/5"}
+                  `}
                 >
-                  {/* Checkbox — only for folders */}
-                  {isFolder ? (
-                    <button
-                      onClick={() => toggleFolder(file.id)}
-                      className="flex-shrink-0 text-muted-foreground/60 hover:text-primary transition-colors"
-                    >
-                      {isSelected
-                        ? <CheckSquare className="w-4 h-4 text-primary" />
-                        : <Square className="w-4 h-4" />}
-                    </button>
-                  ) : (
-                    <div className="w-4 h-4 flex-shrink-0" />
-                  )}
+                  {/* Checkbox */}
+                  <div className="flex-shrink-0 text-muted-foreground/60">
+                    {isSelected
+                      ? <CheckSquare className="w-4 h-4 text-primary" />
+                      : <Square className="w-4 h-4" />}
+                  </div>
 
                   {/* Icon */}
                   {isFolder
                     ? <Folder className="w-4 h-4 text-secondary flex-shrink-0" />
-                    : <FileText className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />}
+                    : <FileText className="w-4 h-4 text-muted-foreground/60 flex-shrink-0" />}
 
                   {/* Name */}
-                  <span
-                    className="flex-1 text-sm font-bold text-foreground truncate"
-                    onClick={isFolder ? () => toggleFolder(file.id) : undefined}
-                  >
+                  <span className="flex-1 text-sm font-bold text-foreground truncate">
                     {file.name}
                   </span>
 
@@ -376,7 +404,7 @@ export function DrivePickerModal({ open, connectionId, onClose, onSuccess }: Dri
                   {/* Drill-in button for folders */}
                   {isFolder && !isSearching && (
                     <button
-                      onClick={() => drillIntoFolder(file)}
+                      onClick={(e) => { e.stopPropagation(); drillIntoFolder(file); }}
                       className="flex-shrink-0 p-1.5 rounded-xl hover:bg-white/10 text-muted-foreground/40 hover:text-foreground transition-all"
                       title="Browse folder"
                     >
@@ -405,15 +433,11 @@ export function DrivePickerModal({ open, connectionId, onClose, onSuccess }: Dri
               </div>
             )}
           </div>
-        </ScrollArea>
+        </div>
 
         {/* Footer */}
         <div className="px-8 py-6 border-t border-white/5 flex items-center justify-between flex-shrink-0">
-          <span className="text-xs font-bold text-muted-foreground/60">
-            {selectedFolderIds.size > 0
-              ? `${selectedFolderIds.size} folder${selectedFolderIds.size !== 1 ? "s" : ""} selected`
-              : "No folders selected"}
-          </span>
+          <span className="text-xs font-bold text-muted-foreground/60">{selectionLabel}</span>
           <div className="flex items-center gap-3">
             <Button
               variant="outline"
@@ -424,7 +448,7 @@ export function DrivePickerModal({ open, connectionId, onClose, onSuccess }: Dri
             </Button>
             <Button
               onClick={handleSave}
-              disabled={saving || selectedFolderIds.size === 0}
+              disabled={saving || selectedItems.size === 0}
               className="h-10 px-6 rounded-xl bg-primary hover:bg-primary/90 text-white font-black text-sm gap-2 shadow-lg shadow-primary/20"
             >
               {saving && <Loader2 className="w-3 h-3 animate-spin" />}

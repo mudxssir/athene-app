@@ -79,13 +79,15 @@ import { fetchPowerBIContent } from '@/lib/integrations/powerbi/reports-fetcher'
 
 import { getProviderMetadata, getProviderToken } from '@/lib/integrations/base'
 import type { FetchedChunk } from '@/lib/integrations/base'
+import { AbortSyncError } from '@/lib/integrations/google/drive-fetcher'
+import { abortKey } from '@/app/api/connections/[id]/abort/route'
 
 // ---- Provider Fetcher Map ---------------------------------------
 
 type FetcherFn = (
   connectionId: string,
   orgId: string,
-  options?: { since?: string; limit?: number; syncConfig?: SyncConfig }
+  options?: { since?: string; limit?: number; syncConfig?: SyncConfig; shouldAbort?: () => Promise<boolean> }
 ) => Promise<FetchedChunk[]>
 
 /**
@@ -95,7 +97,7 @@ type FetcherFn = (
  */
 const providerFetcherMap: Record<string, FetcherFn[]> = {
   // ── Google Workspace ─────────────────────────────────────────
-  google_drive:     [(cid, oid, opts) => fetchDriveChunks(cid, oid, undefined, opts?.syncConfig)],
+  google_drive:     [(cid, oid, opts) => fetchDriveChunks(cid, oid, undefined, opts?.syncConfig, opts?.shouldAbort)],
   // Use indexEmailChunks (full body, chunked) for background indexing — NOT searchEmailChunks
   gmail:            [(cid, oid, opts) => indexEmailChunks(cid, oid, { limit: opts?.limit ?? 200, syncConfig: opts?.syncConfig })],
   google_calendar:  [(cid, oid, opts) => {
@@ -267,7 +269,7 @@ const providerFetcherMap: Record<string, FetcherFn[]> = {
 
   // ── Legacy umbrella keys (backwards compatibility) ───────────
   google: [
-    (cid, oid, opts) => fetchDriveChunks(cid, oid, undefined, opts?.syncConfig),
+    (cid, oid, opts) => fetchDriveChunks(cid, oid, undefined, opts?.syncConfig, opts?.shouldAbort),
     (cid, oid, opts) => indexEmailChunks(cid, oid, { limit: opts?.limit ?? 200, syncConfig: opts?.syncConfig }),
     (cid, oid, opts) => {
       const now = new Date()
@@ -354,9 +356,36 @@ export async function POST(request: Request): Promise<Response> {
     }
   }
 
+  // Abort checker: polls Redis key set by POST /api/connections/[id]/abort.
+  // Used by drive-fetcher (and optionally others) to stop between files.
+  const shouldAbort = async (): Promise<boolean> => {
+    try {
+      const flag = await redis.get(abortKey(connectionId))
+      return flag !== null
+    } catch {
+      return false
+    }
+  }
+
+  // Clear any stale paused flag from a previous run so the new sync starts fresh
+  try {
+    const { data: connMeta } = await supabaseAdmin
+      .from('connections')
+      .select('metadata')
+      .eq('id', connectionId)
+      .single()
+    if ((connMeta?.metadata as any)?.sync_paused) {
+      await supabaseAdmin
+        .from('connections')
+        .update({ metadata: { ...(connMeta!.metadata as object), sync_paused: false } })
+        .eq('id', connectionId)
+    }
+  } catch { /* best-effort */ }
+
   try {
     for (const fetcher of fetchers) {
-      const chunks = await fetcher(fetcherConnectionId, orgId, { since, syncConfig })
+      if (await shouldAbort()) throw new AbortSyncError()
+      const chunks = await fetcher(fetcherConnectionId, orgId, { since, syncConfig, shouldAbort })
       allChunks.push(...chunks)
     }
 
@@ -380,24 +409,40 @@ export async function POST(request: Request): Promise<Response> {
     }
   } catch (err) {
     workerErr = err
-    logger.error(
-      { provider, orgId, err: err instanceof Error ? err.message : String(err) },
-      '[nango-fetch] Worker error'
-    )
+    if (err instanceof AbortSyncError) {
+      logger.info({ provider, orgId, connectionId }, '[nango-fetch] Sync aborted by user')
+    } else {
+      logger.error(
+        { provider, orgId, err: err instanceof Error ? err.message : String(err) },
+        '[nango-fetch] Worker error'
+      )
+    }
   } finally {
     // Always release the concurrency slot — even on crash, OOM, or early return.
     // Without this, the slot counter increments forever and future jobs queue up
     // in pending_background_jobs but never dispatch.
     try { await releaseSlot(orgId, sourceType || provider) } catch { /* best-effort */ }
 
+    // Clear abort signal so a future sync isn't immediately aborted
+    redis.del(abortKey(connectionId)).catch(() => {})
+
     // Reset connection status so the admin UI reflects final state
     try {
+      const wasAborted = workerErr instanceof AbortSyncError
       const updateFields: Record<string, unknown> = {
-        status: workerErr ? 'error' : 'active',
+        status: wasAborted ? 'active' : workerErr ? 'error' : 'active',
       };
       if (!workerErr) {
-        // Stamp last_synced_at so the UI and usage stats can show when data was last pulled
         updateFields.last_synced_at = new Date().toISOString();
+      }
+      if (wasAborted) {
+        // Load current metadata and merge the paused flag
+        const { data: cur } = await supabaseAdmin
+          .from('connections')
+          .select('metadata')
+          .eq('id', connectionId)
+          .single()
+        updateFields.metadata = { ...(cur?.metadata as object ?? {}), sync_paused: true, paused_at: new Date().toISOString() }
       }
       await supabaseAdmin
         .from('connections')
@@ -412,7 +457,7 @@ export async function POST(request: Request): Promise<Response> {
     ).catch(() => {})
   }
 
-  if (workerErr) {
+  if (workerErr && !(workerErr instanceof AbortSyncError)) {
     return NextResponse.json(
       { error: workerErr instanceof Error ? workerErr.message : 'Internal error' },
       { status: 500 }

@@ -144,9 +144,16 @@ export async function fetchDriveFileContent(
     return '[Google Drive Folder — no content to extract]'
   }
 
+  // Any other Google Workspace type (shortcuts, forms, drawings, etc.) can't be binary-downloaded
+  if (mimeType.startsWith('application/vnd.google-apps.')) {
+    return `[Unsupported binary format: ${mimeType}]`
+  }
+
   const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`
   const res = await googleFetchRaw(connectionId, orgId, url)
-  const buffer = await res.arrayBuffer()
+  // arrayBuffer() reads the full body stream — needs its own timeout since
+  // AbortSignal.timeout on fetch() only covers the initial connection/headers
+  const buffer = await withTimeout(res.arrayBuffer(), 60_000, 'arrayBuffer')
 
   if (mimeType.startsWith('text/')) {
     return new TextDecoder().decode(buffer)
@@ -167,13 +174,29 @@ export async function fetchDriveFileContent(
   return `[Unsupported binary format: ${mimeType}] (${buffer.byteLength} bytes)`
 }
 
+// ─── Timeout helper ──────────────────────────────────────────────────────────
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+  })
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer!))
+}
+
 // ─── Binary Text Extraction ─────────────────────────────────────────────────
 
+const PDF_MAX_BYTES = 50 * 1024 * 1024 // 50 MB
+
 async function extractPdfText(buffer: Buffer): Promise<string> {
+  if (buffer.byteLength > PDF_MAX_BYTES) {
+    logger.warn({ bytes: buffer.byteLength }, '[drive-fetcher] PDF too large to extract, skipping')
+    return `[PDF skipped: file is ${Math.round(buffer.byteLength / 1024 / 1024)}MB, exceeds 50MB limit]`
+  }
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const pdfParse = require('pdf-parse') as (buf: Buffer) => Promise<{ text: string }>
-    const data = await pdfParse(buffer)
+    const data = await withTimeout(pdfParse(buffer), 30_000, 'pdf-parse')
     const text = data.text?.trim()
     if (!text) return '[PDF contains no extractable text (image-only?)]'
     return text
@@ -273,6 +296,13 @@ export function driveFileToChunk(file: DriveFile, content: string, folderPath: s
   }
 }
 
+// ─── Abort signal ────────────────────────────────────────────────────────────
+
+/** Thrown when the caller signals mid-sync abort. Caught by the worker to set status=paused. */
+export class AbortSyncError extends Error {
+  constructor() { super('Sync aborted by user'); this.name = 'AbortSyncError' }
+}
+
 // ─── Full Pipeline ──────────────────────────────────────────────────────────
 
 /**
@@ -285,6 +315,7 @@ export async function fetchDriveChunks(
   orgId: string,
   _folderId?: string,
   syncConfig?: SyncConfig,
+  shouldAbort?: () => Promise<boolean>,
 ): Promise<FetchedChunk[]> {
   // Load connection metadata from Supabase with cross-tenant check
   const { data: conn } = await supabaseAdmin
@@ -313,6 +344,7 @@ export async function fetchDriveChunks(
     }
 
     for (const resourceId of selectedIds) {
+      if (shouldAbort && await shouldAbort()) throw new AbortSyncError()
       if (excludedIds.has(resourceId)) continue
 
       const resourceType = resourceTypeMap.get(resourceId) ?? 'folder'
@@ -324,7 +356,7 @@ export async function fetchDriveChunks(
           const fileMeta = await googleFetch<DriveFile>(connectionId, orgId, metaUrl)
           if (fileMeta.mimeType === GOOGLE_FOLDER_MIME) {
             // Misclassified as file — treat as folder
-            const folderChunks = await fetchDriveFolder(connectionId, orgId, resourceId, excludedIds, excludedMimeTypes, '/', undefined, departmentId, visited)
+            const folderChunks = await fetchDriveFolder(connectionId, orgId, resourceId, excludedIds, excludedMimeTypes, '/', undefined, departmentId, visited, shouldAbort)
             chunks.push(...folderChunks)
           } else {
             const content = await fetchDriveFileContent(connectionId, orgId, fileMeta.id, fileMeta.mimeType)
@@ -333,6 +365,7 @@ export async function fetchDriveChunks(
             }
           }
         } catch (err) {
+          if (err instanceof AbortSyncError) throw err
           logger.warn({ resourceId, err: err instanceof Error ? err.message : String(err) }, '[drive-fetcher] Failed to fetch selected file')
         }
       } else {
@@ -346,7 +379,8 @@ export async function fetchDriveChunks(
           '/',
           undefined,
           departmentId,
-          visited
+          visited,
+          shouldAbort,
         )
         chunks.push(...folderChunks)
       }
@@ -363,7 +397,8 @@ export async function fetchDriveChunks(
     '/',
     undefined,
     departmentId,
-    visited
+    visited,
+    shouldAbort,
   )
 }
 
@@ -380,6 +415,7 @@ async function fetchDriveFolder(
   driveId?: string,
   departmentId?: string,
   visited: Set<string> = new Set<string>(),
+  shouldAbort?: () => Promise<boolean>,
 ): Promise<FetchedChunk[]> {
   const chunks: FetchedChunk[] = []
   let pageToken: string | undefined
@@ -406,6 +442,7 @@ async function fetchDriveFolder(
     const listing = await googleFetch<DriveListResponse>(connectionId, orgId, url)
 
     for (const file of listing.files) {
+      if (shouldAbort && await shouldAbort()) throw new AbortSyncError()
       if (excludedIds.has(file.id)) continue
       if (excludedMimeTypes.includes(file.mimeType)) continue
       if (visited.has(file.id)) continue
@@ -422,7 +459,8 @@ async function fetchDriveFolder(
           nextPath,
           driveId,
           departmentId,
-          visited
+          visited,
+          shouldAbort,
         )
         chunks.push(...sub)
         continue
@@ -434,6 +472,7 @@ async function fetchDriveFolder(
         if (departmentId) chunk.metadata.department_id = departmentId
         chunks.push(chunk)
       } catch (err) {
+        if (err instanceof AbortSyncError) throw err
         logger.warn({ fileId: file.id, fileName: file.name, err: err instanceof Error ? err.message : String(err) }, '[drive-fetcher] Skipping file')
       }
     }

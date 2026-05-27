@@ -4,7 +4,7 @@ import { type SyncConfig, getSelectedResourceIds } from '../sync-config';
 
 const CYCLES_QUERY = `
   query GetCycles($cursor: String) {
-    cycles(first: 50, after: $cursor) {
+    cycles(first: 25, after: $cursor) {
       pageInfo {
         hasNextPage
         endCursor
@@ -15,7 +15,7 @@ const CYCLES_QUERY = `
         description
         startsAt
         endsAt
-        issues(first: 100) {
+        issues(first: 20) {
           nodes {
             title
             state {
@@ -30,7 +30,7 @@ const CYCLES_QUERY = `
 
 const CYCLES_QUERY_FILTERED = `
   query GetCyclesFiltered($cursor: String, $teamIds: [ID!]!) {
-    cycles(first: 50, after: $cursor, filter: { team: { id: { in: $teamIds } } }) {
+    cycles(first: 25, after: $cursor, filter: { team: { id: { in: $teamIds } } }) {
       pageInfo {
         hasNextPage
         endCursor
@@ -41,7 +41,7 @@ const CYCLES_QUERY_FILTERED = `
         description
         startsAt
         endsAt
-        issues(first: 100) {
+        issues(first: 20) {
           nodes {
             title
             state {

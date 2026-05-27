@@ -306,7 +306,7 @@ export const PROVIDER_REGISTRY: Record<ProviderKey, ProviderConfig> = {
     description: 'Sync repos, issues, PRs, wikis, and search code',
     icon: '/integrations/github.svg',
     category: 'devtools',
-    nangoIntegrationId: 'github',
+    nangoIntegrationId: 'github-getting-started',
     resources: ['repos', 'issues', 'pull_requests', 'wiki'],
     capabilities: {
       canFetch: true,

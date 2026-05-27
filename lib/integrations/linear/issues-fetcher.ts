@@ -5,7 +5,7 @@ import { type SyncConfig, getSelectedResourceIds } from '../sync-config'
 // Query without team filter — used when all teams are synced.
 const ISSUES_QUERY = `
   query GetIssues($cursor: String) {
-    issues(first: 50, after: $cursor) {
+    issues(first: 25, after: $cursor) {
       pageInfo {
         hasNextPage
         endCursor
@@ -35,7 +35,7 @@ const ISSUES_QUERY = `
             name
           }
         }
-        comments(first: 20) {
+        comments(first: 5) {
           nodes {
             body
             createdAt
@@ -58,7 +58,7 @@ const PRIORITY_LABELS: Record<number, string> = {
 // Linear GraphQL supports `filter: { team: { id: { in: $teamIds } } }`.
 const ISSUES_QUERY_FILTERED = `
   query GetIssuesFiltered($cursor: String, $teamIds: [ID!]!) {
-    issues(first: 50, after: $cursor, filter: { team: { id: { in: $teamIds } } }) {
+    issues(first: 25, after: $cursor, filter: { team: { id: { in: $teamIds } } }) {
       pageInfo {
         hasNextPage
         endCursor
@@ -88,7 +88,7 @@ const ISSUES_QUERY_FILTERED = `
             name
           }
         }
-        comments(first: 20) {
+        comments(first: 5) {
           nodes {
             body
             createdAt
