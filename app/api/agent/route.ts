@@ -222,6 +222,23 @@ export async function POST(req: NextRequest) {
       },
       task_type: task_type || "general",
       is_cross_dept_query: !!is_cross_dept_query,
+      // Reset per-turn ephemeral state so stale values from the previous turn
+      // don't leak into this turn via the checkpointer. Without these resets:
+      //   - hop_count > 0 + retrieved_chunks.length >= 2 triggers the supervisor
+      //     guard immediately, bypassing retrieval on every turn after the first
+      //   - retrieved_chunks from turn N are passed to synthesis for turn N+1
+      hop_count: 0,
+      retrieved_chunks: [],
+      cited_sources: [],
+      retrievedDocs: [],
+      complexity: null,
+      reasoning: null,
+      final_answer: null,
+      planning_steps: null,
+      action_result: null,
+      action_error: null,
+      awaiting_approval: false,
+      pending_write_action: null,
     };
 
     const encoder = new TextEncoder();

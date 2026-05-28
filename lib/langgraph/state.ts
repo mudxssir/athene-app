@@ -15,7 +15,7 @@ export const AtheneState = Annotation.Root({
   }),
   next_node: Annotation<string>(),
   retrievedDocs: Annotation<any[]>({
-    reducer: (x, y) => x.concat(y),
+    reducer: (_x, y) => y,
     default: () => [],
   }),
   user: Annotation<{
