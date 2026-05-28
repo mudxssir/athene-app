@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Loader2, Paperclip, Mic, SlidersHorizontal } from "lucide-react";
+import { Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -112,10 +112,10 @@ export function Composer({
               type="button"
               onClick={() => setActiveScope(scope)}
               style={{
-                display: "inline-flex", alignItems: "center", height: 22,
-                padding: "0 10px", borderRadius: 999,
+                display: "inline-flex", alignItems: "center", minHeight: 30,
+                padding: "0 12px", borderRadius: 999,
                 fontFamily: "var(--font-sans)", fontWeight: 800,
-                fontSize: 8, letterSpacing: "0.28em", textTransform: "uppercase",
+                fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase",
                 border: active ? "1px solid rgba(160,74,27,0.35)" : "1px solid var(--border)",
                 background: active ? "rgba(160,74,27,0.10)" : "transparent",
                 color: active ? "var(--primary)" : "var(--fg-subtle)",
@@ -126,19 +126,6 @@ export function Composer({
             </button>
           );
         })}
-        <button
-          type="button"
-          style={{
-            display: "inline-flex", alignItems: "center", gap: 4, height: 22,
-            padding: "0 10px", borderRadius: 999,
-            fontFamily: "var(--font-sans)", fontWeight: 800,
-            fontSize: 8, letterSpacing: "0.28em", textTransform: "uppercase",
-            border: "1px solid var(--border)", background: "transparent",
-            color: "var(--fg-subtle)", cursor: "pointer",
-          }}
-        >
-          <SlidersHorizontal size={8} /> Filter
-        </button>
       </div>
 
       {error && (
@@ -147,17 +134,6 @@ export function Composer({
         </div>
       )}
       <div className="flex items-end gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          disabled={isLoading}
-          aria-label="Attach file"
-          title="Attach file"
-          className="h-12 w-12 rounded-full hover:bg-primary/5 text-muted-foreground hover:text-secondary transition-all shrink-0 disabled:opacity-50"
-        >
-          <Paperclip className="w-5.5 h-5.5" />
-        </Button>
-
         <div className="flex-1 flex items-end gap-4">
           <textarea
             ref={textareaRef}
@@ -172,16 +148,6 @@ export function Composer({
           />
 
           <div className="flex items-center gap-3 pr-2 shrink-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              disabled={isLoading}
-              aria-label="Voice input"
-              title="Voice input"
-              className="h-12 w-12 rounded-full hover:bg-primary/5 text-muted-foreground hover:text-secondary transition-all disabled:opacity-50"
-            >
-              <Mic className="w-5.5 h-5.5" />
-            </Button>
             <Button
               onClick={sendMessage}
               disabled={isLoading || !input.trim()}

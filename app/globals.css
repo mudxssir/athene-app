@@ -405,6 +405,11 @@
   animation: livedot 1.8s ease-in-out infinite;
 }
 
+@keyframes briefing-fill {
+  from { width: 0%; }
+  to   { width: 100%; }
+}
+
 /* ============================================================
    SCROLLBARS
    ============================================================ */

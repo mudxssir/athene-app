@@ -71,7 +71,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([{
     id: "init",
     role: "assistant",
-    content: "Hi — I'm Athene. Ask me anything grounded in your connected sources. I'll cite every claim back to its source document.",
+    content: "Hi — I'm Athene. Ask me anything across your connected sources and I'll cite every answer back to its origin.",
     timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
   }]);
   // prefill.seq increments on every sendQuery call so the Composer effect
@@ -99,7 +99,7 @@ export default function ChatPage() {
 
   function newThread() {
     setThreadId(crypto.randomUUID());
-    setMessages([{ id: "init-" + Date.now(), role: "assistant", content: "New session initialized. What would you like to explore?", timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }]);
+    setMessages([{ id: "init-" + Date.now(), role: "assistant", content: "New session started. What would you like to explore?", timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }]);
   }
 
   function sendQuery(q: string) {
@@ -247,6 +247,24 @@ export default function ChatPage() {
           {/* Messages */}
           <div ref={scrollRef} className="custom-scrollbar" style={{ flex: 1, overflowY: "auto", padding: "32px 40px" }}>
             <div style={{ maxWidth: 880, margin: "0 auto", display: "flex", flexDirection: "column", gap: 28 }}>
+              {/* Suggested prompts — only shown when no user message has been sent yet */}
+              {messages.length === 1 && messages[0].role === "assistant" && (
+                <div className="reveal" style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", padding: "8px 0 4px" }}>
+                  {[
+                    "What happened this week across my tools?",
+                    "Summarise open engineering blockers",
+                    "Show recent activity in my pipeline",
+                    "What decisions were made last sprint?",
+                  ].map((q) => (
+                    <button key={q} onClick={() => sendQuery(q)}
+                      style={{ padding: "8px 16px", borderRadius: 999, background: "var(--bg-muted)", border: "1px solid var(--border)", fontSize: 11, fontWeight: 600, color: "var(--fg-muted)", cursor: "pointer", lineHeight: 1.4, transition: "all .15s ease" }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "var(--primary)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(160,74,27,.35)"; (e.currentTarget as HTMLElement).style.background = "rgba(160,74,27,.06)"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "var(--fg-muted)"; (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"; (e.currentTarget as HTMLElement).style.background = "var(--bg-muted)"; }}
+                    >{q}</button>
+                  ))}
+                </div>
+              )}
+
               {messages.map((msg) => {
                 const isA = msg.role === "assistant";
                 return (
@@ -276,13 +294,24 @@ export default function ChatPage() {
                           ) : (
                             <>
                               {isA && msg.steps && msg.steps.length > 0 && (
-                                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
-                                  {msg.steps.map((step, si) => (
-                                    <span key={si} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 6, background: "rgba(160,74,27,0.10)", border: "1px solid rgba(160,74,27,0.2)", fontSize: 9, fontWeight: 800, letterSpacing: "0.18em", textTransform: "uppercase", color: si === msg.steps!.length - 1 && !msg.content ? "var(--primary)" : "rgba(245,237,216,0.45)" }}>
-                                      {si === msg.steps!.length - 1 && !msg.content && <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--primary)", display: "inline-block", animation: "dot-bounce 1.2s infinite" }} />}
-                                      {step}
-                                    </span>
-                                  ))}
+                                <div style={{ marginBottom: 12 }}>
+                                  {/* Active step — large animated pill while no content yet */}
+                                  {!msg.content && (
+                                    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 14px", borderRadius: 999, background: "rgba(160,74,27,0.12)", border: "1px solid rgba(160,74,27,0.30)", marginBottom: 10 }}>
+                                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--primary)", display: "inline-block", animation: "dot-bounce 1.2s infinite", flexShrink: 0 }} />
+                                      <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--primary)" }}>
+                                        {msg.steps[msg.steps.length - 1]}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {/* Past steps — compact muted badges */}
+                                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                                    {(msg.content ? msg.steps : msg.steps.slice(0, -1)).map((step, si) => (
+                                      <span key={si} style={{ display: "inline-flex", alignItems: "center", padding: "2px 8px", borderRadius: 6, background: "rgba(160,74,27,0.06)", border: "1px solid rgba(160,74,27,0.12)", fontSize: 9, fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(245,237,216,0.35)" }}>
+                                        {step}
+                                      </span>
+                                    ))}
+                                  </div>
                                 </div>
                               )}
                               {isA && msg.isAnalytical && (
@@ -300,12 +329,28 @@ export default function ChatPage() {
                           )}
                           {msg.cited_sources && msg.cited_sources.length > 0 && (
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 16, paddingTop: 14, borderTop: "1px dashed var(--border)" }}>
-                              {msg.cited_sources.map((s: any, idx: number) => (
-                                <a key={idx} href={s.external_url || "#"} target="_blank" rel="noopener noreferrer"
-                                  style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 8, background: "var(--bg-muted)", border: "1px solid var(--border)", fontSize: 9, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--fg-muted)", textDecoration: "none" }}>
-                                  <ExternalLink size={9} style={{ color: "var(--primary)" }} />{s.source_type || "Source"}
-                                </a>
-                              ))}
+                              {/* Deduplicate by document_id before rendering */}
+                              {Array.from(new Map(msg.cited_sources.map((s: any) => [s.document_id, s])).values()).map((s: any, idx: number) => {
+                                const label = s.title || s.source_type || "Source";
+                                const displayLabel = label.length > 32 ? label.slice(0, 32) + "…" : label;
+                                return s.external_url ? (
+                                  <a key={idx} href={s.external_url} target="_blank" rel="noopener noreferrer"
+                                    title={label}
+                                    style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 8, background: "var(--bg-muted)", border: "1px solid var(--border)", fontSize: 10, fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--fg-muted)", textDecoration: "none", transition: "all .15s ease" }}
+                                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "var(--primary)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(160,74,27,.3)"; }}
+                                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "var(--fg-muted)"; (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"; }}
+                                  >
+                                    <ExternalLink size={9} style={{ color: "var(--primary)", flexShrink: 0 }} />
+                                    {displayLabel}
+                                  </a>
+                                ) : (
+                                  <span key={idx} title={label}
+                                    style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 8, background: "var(--bg-muted)", border: "1px solid var(--border)", fontSize: 10, fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--fg-muted)" }}>
+                                    <ExternalLink size={9} style={{ color: "var(--primary)", flexShrink: 0 }} />
+                                    {displayLabel}
+                                  </span>
+                                );
+                              })}
                             </div>
                           )}
                         </div>

@@ -28,6 +28,27 @@ interface BriefingContent {
 /* ── Types ──────────────────────────────────────────────── */
 interface Briefing { id: string; org_id: string; user_id: string; content: BriefingContent; summary: string; generated_at: string; calendar_items?: number; email_items?: number; doc_items?: number; }
 
+/* ── Synthesis status cycler ────────────────────────────── */
+const SYNTHESIS_STATUSES = [
+  "Checking emails…",
+  "Reading calendar…",
+  "Analysing documents…",
+  "Synthesising…",
+];
+
+function SynthesisStatusCycler() {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setIdx((i) => (i + 1) % SYNTHESIS_STATUSES.length), 8000);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--fg-muted)" }}>
+      {SYNTHESIS_STATUSES[idx]}
+    </span>
+  );
+}
+
 /* ── Page ───────────────────────────────────────────────── */
 export default function BriefingPage() {
   const [loading, setLoading]                       = useState(true);
@@ -247,7 +268,7 @@ export default function BriefingPage() {
               style={{ height: 58, padding: '0 28px', borderRadius: 18, background: 'var(--primary)', color: '#fff', border: 'none', fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 800, letterSpacing: '0.28em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer', boxShadow: '0 14px 30px -10px rgba(160,74,27,.55)', transition: 'all .15s var(--ease-out)' }}
               onMouseDown={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(1px)'; }}
               onMouseUp={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; }}>
-              {enqueuing ? <><Loader2 size={16} className="animate-spin" />Synthesizing…</> : <><Sparkles size={16} />{briefing ? 'Refresh' : 'Trigger synthesis'}</>}
+              {enqueuing ? <><Loader2 size={16} className="animate-spin" />Synthesizing…</> : <><Sparkles size={16} strokeWidth={1.8} />{briefing ? 'Refresh' : 'Trigger synthesis'}</>}
             </button>
           </div>
         </div>
@@ -300,16 +321,27 @@ export default function BriefingPage() {
           <TCard i={2} style={{ padding: '64px 40px', textAlign: 'center', border: '1px dashed var(--border-strong)', borderRadius: 36, background: 'var(--bg-elevated)' }}>
             <IconTile icon={Sparkles} size={80} tone="primary" />
             <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: 36, fontWeight: 800, letterSpacing: '-0.04em', textTransform: 'uppercase', marginTop: 24, color: 'var(--fg)' }}>Synthesis required</h3>
-            <p style={{ color: 'var(--fg-muted)', fontSize: 15, fontWeight: 600, maxWidth: 440, margin: '14px auto 28px' }}>
-              {enqueuing ? 'Agents are processing your data — this page will update automatically when ready.' : 'No briefing for today yet. Trigger synthesis to process your connected sources.'}
+            <p style={{ color: 'var(--fg-muted)', fontSize: 15, fontWeight: 600, maxWidth: 440, margin: '14px auto 20px' }}>
+              {enqueuing ? 'Agents are synthesising your data — this page will update automatically.' : 'No briefing for today yet. Trigger synthesis to process your connected sources.'}
             </p>
+
+            {/* Progress bar + cycling status during synthesis */}
+            {enqueuing && (
+              <div style={{ maxWidth: 400, margin: '0 auto 28px', textAlign: 'left' }}>
+                <div style={{ height: 4, borderRadius: 999, background: 'var(--bg-muted)', overflow: 'hidden', marginBottom: 10 }}>
+                  <div style={{ height: '100%', borderRadius: 999, background: 'var(--primary)', animation: 'briefing-fill 45s linear forwards' }} />
+                </div>
+                <SynthesisStatusCycler />
+              </div>
+            )}
+
             {pollingTimedOut && !enqueuing && (
               <p style={{ fontSize: 11, color: 'var(--fg-muted)', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 20 }}>
                 Synthesis timed out — try again
               </p>
             )}
             <button onClick={handleGenerate} disabled={enqueuing}
-              style={{ height: 58, padding: '0 30px', borderRadius: 18, background: 'var(--primary)', border: 'none', color: '#fff', fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 800, letterSpacing: '0.28em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer', boxShadow: '0 14px 30px -10px rgba(160,74,27,.55)' }}>
+              style={{ height: 58, padding: '0 30px', borderRadius: 18, background: 'var(--primary)', border: 'none', color: '#fff', fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 800, letterSpacing: '0.28em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer', boxShadow: '0 14px 30px -10px rgba(160,74,27,.55)', opacity: enqueuing ? 0.6 : 1 }}>
               {enqueuing ? <><Loader2 size={16} className="animate-spin" />Synthesizing…</> : <><Sparkles size={16} />Trigger neural synthesis</>}
             </button>
           </TCard>
