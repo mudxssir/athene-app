@@ -55,6 +55,9 @@ export async function DELETE(request: Request) {
     // Invalidate KG extraction prompt cache so removed module no longer contributes
     void invalidatePromptCache(orgData.id);
 
+    // Invalidate KG extraction prompt cache so removed module no longer contributes
+    if (orgData?.id) void invalidatePromptCache(orgData.id);
+
     return NextResponse.json({
       success: true,
       message: "Connection deleted successfully",

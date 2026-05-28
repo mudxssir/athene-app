@@ -610,6 +610,68 @@ export default function IntegrationsPage() {
           })}
         </div>
       </div>
+
+      {/* Knowledge Modules — active based on connected integrations */}
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <h2 className="text-[11px] uppercase tracking-[0.3em] font-black text-muted-foreground">
+            Knowledge Modules
+          </h2>
+          <Badge className="bg-primary/10 text-primary border-none text-[9px] font-bold uppercase tracking-widest">
+            Auto-activated
+          </Badge>
+        </div>
+        <p className="text-[13px] text-muted-foreground font-medium max-w-2xl leading-relaxed">
+          Domain-specific entity types and extraction rules that activate automatically when the
+          matching connector is enabled. No configuration required.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {VERTICAL_MODULES.map((mod) => {
+            const active = mod.activating_sources.some((s) => connectedKeys.has(s));
+            return (
+              <Card
+                key={mod.id}
+                className={cn(
+                  "bg-muted/10 border rounded-[2rem] p-8 space-y-4 transition-all",
+                  active ? "border-primary/30 shadow-lg shadow-primary/5" : "border-border opacity-60"
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  <h3 className="text-[13px] font-black text-foreground uppercase tracking-tight">
+                    {mod.name}
+                  </h3>
+                  <Badge
+                    className={cn(
+                      "text-[9px] font-bold uppercase tracking-widest border-none",
+                      active ? "bg-accent/10 text-accent" : "bg-muted/30 text-muted-foreground"
+                    )}
+                  >
+                    {active ? "Active" : "Inactive"}
+                  </Badge>
+                </div>
+                <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-widest">
+                  Activates via: {mod.activating_sources.join(", ")}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {mod.entity_types.slice(0, 6).map((et) => (
+                    <Badge
+                      key={et}
+                      className="bg-white/5 text-muted-foreground/60 border-none text-[9px] font-bold"
+                    >
+                      {et}
+                    </Badge>
+                  ))}
+                  {mod.entity_types.length > 6 && (
+                    <Badge className="bg-white/5 text-muted-foreground/40 border-none text-[9px] font-bold">
+                      +{mod.entity_types.length - 6} more
+                    </Badge>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

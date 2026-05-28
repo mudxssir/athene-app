@@ -178,12 +178,13 @@ export const resolveUserAccess = cache(async (
           logger.warn({ userId, orgId, err: memErr.message }, "[rbac] Member insert failed, re-fetching");
           const { data: existing } = await supabaseAdmin
             .from("org_members")
-            .select("id, role")
+            .select("id, role, active")
             .eq("clerk_user_id", userId)
             .eq("org_id", orgData.id)
             .limit(1)
             .maybeSingle();
-          memberData = existing;
+          // If the member exists but is deactivated, deny access
+          memberData = existing && existing.active !== false ? existing : null;
         } else {
           memberData = newMember;
         }
