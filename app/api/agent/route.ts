@@ -291,6 +291,7 @@ export async function POST(req: NextRequest) {
             const frame: Record<string, unknown> = {
               cited_sources: chunk.cited_sources ?? [],
               awaiting_approval: chunk.awaiting_approval ?? false,
+              pending_write_action: chunk.pending_write_action ?? null,
               active_agent: chunk.next ?? null,
             };
 

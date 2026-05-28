@@ -1,5 +1,8 @@
 {
   "framework": "nextjs",
   "buildCommand": "next build --webpack",
-  "regions": ["iad1"]
+  "regions": ["iad1"],
+  "github": {
+    "enabled": false
+  }
 }

@@ -7,6 +7,7 @@ import { microsoftSearch } from './searcher'
 import { graphFetch } from './graph-client'
 import { logger } from '@/lib/logger'
 import { type SyncConfig, getSelectedResourceIds } from '../sync-config'
+import { tabularChunksFromParsed } from '@/lib/integrations/tabular-analysis'
 
 // ─── Email chunking constants ────────────────────────────────────────────────
 const EMAIL_CHUNK_SIZE = 2000
@@ -187,22 +188,34 @@ export async function microsoftFetcher(
   // 3. OneDrive Documents — scoped to selected folders when syncConfig provides them
   try {
     const driveDocs = await listOneDriveDocs(connectionId, orgId, options?.syncConfig)
-    // Fetch all document contents in parallel — independent per-doc calls
-    const driveChunks = await Promise.all(driveDocs.map(async (doc) => {
-      const content = await fetchOneDriveDocContent(connectionId, orgId, doc.id)
-      return {
-        chunk_id: `ms_drive_${doc.id}`,
-        title: `OneDrive: ${doc.name}`,
-        content,
-        source_url: doc.webLink,
-        metadata: {
-          provider: 'microsoft',
-          resource_type: 'onedrive_doc',
-          id: doc.id
-        }
-      } satisfies FetchedChunk
+    const driveChunkArrays = await Promise.all(driveDocs.map(async (doc) => {
+      const { text, tables } = await fetchOneDriveDocContent(connectionId, orgId, doc.id)
+      const sourceUrl = doc.webLink
+      const docChunks: FetchedChunk[] = []
+      // Table chunks (Hebbia-style structured extraction)
+      if (tables.length > 0) {
+        const tableChunks = await tabularChunksFromParsed(
+          tables,
+          `ms_drive_${doc.id}`,
+          `OneDrive: ${doc.name}`,
+          sourceUrl,
+          { withLlmAnalysis: false, provider: 'onedrive_tabular' },
+        )
+        docChunks.push(...tableChunks)
+      }
+      // Narrative text chunk
+      if (text.trim().length > 0) {
+        docChunks.push({
+          chunk_id: `ms_drive_${doc.id}`,
+          title: `OneDrive: ${doc.name}`,
+          content: text,
+          source_url: sourceUrl,
+          metadata: { provider: 'microsoft', resource_type: 'onedrive_doc', id: doc.id },
+        } satisfies FetchedChunk)
+      }
+      return docChunks
     }))
-    chunks.push(...driveChunks)
+    for (const docChunks of driveChunkArrays) chunks.push(...docChunks)
   } catch (error) {
     logger.error({ err: error instanceof Error ? error.message : String(error) }, '[microsoft] Error fetching OneDrive docs');
   }
@@ -251,14 +264,29 @@ export async function microsoftFetcher(
                 })
                 .map(async (doc: any) => {
                   const driveId = doc.parentReference.driveId
-                  const content = await fetchSharePointDocContent(connectionId, orgId, driveId, doc.id)
-                  return {
-                    chunk_id: `ms_sharepoint_${doc.id}`,
-                    title: `SharePoint: ${doc.name}`,
-                    content,
-                    source_url: doc.webLink,
-                    metadata: { provider: 'microsoft', resource_type: 'sharepoint_doc', id: doc.id },
-                  } satisfies FetchedChunk
+                  const { text, tables } = await fetchSharePointDocContent(connectionId, orgId, driveId, doc.id)
+                  const sourceUrl = doc.webLink
+                  const docChunks: FetchedChunk[] = []
+                  if (tables.length > 0) {
+                    const tableChunks = await tabularChunksFromParsed(
+                      tables,
+                      `ms_sharepoint_${doc.id}`,
+                      `SharePoint: ${doc.name}`,
+                      sourceUrl,
+                      { withLlmAnalysis: false, provider: 'sharepoint_tabular' },
+                    )
+                    docChunks.push(...tableChunks)
+                  }
+                  if (text.trim().length > 0) {
+                    docChunks.push({
+                      chunk_id: `ms_sharepoint_${doc.id}`,
+                      title: `SharePoint: ${doc.name}`,
+                      content: text,
+                      source_url: sourceUrl,
+                      metadata: { provider: 'microsoft', resource_type: 'sharepoint_doc', id: doc.id },
+                    } satisfies FetchedChunk)
+                  }
+                  return docChunks
                 })
             )
           })
@@ -271,7 +299,7 @@ export async function microsoftFetcher(
         }
         for (const docResult of siteResult.value) {
           if (docResult.status === 'fulfilled') {
-            chunks.push(docResult.value)
+            chunks.push(...docResult.value)
           } else {
             logger.warn({ err: docResult.reason instanceof Error ? docResult.reason.message : String(docResult.reason) }, '[microsoft] Error fetching SharePoint doc — skipping')
           }

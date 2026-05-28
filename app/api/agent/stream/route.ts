@@ -4,6 +4,7 @@ import { z } from "zod";
 import { HumanMessage } from "@langchain/core/messages";
 import { getAgentGraph } from "@/lib/langgraph/graph";
 import { mapRole } from "@/lib/auth/clerk";
+import { rateLimit } from "@/lib/redis/client";
 import { logger } from "@/lib/logger";
 import { parseBody } from "@/lib/validation";
 
@@ -32,6 +33,11 @@ export async function POST(req: NextRequest) {
     const parsed = parseBody(AgentStreamSchema, raw);
     if (!parsed.success) return parsed.response;
     const { query, threadId } = parsed.data;
+
+    const { allowed } = await rateLimit(`agent:${userId}`, 10, 60);
+    if (!allowed) {
+      return NextResponse.json({ error: "Rate limit reached. Try again in 60s." }, { status: 429, headers: { "Retry-After": "60" } });
+    }
 
     const role = mapRole(orgRole ?? undefined) ?? "member";
     const graph = await getAgentGraph();
@@ -68,19 +74,27 @@ export async function POST(req: NextRequest) {
               }
               break;
 
-            case "on_chat_model_stream":
-              if (event.data?.chunk?.content) {
-                const content = event.data.chunk.content;
-                const token = typeof content === "string" ? content : "";
-                if (token) {
-                  await writer.write(
-                    encoder.encode(
-                      `event: token\ndata: ${JSON.stringify({ token })}\n\n`
-                    )
-                  );
+            case "on_chat_model_stream": {
+              // Suppress tokens from internal agent nodes that produce structured
+              // JSON (email drafts, action payloads) — those are surfaced via the
+              // interrupt event, not the chat stream.
+              const node = event.metadata?.langgraph_node as string | undefined;
+              const internalNodes = new Set(["email_agent", "calendar_agent", "action_executor"]);
+              if (!node || !internalNodes.has(node)) {
+                if (event.data?.chunk?.content) {
+                  const content = event.data.chunk.content;
+                  const token = typeof content === "string" ? content : "";
+                  if (token) {
+                    await writer.write(
+                      encoder.encode(
+                        `event: token\ndata: ${JSON.stringify({ token })}\n\n`
+                      )
+                    );
+                  }
                 }
               }
               break;
+            }
 
             case "on_tool_start":
               await writer.write(

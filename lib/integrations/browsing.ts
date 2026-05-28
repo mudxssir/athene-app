@@ -401,6 +401,11 @@ async function browseRedshift(
 
 // ---- Group A: Google flat-list providers ---------------------
 
+// Gmail system labels worth showing in the picker — useful for indexing
+const GMAIL_USEFUL_SYSTEM_LABELS = new Set([
+  'INBOX', 'SENT', 'STARRED', 'IMPORTANT', 'UNREAD',
+])
+
 async function browseGmail(
   connectionId: string,
   orgId: string
@@ -411,7 +416,11 @@ async function browseGmail(
     'https://www.googleapis.com/gmail/v1/users/me/labels'
   )
   const resources: BrowsableResource[] = (res.labels ?? [])
-    .filter((l) => !l.name.startsWith('CATEGORY_') && l.type !== 'system')
+    .filter((l) => {
+      if (l.name.startsWith('CATEGORY_')) return false
+      if (l.type === 'system') return GMAIL_USEFUL_SYSTEM_LABELS.has(l.id)
+      return true // all user labels
+    })
     .map((l) => ({
       id: l.id,
       name: l.name,

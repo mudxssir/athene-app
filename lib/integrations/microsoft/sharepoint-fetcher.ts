@@ -1,5 +1,6 @@
 import { paginate, graphDownload, graphFetch } from './graph-client'
-import { parseDocument } from './document-parser'
+import { parseDocumentEnhanced } from './document-parser'
+import type { ParsedTable } from '@/lib/integrations/tabular-analysis'
 export async function listSharePointDocs(connectionId: string, orgId: string, siteId: string, itemId: string = 'root') {
   const items: any[] = []
   const endpoint = itemId === 'root' 
@@ -18,16 +19,18 @@ export async function listSharePointDocs(connectionId: string, orgId: string, si
   return items
 }
 
-export async function fetchDocContent(connectionId: string, orgId: string, driveId: string, itemId: string): Promise<string> {
-  // 1. Get item metadata to determine file type
+export async function fetchDocContent(
+  connectionId: string,
+  orgId: string,
+  driveId: string,
+  itemId: string,
+): Promise<{ text: string; tables: ParsedTable[] }> {
   const item = await graphFetch(connectionId, orgId, `/drives/${driveId}/items/${itemId}`)
   const fileName = item.name.toLowerCase()
-  
-  // 2. Download content
   const arrayBuffer = await graphDownload(connectionId, orgId, `/drives/${driveId}/items/${itemId}/content`)
   const buffer = Buffer.from(arrayBuffer)
-  
-  return parseDocument(fileName, buffer)}
+  return parseDocumentEnhanced(fileName, buffer)
+}
 
 /**
  * Fetches the assigned permissions for a specific SharePoint document.

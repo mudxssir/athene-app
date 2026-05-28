@@ -286,7 +286,18 @@ export async function indexEmailChunks(
       }
     }
   } else {
-    const listUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=newer_than:6m&maxResults=${limit}`
+    // Build time-scoped query: use afterDate if set, otherwise cap to 1 month back
+    let timeQuery = 'newer_than:1m'
+    if (options?.syncConfig?.afterDate) {
+      const d = new Date(options.syncConfig.afterDate)
+      if (!isNaN(d.getTime())) {
+        const yyyy = d.getUTCFullYear()
+        const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
+        const dd = String(d.getUTCDate()).padStart(2, '0')
+        timeQuery = `after:${yyyy}/${mm}/${dd}`
+      }
+    }
+    const listUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(timeQuery)}&maxResults=${limit}`
     const list = await googleFetch<{ messages?: GmailMessageRef[] }>(connectionId, orgId, listUrl)
     messageRefs = list.messages ?? []
   }

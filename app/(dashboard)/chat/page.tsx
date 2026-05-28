@@ -10,20 +10,24 @@ import { MarkdownMessage } from "@/components/chat/markdown-message";
 import { toast } from "sonner";
 
 /* ── Reference cards (right sidebar) ───────────────────── */
-const REF_CARDS = [
-  { tone: "warn" as const,    icon: AlertTriangle,  title: "Renewal Risk",      body: "3 enterprise accounts have renewals in <30 days with no engagement in the last 14 days.", query: "Which enterprise accounts are at renewal risk this quarter?" },
-  { tone: "amber" as const,   icon: Zap,            title: "Pipeline Gap",      body: "Q3 pipeline is 18% below target. Top 2 open deals have had no activity for 9+ days.", query: "Show me stalled deals in the Q3 pipeline." },
-  { tone: "success" as const, icon: CheckCircle2,   title: "Connector Health",  body: "All 4 connectors syncing normally. Last full sync completed 47 minutes ago.", query: "What is the current status of all active connectors?" },
-  { tone: "primary" as const, icon: Sparkles,       title: "Knowledge Update",  body: "12 new documents indexed since your last session. 3 mention competitor activity.", query: "Summarise competitor mentions from the last 24 hours." },
-];
+const CARD_ICONS: Record<string, React.ElementType> = {
+  connector_health: CheckCircle2,
+  knowledge_update: Sparkles,
+  renewal_risk:     AlertTriangle,
+  pipeline_gap:     Zap,
+};
 
-function RefCard({ card, onQuery }: { card: typeof REF_CARDS[0]; onQuery: (q: string) => void }) {
+interface IntelCard { id: string; tone: string; title: string; body: string; query: string; }
+
+function RefCard({ card, onQuery }: { card: IntelCard; onQuery: (q: string) => void }) {
+  const IconComponent = CARD_ICONS[card.id] ?? Sparkles;
+  const cardWithIcon = { ...card, icon: IconComponent, tone: card.tone as any };
   const [hov, setHov] = useState(false);
   return (
     <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{ borderRadius: 20, padding: "16px 18px", background: "var(--bg-elevated)", border: `1px solid ${hov ? "var(--border-strong)" : "var(--border)"}`, display: "flex", flexDirection: "column", gap: 10, transition: "all .2s var(--ease-out)", boxShadow: hov ? "var(--shadow-2)" : "none" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <IconTile icon={card.icon} size={32} tone={card.tone} />
+        <IconTile icon={cardWithIcon.icon} size={32} tone={cardWithIcon.tone} />
         <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--fg)" }}>{card.title}</span>
       </div>
       <p style={{ margin: 0, fontSize: 12, lineHeight: 1.55, fontWeight: 500, color: "var(--fg-muted)" }}>{card.body}</p>
@@ -37,6 +41,18 @@ function RefCard({ card, onQuery }: { card: typeof REF_CARDS[0]; onQuery: (q: st
 }
 
 /* ── Types ──────────────────────────────────────────────── */
+const AGENT_LABELS: Record<string, string> = {
+  planner: "Planning",
+  retrieval: "Searching sources",
+  cross_dept_retrieval: "Cross-dept search",
+  email_agent: "Drafting email",
+  calendar_agent: "Checking calendar",
+  integration_agent: "Checking integrations",
+  action_executor: "Executing action",
+  report_agent: "Writing report",
+  synthesis: "Synthesizing answer",
+};
+
 interface Message {
   id: string;
   role: "user" | "assistant";
@@ -46,6 +62,7 @@ interface Message {
   isAnalytical?: boolean;
   awaiting_approval?: boolean;
   isQuotaError?: boolean;
+  steps?: string[];
 }
 
 /* ── Page ───────────────────────────────────────────────── */
@@ -66,9 +83,16 @@ export default function ChatPage() {
   const [isHitlOpen, setIsHitlOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<{ tool: string; payload: any } | null>(null);
   const [reconnecting, setReconnecting] = useState(false);
+  const [intelCards, setIntelCards] = useState<IntelCard[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setThreadId(crypto.randomUUID()); }, []);
+  useEffect(() => {
+    fetch("/api/intelligence")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.cards) setIntelCards(d.cards); })
+      .catch(() => {});
+  }, []);
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
@@ -137,6 +161,14 @@ export default function ChatPage() {
                 setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: errMsg, isQuotaError: isQuota } : m));
               } else if (p.token) {
                 setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: m.content + p.token } : m));
+              } else if (p.active_agent) {
+                const label = AGENT_LABELS[p.active_agent] ?? p.active_agent;
+                setMessages(prev => prev.map(m => {
+                  if (m.id !== assistantId) return m;
+                  const steps = m.steps ?? [];
+                  if (steps[steps.length - 1] === label) return m;
+                  return { ...m, steps: [...steps, label] };
+                }));
               } else if (p.content || p.cited_sources !== undefined || p.awaiting_approval !== undefined) {
                 setMessages(prev => prev.map(m => {
                   if (m.id !== assistantId) return m;
@@ -243,6 +275,16 @@ export default function ChatPage() {
                             </div>
                           ) : (
                             <>
+                              {isA && msg.steps && msg.steps.length > 0 && (
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                                  {msg.steps.map((step, si) => (
+                                    <span key={si} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 6, background: "rgba(160,74,27,0.10)", border: "1px solid rgba(160,74,27,0.2)", fontSize: 9, fontWeight: 800, letterSpacing: "0.18em", textTransform: "uppercase", color: si === msg.steps!.length - 1 && !msg.content ? "var(--primary)" : "rgba(245,237,216,0.45)" }}>
+                                      {si === msg.steps!.length - 1 && !msg.content && <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--primary)", display: "inline-block", animation: "dot-bounce 1.2s infinite" }} />}
+                                      {step}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                               {isA && msg.isAnalytical && (
                                 <div className="eyebrow" style={{ color: "var(--primary)", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}><Database size={9} />BI Synthesis</div>
                               )}
@@ -286,11 +328,11 @@ export default function ChatPage() {
           />
         </div>
 
-        {/* Reference sidebar */}
-        <aside className="custom-scrollbar" style={{ width: 288, flexShrink: 0, borderLeft: "1px solid var(--border)", overflowY: "auto", padding: "20px 16px 32px", display: "flex", flexDirection: "column", gap: 12 }}>
+        {/* Reference sidebar — hidden below lg breakpoint to avoid overflow on small screens */}
+        <aside className="custom-scrollbar hidden lg:flex" style={{ width: 288, flexShrink: 0, borderLeft: "1px solid var(--border)", overflowY: "auto", padding: "20px 16px 32px", flexDirection: "column", gap: 12 }}>
           <div className="eyebrow" style={{ marginBottom: 4 }}>Intelligence · live</div>
-          {REF_CARDS.map((card, i) => (
-            <TCard key={i} i={i + 1}>
+          {intelCards.map((card, i) => (
+            <TCard key={card.id} i={i + 1}>
               <RefCard card={card} onQuery={sendQuery} />
             </TCard>
           ))}

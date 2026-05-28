@@ -4,6 +4,8 @@ import type { FetchedChunk } from '@/lib/integrations/base'
 import { assertSafeMetadata } from '@/lib/integrations/base'
 import { logger } from '@/lib/logger'
 import { type SyncConfig, getSelectedResourceIds, getExcludedResourceIds } from '@/lib/integrations/sync-config'
+import { tabularChunksFromParsed, type ParsedTable } from '@/lib/integrations/tabular-analysis'
+import { parseWithLlamaParse } from '@/lib/integrations/llamaparse-client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -296,6 +298,137 @@ export function driveFileToChunk(file: DriveFile, content: string, folderPath: s
   }
 }
 
+// ─── Document table extraction (LlamaParse) ──────────────────────────────────
+
+const LLAMAPARSE_BINARY_TYPES = new Set(['pdf', 'docx', 'pptx', 'ppt'])
+
+/**
+ * Fetches a binary Drive file (PDF/DOCX/PPTX) and returns FetchedChunk[].
+ * When LlamaParse is configured, embedded tables are extracted and returned as
+ * separate stats/sample/agg chunks alongside the narrative text chunk.
+ * Falls back to a single flat-text chunk if LlamaParse is not available.
+ */
+async function fetchDocumentChunks(
+  connectionId: string,
+  orgId: string,
+  file: DriveFile,
+  buffer: Buffer,
+  folderPath: string,
+  departmentId?: string,
+): Promise<FetchedChunk[]> {
+  const ext = (file.name.split('.').pop() ?? '').toLowerCase()
+  const sourceUrl = file.webViewLink || `https://drive.google.com/file/d/${file.id}`
+  const chunkId = `drive:${file.id}`
+
+  const chunks: FetchedChunk[] = []
+
+  if (LLAMAPARSE_BINARY_TYPES.has(ext)) {
+    const parsed = await parseWithLlamaParse(file.name, buffer)
+    if (parsed) {
+      // Table chunks
+      if (parsed.tables.length > 0) {
+        const tableChunks = await tabularChunksFromParsed(
+          parsed.tables,
+          chunkId,
+          file.name,
+          sourceUrl,
+          { withLlmAnalysis: false, provider: 'google_drive_tabular' },
+        )
+        for (const chunk of tableChunks) {
+          chunk.metadata.last_modified = file.modifiedTime
+          chunk.metadata.author = file.owners?.[0]?.displayName
+          chunk.metadata.folder_path = folderPath
+          chunk.metadata.mime_type = file.mimeType
+          if (departmentId) chunk.metadata.department_id = departmentId
+        }
+        chunks.push(...tableChunks)
+      }
+      // Narrative text chunk
+      if (parsed.text.trim().length > 0) {
+        const textChunk = driveFileToChunk(file, parsed.text, folderPath)
+        if (departmentId) textChunk.metadata.department_id = departmentId
+        chunks.push(textChunk)
+      }
+      if (chunks.length > 0) return chunks
+    }
+  }
+
+  // Fallback: single flat-text chunk (LlamaParse not configured or non-LlamaParse type)
+  const content = await fetchDriveFileContent(connectionId, orgId, file.id, file.mimeType)
+  if (content.startsWith('[Unsupported binary format:')) return []
+  const fallbackChunk = driveFileToChunk(file, content, folderPath)
+  if (departmentId) fallbackChunk.metadata.department_id = departmentId
+  return [fallbackChunk]
+}
+
+// ─── Google Sheets tabular extraction ────────────────────────────────────────
+
+/**
+ * Exports a Google Sheet as CSV and converts it to stats/sample/agg FetchedChunk.
+ * Replaces the flat-text path for GOOGLE_SHEET_MIME files.
+ */
+async function fetchSheetChunks(
+  connectionId: string,
+  orgId: string,
+  file: DriveFile,
+  folderPath: string,
+  departmentId?: string,
+): Promise<FetchedChunk[]> {
+  const exportUrl = `https://www.googleapis.com/drive/v3/files/${file.id}/export?mimeType=text/csv`
+  const res = await googleFetchRaw(connectionId, orgId, exportUrl)
+  const csvText = await res.text()
+
+  // Parse CSV into rows using the same xlsx-backed parser used in uploads
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const XLSX = require('xlsx') as typeof import('xlsx')
+  const wb = XLSX.read(csvText, { type: 'string', raw: false })
+  const sheetName = wb.SheetNames[0]
+  let table: ParsedTable = { tableName: file.name, headers: [], rows: [] }
+
+  if (sheetName) {
+    const rawRows = XLSX.utils.sheet_to_json<string[]>(wb.Sheets[sheetName], {
+      header: 1,
+      defval: '',
+      raw: false,
+    }) as string[][]
+    if (rawRows.length >= 2) {
+      const headers = rawRows[0].map((h, i) => (String(h).trim() || `col_${i + 1}`))
+      const dataRows = rawRows.slice(1)
+        .filter(r => r.some(v => String(v).trim() !== ''))
+        .map(r => r.map(String))
+      table = { tableName: file.name, headers, rows: dataRows }
+    }
+  }
+
+  const sourceUrl = file.webViewLink || `https://docs.google.com/spreadsheets/d/${file.id}`
+
+  // Fall back to flat CSV text if the sheet has no parseable data rows
+  if (table.headers.length === 0 || table.rows.length === 0) {
+    const content = csvText.trim() || '[Google Sheet — no content]'
+    const chunk = driveFileToChunk(file, content, folderPath)
+    if (departmentId) chunk.metadata.department_id = departmentId
+    return [chunk]
+  }
+
+  const tabularChunks = await tabularChunksFromParsed(
+    [table],
+    `drive:${file.id}`,
+    file.name,
+    sourceUrl,
+    { withLlmAnalysis: false, provider: 'google_sheets' },
+  )
+
+  for (const chunk of tabularChunks) {
+    chunk.metadata.last_modified = file.modifiedTime
+    chunk.metadata.author = file.owners?.[0]?.displayName
+    chunk.metadata.folder_path = folderPath
+    chunk.metadata.mime_type = file.mimeType
+    if (departmentId) chunk.metadata.department_id = departmentId
+  }
+
+  return tabularChunks
+}
+
 // ─── Abort signal ────────────────────────────────────────────────────────────
 
 /** Thrown when the caller signals mid-sync abort. Caught by the worker to set status=paused. */
@@ -358,11 +491,16 @@ export async function fetchDriveChunks(
             // Misclassified as file — treat as folder
             const folderChunks = await fetchDriveFolder(connectionId, orgId, resourceId, excludedIds, excludedMimeTypes, '/', undefined, departmentId, visited, shouldAbort)
             chunks.push(...folderChunks)
+          } else if (fileMeta.mimeType === GOOGLE_SHEET_MIME) {
+            const sheetChunks = await fetchSheetChunks(connectionId, orgId, fileMeta, '/', departmentId ?? undefined)
+            chunks.push(...sheetChunks)
           } else {
-            const content = await fetchDriveFileContent(connectionId, orgId, fileMeta.id, fileMeta.mimeType)
-            if (!content.startsWith('[Unsupported binary format:')) {
-              chunks.push(driveFileToChunk(fileMeta, content, '/'))
-            }
+            // Download buffer once so fetchDocumentChunks can pass it to LlamaParse
+            const url = `https://www.googleapis.com/drive/v3/files/${fileMeta.id}?alt=media&supportsAllDrives=true`
+            const res = await googleFetchRaw(connectionId, orgId, url)
+            const buffer = Buffer.from(await withTimeout(res.arrayBuffer(), 60_000, 'arrayBuffer'))
+            const docChunks = await fetchDocumentChunks(connectionId, orgId, fileMeta, buffer, '/', departmentId ?? undefined)
+            chunks.push(...docChunks)
           }
         } catch (err) {
           if (err instanceof AbortSyncError) throw err
@@ -466,11 +604,16 @@ async function fetchDriveFolder(
         continue
       }
       try {
-        const content = await fetchDriveFileContent(connectionId, orgId, file.id, file.mimeType)
-        if (content.startsWith('[Unsupported binary format:')) continue
-        const chunk = driveFileToChunk(file, content, folderPath)
-        if (departmentId) chunk.metadata.department_id = departmentId
-        chunks.push(chunk)
+        if (file.mimeType === GOOGLE_SHEET_MIME) {
+          const sheetChunks = await fetchSheetChunks(connectionId, orgId, file, folderPath, departmentId)
+          chunks.push(...sheetChunks)
+        } else {
+          const url = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media&supportsAllDrives=true`
+          const res = await googleFetchRaw(connectionId, orgId, url)
+          const buffer = Buffer.from(await withTimeout(res.arrayBuffer(), 60_000, 'arrayBuffer'))
+          const docChunks = await fetchDocumentChunks(connectionId, orgId, file, buffer, folderPath, departmentId)
+          chunks.push(...docChunks)
+        }
       } catch (err) {
         if (err instanceof AbortSyncError) throw err
         logger.warn({ fileId: file.id, fileName: file.name, err: err instanceof Error ? err.message : String(err) }, '[drive-fetcher] Skipping file')

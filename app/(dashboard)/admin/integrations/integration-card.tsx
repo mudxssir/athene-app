@@ -19,6 +19,18 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { isBrowsable, type ProviderKey } from "@/lib/integrations/providers";
 
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
 export interface Integration {
   connectionId: string;
   internalConnectionId: string;
@@ -191,8 +203,8 @@ export function IntegrationCard({
                <Calendar className="w-3 h-3 text-primary" />
                <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Last Sync</span>
             </div>
-            <span className="text-sm font-black text-foreground">
-              {integration.lastSyncedAt && mounted ? new Date(integration.lastSyncedAt).toLocaleDateString() : 'Pending'}
+            <span className="text-sm font-black text-foreground" title={integration.lastSyncedAt && mounted ? new Date(integration.lastSyncedAt).toLocaleString() : undefined}>
+              {integration.lastSyncedAt && mounted ? relativeTime(integration.lastSyncedAt) : 'Pending'}
             </span>
          </div>
       </div>

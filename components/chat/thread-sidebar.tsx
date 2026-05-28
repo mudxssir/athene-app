@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Plus, MessageSquare, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Plus, MessageSquare, Trash2, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -27,6 +28,7 @@ export function ThreadSidebar() {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
   const [operationError, setOperationError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   const router = useRouter();
   const pathname = usePathname();
   const activeThreadId = pathname?.split("/chat/")[1]?.split("/")[0];
@@ -88,9 +90,18 @@ export function ThreadSidebar() {
     });
   }
 
+  const filtered = useMemo(() => {
+    if (!search.trim()) return threads;
+    const q = search.toLowerCase();
+    return threads.filter(t =>
+      formatDate(t.updated_at).toLowerCase().includes(q) ||
+      t.id.toLowerCase().includes(q)
+    );
+  }, [threads, search]);
+
   return (
     <aside className="w-64 border-r border-white/5 flex flex-col h-full bg-card/50">
-      <div className="p-4 border-b border-white/5">
+      <div className="p-4 border-b border-white/5 space-y-2">
         <Button
           onClick={createThread}
           className="w-full bg-primary hover:bg-[var(--primary-hover)] text-white"
@@ -98,6 +109,15 @@ export function ThreadSidebar() {
           <Plus className="w-4 h-4 mr-2" />
           New chat
         </Button>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search chats…"
+            className="pl-8 h-8 text-xs bg-muted/40 border-white/5 rounded-lg"
+          />
+        </div>
         {operationError && (
           <div className="mx-4 mt-2 p-2 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs font-medium flex justify-between items-center">
             <span>{operationError}</span>
@@ -113,12 +133,12 @@ export function ThreadSidebar() {
           <div className="p-4 text-center text-muted-foreground text-sm">
             Loading...
           </div>
-        ) : threads.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="p-4 text-center text-muted-foreground text-sm">
-            No chats yet
+            {search ? "No matching chats" : "No chats yet"}
           </div>
         ) : (
-          threads.map((thread) => (
+          filtered.map((thread) => (
             <div
               key={thread.id}
               onClick={() => router.push(`/chat/${thread.id}`)}

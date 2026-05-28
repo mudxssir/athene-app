@@ -14,13 +14,13 @@ import {
   ChevronRight,
   ChevronDown,
   Check,
-  Minus,
   Loader2,
   Settings2,
   X,
   Search,
   Save,
   RotateCcw,
+  Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -96,6 +96,8 @@ export function ResourceBrowser({
   const [saving, setSaving] = useState(false);
   const [mode, setMode] = useState<"all" | "selected">("all");
   const [browsable, setBrowsable] = useState(true);
+  // afterDate: ISO date string (YYYY-MM-DD) for time-scoped sync. Gmail only.
+  const [afterDate, setAfterDate] = useState<string>("");
 
   // Load root resources and existing config
   const loadResources = useCallback(async () => {
@@ -108,6 +110,10 @@ export function ResourceBrowser({
       if (configRes.ok) {
         const { syncConfig } = await configRes.json();
         setMode(syncConfig?.mode ?? "all");
+        if (syncConfig?.afterDate) {
+          // Store as YYYY-MM-DD for the date input
+          setAfterDate(syncConfig.afterDate.slice(0, 10));
+        }
         if (syncConfig?.selectedResources) {
           const map = new Map<string, BrowsableResource>();
           for (const r of syncConfig.selectedResources) {
@@ -242,10 +248,12 @@ export function ResourceBrowser({
         includeChildren: r.hasChildren,
       }));
 
+      const afterDateIso = afterDate ? new Date(afterDate).toISOString() : undefined;
+
       const syncConfig =
         mode === "all"
-          ? { mode: "all" as const }
-          : { mode: "selected" as const, selectedResources };
+          ? { mode: "all" as const, ...(afterDateIso ? { afterDate: afterDateIso } : {}) }
+          : { mode: "selected" as const, selectedResources, ...(afterDateIso ? { afterDate: afterDateIso } : {}) };
 
       const res = await fetch(`/api/connections/${connectionId}/sync-config`, {
         method: "PUT",
@@ -332,6 +340,53 @@ export function ResourceBrowser({
             </Badge>
           )}
         </div>
+
+        {/* Date range filter — Gmail only */}
+        {provider === "gmail" && (
+          <div className="flex items-center gap-3 px-8 py-3 border-b border-white/5 bg-white/[0.02]">
+            <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+              Sync emails after
+            </span>
+            <div className="flex items-center gap-2 ml-auto">
+              {["1w", "1m", "3m", "6m", "1y"].map((preset) => {
+                const labelMap: Record<string, string> = { "1w": "1 week", "1m": "1 month", "3m": "3 months", "6m": "6 months", "1y": "1 year" };
+                const msMap: Record<string, number> = { "1w": 7, "1m": 30, "3m": 90, "6m": 180, "1y": 365 };
+                const presetDate = new Date(Date.now() - msMap[preset] * 86400000).toISOString().slice(0, 10);
+                const isActive = afterDate === presetDate;
+                return (
+                  <button
+                    key={preset}
+                    onClick={() => setAfterDate(isActive ? "" : presetDate)}
+                    className={cn(
+                      "px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
+                      isActive
+                        ? "bg-secondary/10 text-secondary border border-secondary/20"
+                        : "text-muted-foreground hover:bg-white/5 border border-transparent"
+                    )}
+                  >
+                    {labelMap[preset]}
+                  </button>
+                );
+              })}
+              <input
+                type="date"
+                value={afterDate}
+                onChange={(e) => setAfterDate(e.target.value)}
+                className="h-7 px-2 bg-white/5 border border-white/10 rounded-lg text-[10px] font-medium text-muted-foreground outline-none focus:border-secondary/30 transition-colors"
+                max={new Date().toISOString().slice(0, 10)}
+              />
+              {afterDate && (
+                <button
+                  onClick={() => setAfterDate("")}
+                  className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 hover:text-muted-foreground"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-8 py-4 min-h-0">

@@ -131,5 +131,21 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to delete document' }, { status: 500 })
   }
 
+  // 3. Clean up tabular sub-chunk rows created during indexing (stats/sample/agg/analysis).
+  // These have source_type='direct_upload_tabular' and external_id = storagePath + ':' + chunkType.
+  // They are separate document rows not reached by the FK cascade above.
+  if (doc.external_id) {
+    const { error: subchunkErr } = await supabaseAdmin
+      .from('documents')
+      .delete()
+      .eq('org_id', context.org_id)
+      .eq('source_type', 'direct_upload_tabular')
+      .like('external_id', `${doc.external_id}:%`)
+
+    if (subchunkErr) {
+      logger.warn({ err: subchunkErr.message }, '[files/delete] Sub-chunk cleanup failed (non-fatal)')
+    }
+  }
+
   return NextResponse.json({ status: 'deleted', id })
 }

@@ -44,6 +44,8 @@ const RECORD_SOURCE_TYPES = new Set([
 const TABULAR_SOURCE_TYPES = new Set([
   'snowflake', 'bigquery', 'redshift',
   'looker', 'metabase', 'tableau', 'dbt', 'powerbi',
+  'direct_upload_tabular', 'google_sheets',
+  'google_drive_tabular', 'onedrive_tabular', 'sharepoint_tabular',
 ])
 
 /**

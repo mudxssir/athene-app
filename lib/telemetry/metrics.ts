@@ -107,3 +107,4 @@ export function recordIntegrationFetchDuration(ms: number, labels: { provider: s
     unit: "ms",
   })).record(ms, { provider: labels.provider });
 }
+

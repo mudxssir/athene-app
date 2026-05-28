@@ -3,6 +3,7 @@ import { Nango } from '@nangohq/node'
 import { supabaseAdmin } from '../supabase/server'
 import { getProvider } from '@/lib/integrations/providers'
 import { logger } from '@/lib/logger'
+import { redis } from '@/lib/redis/client'
 
 
 let nangoInstance: Nango | null = null;
@@ -61,6 +62,12 @@ function handleNangoError(error: unknown, context: string): never {
   throw error;
 }
 
+// Token cache TTL: 55 min (tokens valid ~1 hour; buffer avoids near-expired use).
+// Uses Redis (Upstash) so cache survives cold starts and is shared across instances.
+// Falls back to in-process Map when Redis is unavailable (local dev without Upstash).
+const TOKEN_CACHE_TTL_S = 55 * 60
+const inProcessTokenCache = new Map<string, { token: string; expiresAt: number }>()
+
 /**
  * Fetches an access token for a given connection and provider.
  * 🔒 Strictly verified against Supabase/metadata to prevent cross-org leaks.
@@ -72,6 +79,22 @@ export async function getConnectionToken(
 ): Promise<string> {
   if (!orgId) {
     throw new Error('orgId is required to fetch connection token');
+  }
+
+  const cacheKey = `nango:token:${connectionId}:${orgId}`
+
+  // 1. Try Redis cache first (shared across instances, survives cold starts)
+  try {
+    const redisToken = await redis.get<string>(cacheKey)
+    if (redisToken) return redisToken
+  } catch {
+    // Redis unavailable — fall through to in-process cache
+  }
+
+  // 2. In-process fallback cache (local dev / Redis down)
+  const inProcess = inProcessTokenCache.get(cacheKey)
+  if (inProcess && inProcess.expiresAt > Date.now()) {
+    return inProcess.token
   }
 
   const nango = getNango();
@@ -103,8 +126,12 @@ export async function getConnectionToken(
     const storedKey = (mapping as any).provider_config_key ?? providerConfigKey;
     const config = getProvider(storedKey as any) ?? getProvider(providerConfigKey as any);
     const nangoKey = config?.nangoIntegrationId ?? storedKey;
-    return await nango.getToken(nangoKey, connectionId) as any;
+    const token = await nango.getToken(nangoKey, connectionId) as any;
 
+    // Populate both caches
+    try { await redis.set(cacheKey, token, { ex: TOKEN_CACHE_TTL_S }) } catch { /* best-effort */ }
+    inProcessTokenCache.set(cacheKey, { token, expiresAt: Date.now() + TOKEN_CACHE_TTL_S * 1000 })
+    return token
 
   } catch (error: unknown) {
     return handleNangoError(error, 'getConnectionToken');

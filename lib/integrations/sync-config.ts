@@ -62,6 +62,13 @@ export interface SyncConfig {
   /** Per-resource-type toggles (e.g. sync issues but not PRs). */
   resourceTypeFilters?: ResourceTypeFilter[]
 
+  /**
+   * Only fetch items created/received after this ISO-8601 timestamp.
+   * Currently used by Gmail to cap how far back the indexer looks.
+   * Stored as an ISO string; fetchers convert to provider-specific format.
+   */
+  afterDate?: string
+
   /** ISO-8601 timestamp of the last configuration change. */
   lastConfiguredAt?: string
 }
@@ -103,7 +110,9 @@ export function parseSyncConfig(raw: unknown): SyncConfig {
     ? obj.lastConfiguredAt
     : undefined
 
-  return { mode, selectedResources, excludedResources, resourceTypeFilters, lastConfiguredAt }
+  const afterDate = typeof obj.afterDate === 'string' ? obj.afterDate : undefined
+
+  return { mode, selectedResources, excludedResources, resourceTypeFilters, afterDate, lastConfiguredAt }
 }
 
 /**

@@ -382,10 +382,32 @@ export async function POST(request: Request): Promise<Response> {
     }
   } catch { /* best-effort */ }
 
+  async function withRetry<T>(fn: () => Promise<T>, label: string, maxAttempts = 3): Promise<T> {
+    let lastErr: unknown
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await fn()
+      } catch (err: any) {
+        lastErr = err
+        if (err instanceof AbortSyncError) throw err
+        const isTransient = err?.status === 429 || err?.status >= 500 ||
+          /network|timeout|econnreset|socket|fetch/i.test(err?.message ?? '')
+        if (!isTransient || attempt === maxAttempts) throw err
+        const delay = Math.min(2000 * 2 ** (attempt - 1), 16000)
+        logger.warn({ label, attempt, delay, err: err.message }, '[nango-fetch] Transient error — retrying')
+        await new Promise(r => setTimeout(r, delay))
+      }
+    }
+    throw lastErr
+  }
+
   try {
     for (const fetcher of fetchers) {
       if (await shouldAbort()) throw new AbortSyncError()
-      const chunks = await fetcher(fetcherConnectionId, orgId, { since, syncConfig, shouldAbort })
+      const chunks = await withRetry(
+        () => fetcher(fetcherConnectionId, orgId, { since, syncConfig, shouldAbort }),
+        `${provider}/${sourceType}`
+      )
       allChunks.push(...chunks)
     }
 

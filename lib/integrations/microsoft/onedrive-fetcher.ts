@@ -1,5 +1,6 @@
 import { paginate, graphDownload, graphFetch } from './graph-client'
-import { parseDocument } from './document-parser'
+import { parseDocumentEnhanced } from './document-parser'
+import type { ParsedTable } from '@/lib/integrations/tabular-analysis'
 import { type SyncConfig, getSelectedResourceIds } from '../sync-config'
 
 /**
@@ -43,16 +44,16 @@ export async function listOneDriveDocs(
   return results.flat()
 }
 
-export async function fetchOneDriveDocContent(connectionId: string, orgId: string, itemId: string): Promise<string> {
-  // 1. Get metadata
+export async function fetchOneDriveDocContent(
+  connectionId: string,
+  orgId: string,
+  itemId: string,
+): Promise<{ text: string; tables: ParsedTable[] }> {
   const item = await graphFetch(connectionId, orgId, `/me/drive/items/${itemId}`)
   const fileName = item.name.toLowerCase()
-
-  // 2. Download content
   const arrayBuffer = await graphDownload(connectionId, orgId, `/me/drive/items/${itemId}/content`)
   const buffer = Buffer.from(arrayBuffer)
-
-  return parseDocument(fileName, buffer)
+  return parseDocumentEnhanced(fileName, buffer)
 }
 
 /**

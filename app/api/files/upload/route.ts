@@ -4,8 +4,9 @@ import { getContextFromHeaders } from "@/lib/supabase/rls-client";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 import { rateLimit } from "@/lib/redis/client";
-import { parseDocument } from "@/lib/integrations/microsoft/document-parser";
-import { indexDocument } from "@/lib/integrations/indexing";
+import { parseDocumentStructured, parseDocumentEnhanced } from "@/lib/integrations/microsoft/document-parser";
+import { indexDocument, indexDocuments } from "@/lib/integrations/indexing";
+import { tabularChunksFromParsed } from "@/lib/integrations/tabular-analysis";
 import { classifyFileLayer } from "@/lib/files/classify-layer";
 
 /**
@@ -37,6 +38,8 @@ const ALLOWED_EXTENSIONS: Record<string, string> = {
   html: "text/plain",
   htm:  "text/plain",
 };
+
+const TABULAR_EXTS = new Set(['csv', 'tsv', 'xlsx', 'xls']);
 
 /**
  * POST /api/files/upload
@@ -198,36 +201,81 @@ export async function POST(req: NextRequest) {
 
     (async () => {
       try {
-        const text = await parseDocument(file.name, buffer);
-        if (timedOut) return; // abort after timeout — don't attempt to write stale data
-        if (text && text.trim().length > 0) {
-          await indexDocument(
-            {
-              chunk_id: storagePath,
-              title: file.name,
-              content: text,
-              source_url: storagePath,
-              metadata: {
-                provider: "direct_upload",
-                resource_type: ext.toLowerCase(),
-                author: ownerId ?? undefined,
-              },
-            },
-            orgId,
-            connId,
-            null,        // departmentId — unrestricted within org
-            "restricted",
-            ownerId,
-          );
+        let indexed = false;
+
+        if (TABULAR_EXTS.has(rawExt)) {
+          // Tabular path: parse into structured rows, generate stats/sample/agg/analysis chunks
+          const tables = await parseDocumentStructured(file.name, buffer);
           if (timedOut) return;
-          // Mark document as indexed in the DB
+          if (tables && tables.length > 0) {
+            const tabularChunks = await tabularChunksFromParsed(tables, storagePath, file.name, storagePath, {
+              withLlmAnalysis: true,
+              orgId,
+            });
+            if (timedOut) return;
+            if (tabularChunks.length > 0) {
+              await indexDocuments(tabularChunks, orgId, connId, null, "restricted", ownerId);
+              indexed = true;
+            }
+          }
+        }
+
+        if (!indexed) {
+          // Non-tabular path: use enhanced parser which extracts embedded tables via
+          // LlamaParse (PDF/DOCX/PPTX) and returns narrative text + structured tables.
+          const { text, tables } = await parseDocumentEnhanced(file.name, buffer);
+          if (timedOut) return;
+
+          // Index any tables embedded in the document (Hebbia-style structured extraction)
+          if (tables.length > 0) {
+            const tableChunks = await tabularChunksFromParsed(
+              tables,
+              storagePath,
+              file.name,
+              storagePath,
+              { withLlmAnalysis: true, orgId },
+            );
+            if (timedOut) return;
+            if (tableChunks.length > 0) {
+              await indexDocuments(tableChunks, orgId, connId, null, "restricted", ownerId);
+              indexed = true;
+            }
+          }
+
+          // Always index narrative text when present
+          if (text && text.trim().length > 0) {
+            if (timedOut) return;
+            await indexDocument(
+              {
+                chunk_id: storagePath,
+                title: file.name,
+                content: text,
+                source_url: storagePath,
+                metadata: {
+                  provider: "direct_upload",
+                  resource_type: ext.toLowerCase(),
+                  author: ownerId ?? undefined,
+                },
+              },
+              orgId,
+              connId,
+              null,
+              "restricted",
+              ownerId,
+            );
+            indexed = true;
+          }
+        }
+
+        if (timedOut) return;
+        if (indexed) {
           await supabaseAdmin
             .from("documents")
             .update({ last_indexed_at: new Date().toISOString() })
             .eq("id", doc.id);
           logger.info({ docId: doc.id, name: file.name }, "[files/upload] Indexing complete");
         } else {
-          logger.warn({ docId: doc.id, name: file.name }, "[files/upload] No extractable text — skipping indexing");
+          logger.warn({ docId: doc.id, name: file.name }, "[files/upload] No extractable content — skipping indexing");
         }
       } catch (indexErr: any) {
         logger.error({ docId: doc.id, name: file.name, err: indexErr?.message }, "[files/upload] Background indexing failed");
