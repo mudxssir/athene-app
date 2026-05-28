@@ -84,13 +84,19 @@ export default function ChatPage() {
   const [pendingAction, setPendingAction] = useState<{ tool: string; payload: any } | null>(null);
   const [reconnecting, setReconnecting] = useState(false);
   const [intelCards, setIntelCards] = useState<IntelCard[]>([]);
+  const [noConnections, setNoConnections] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setThreadId(crypto.randomUUID()); }, []);
   useEffect(() => {
     fetch("/api/intelligence")
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.cards) setIntelCards(d.cards); })
+      .then(d => {
+        if (d?.cards) {
+          setIntelCards(d.cards);
+          setNoConnections(d.cards.length === 0);
+        }
+      })
       .catch(() => {});
   }, []);
   useEffect(() => {
@@ -247,8 +253,21 @@ export default function ChatPage() {
           {/* Messages */}
           <div ref={scrollRef} className="custom-scrollbar" style={{ flex: 1, overflowY: "auto", padding: "32px 40px" }}>
             <div style={{ maxWidth: 880, margin: "0 auto", display: "flex", flexDirection: "column", gap: 28 }}>
-              {/* Suggested prompts — only shown when no user message has been sent yet */}
-              {messages.length === 1 && messages[0].role === "assistant" && (
+              {/* No-connections CTA */}
+              {messages.length === 1 && noConnections && (
+                <div className="reveal" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "12px 0 4px", textAlign: "center" }}>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "var(--fg-muted)", maxWidth: 400, lineHeight: 1.55 }}>
+                    Your knowledge base is empty. Connect a data source to get answers grounded in your company's data.
+                  </p>
+                  <a href="/admin/integrations"
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", borderRadius: 999, background: "rgba(160,74,27,.10)", border: "1px solid rgba(160,74,27,.3)", fontSize: 11, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--primary)", textDecoration: "none" }}>
+                    Connect your first source <ArrowRight size={11} />
+                  </a>
+                </div>
+              )}
+
+              {/* Suggested prompts — only shown when no user message has been sent and sources exist */}
+              {messages.length === 1 && messages[0].role === "assistant" && !noConnections && (
                 <div className="reveal" style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", padding: "8px 0 4px" }}>
                   {[
                     "What happened this week across my tools?",

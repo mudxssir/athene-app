@@ -36,16 +36,24 @@ const SYNTHESIS_STATUSES = [
   "Synthesising…",
 ];
 
-function SynthesisStatusCycler() {
+function SynthesisStatusCycler({ elapsed }: { elapsed: number }) {
   const [idx, setIdx] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setIdx((i) => (i + 1) % SYNTHESIS_STATUSES.length), 8000);
     return () => clearInterval(t);
   }, []);
+  const label = elapsed > 50
+    ? "Still working — this can take up to 90s…"
+    : SYNTHESIS_STATUSES[idx];
   return (
-    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--fg-muted)" }}>
-      {SYNTHESIS_STATUSES[idx]}
-    </span>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--fg-muted)" }}>
+        {label}
+      </span>
+      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", color: "var(--fg-subtle)" }}>
+        {elapsed}s
+      </span>
+    </div>
   );
 }
 
@@ -58,6 +66,7 @@ export default function BriefingPage() {
   const [history, setHistory]                       = useState<Briefing[]>([]);
   const [stats, setStats]                           = useState<UsageStats | null>(null);
   const [enqueuing, setEnqueuing]                   = useState(false);
+  const [elapsed, setElapsed]                       = useState(0);
   const [pollingTimedOut, setPollingTimedOut]       = useState(false);
   const [historyError, setHistoryError]             = useState(false);
   const [sheetOpen, setSheetOpen]                   = useState(false);
@@ -65,6 +74,12 @@ export default function BriefingPage() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+
+  useEffect(() => {
+    if (!enqueuing) { setElapsed(0); return; }
+    const t = setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [enqueuing]);
 
   const fetchToday = useCallback(async (quiet = false) => {
     try {
@@ -331,7 +346,7 @@ export default function BriefingPage() {
                 <div style={{ height: 4, borderRadius: 999, background: 'var(--bg-muted)', overflow: 'hidden', marginBottom: 10 }}>
                   <div style={{ height: '100%', borderRadius: 999, background: 'var(--primary)', animation: 'briefing-fill 45s linear forwards' }} />
                 </div>
-                <SynthesisStatusCycler />
+                <SynthesisStatusCycler elapsed={elapsed} />
               </div>
             )}
 
@@ -340,10 +355,28 @@ export default function BriefingPage() {
                 Synthesis timed out — try again
               </p>
             )}
-            <button onClick={handleGenerate} disabled={enqueuing}
-              style={{ height: 58, padding: '0 30px', borderRadius: 18, background: 'var(--primary)', border: 'none', color: '#fff', fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 800, letterSpacing: '0.28em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer', boxShadow: '0 14px 30px -10px rgba(160,74,27,.55)', opacity: enqueuing ? 0.6 : 1 }}>
-              {enqueuing ? <><Loader2 size={16} className="animate-spin" />Synthesizing…</> : <><Sparkles size={16} />Trigger neural synthesis</>}
-            </button>
+            {(() => {
+              const noConnections = !loading && stats !== null && (stats.connections.by_status.active ?? 0) === 0;
+              const btnDisabled = enqueuing || noConnections;
+              return (
+                <>
+                  <button onClick={handleGenerate} disabled={btnDisabled}
+                    style={{ height: 58, padding: '0 30px', borderRadius: 18, background: 'var(--primary)', border: 'none', color: '#fff', fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 800, letterSpacing: '0.28em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 10, cursor: btnDisabled ? 'not-allowed' : 'pointer', boxShadow: '0 14px 30px -10px rgba(160,74,27,.55)', opacity: btnDisabled ? 0.6 : 1 }}>
+                    {enqueuing
+                      ? <><Loader2 size={16} className="animate-spin" />Synthesizing…</>
+                      : noConnections
+                      ? <><Plug size={16} />Connect sources first</>
+                      : <><Sparkles size={16} />Trigger neural synthesis</>}
+                  </button>
+                  {noConnections && !enqueuing && (
+                    <p style={{ fontSize: 11, color: 'var(--fg-muted)', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: 16 }}>
+                      No active integrations —{' '}
+                      <Link href="/admin/integrations" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>Connect →</Link>
+                    </p>
+                  )}
+                </>
+              );
+            })()}
           </TCard>
         )
       ) : (

@@ -146,6 +146,7 @@ export default function BuilderPage() {
     };
     setNodes(prev => [...prev, newNode]);
     setSelectedNodeId(newNode.id);
+    toast.success(`${block.label} added to canvas`);
   };
 
   // Fix #4: remove selectedNode, not the last node
@@ -243,6 +244,11 @@ export default function BuilderPage() {
            </TooltipProvider>
         </div>
       </TCard>
+      {!savedAutomationId && (
+        <p className="text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 -mt-4">
+          Store your config first to enable deployment
+        </p>
+      )}
 
       {/* Main Canvas Area */}
       <div className="flex-1 flex gap-8 overflow-hidden">

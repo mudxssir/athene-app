@@ -156,7 +156,7 @@ function MobileGraphList() {
                 />
                 <div className="graph-mobile__item-content">
                   <span className="graph-mobile__item-label">{n.label}</span>
-                  <span className="graph-mobile__item-type">{n.entity_type}</span>
+                  <span className="graph-mobile__item-type">{n.entity_type.charAt(0).toUpperCase() + n.entity_type.slice(1).replace(/_/g, ' ')}</span>
                   {n.description && (
                     <p className="graph-mobile__item-desc">
                       {n.description.slice(0, 120)}

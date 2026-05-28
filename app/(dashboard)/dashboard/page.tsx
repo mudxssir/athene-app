@@ -205,7 +205,7 @@ export default function DashboardPage() {
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: "-0.01em", color: "var(--fg)" }}>{item.label}</div>
                       <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.28em", textTransform: "uppercase", color: "var(--fg-subtle)", marginTop: 4 }}>
-                        {item.id} · {new Date(item.time).toLocaleString()}
+                        {new Date(item.time).toLocaleString()}
                       </div>
                     </div>
                   </div>

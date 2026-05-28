@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { User, Zap, Loader2, Database, ExternalLink, AlertCircle, ChevronRight } from "lucide-react";
+import { User, Zap, Loader2, Database, ExternalLink, AlertCircle, ChevronRight, Github, Mail, Calendar, FileText, MessageSquare, BookOpen, Layers } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MarkdownMessage } from "@/components/chat/markdown-message";
@@ -24,6 +25,19 @@ export interface CitedSource {
   chunk_index: number;
   source_type: string;
 }
+
+const SOURCE_ICONS: Record<string, LucideIcon> = {
+  github: Github,
+  gmail: Mail,
+  google_calendar: Calendar,
+  google_drive: FileText,
+  slack: MessageSquare,
+  notion: BookOpen,
+  snowflake: Database,
+  bigquery: Database,
+  redshift: Database,
+  jira: Layers,
+};
 
 interface MessageListProps {
   messages: Message[];
@@ -141,35 +155,40 @@ export function MessageList({ messages, awaitingApproval }: MessageListProps) {
 
                   {msg.cited_sources && msg.cited_sources.length > 0 && (
                     <div className="mt-8 flex flex-wrap gap-3 pt-6 border-t border-white/5">
-                      {msg.cited_sources.map((source, idx) => (
-                        <Tooltip key={`${source.document_id}-${idx}`}>
-                          <TooltipTrigger asChild>
-                            {source.external_url ? (
-                              <a
-                                href={source.external_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                data-testid="cited-source"
-                                className="inline-flex items-center gap-3 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-[11px] font-bold uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/30 transition-all duration-200"
-                              >
-                                <ExternalLink className="w-3.5 h-3.5 text-secondary" />
-                                {source.source_type || "Source"}
-                              </a>
-                            ) : (
-                              <span
-                                data-testid="cited-source"
-                                className="inline-flex items-center gap-3 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-[11px] font-bold uppercase tracking-widest text-muted-foreground"
-                              >
-                                <ExternalLink className="w-3.5 h-3.5 text-secondary" />
-                                {source.source_type || "Source"}
-                              </span>
-                            )}
-                          </TooltipTrigger>
-                          <TooltipContent className="bg-black text-white border-white/10 text-[10px] font-bold uppercase tracking-widest">
-                            Document ID: {source.document_id.slice(0, 8)}
-                          </TooltipContent>
-                        </Tooltip>
-                      ))}
+                      {msg.cited_sources.map((source, idx) => {
+                        const SourceIcon = SOURCE_ICONS[source.source_type] ?? ExternalLink;
+                        const label = (source.title ?? source.source_type ?? "Source").slice(0, 28);
+                        const tooltipText = source.title ?? source.source_type ?? "Source";
+                        return (
+                          <Tooltip key={`${source.document_id}-${idx}`}>
+                            <TooltipTrigger asChild>
+                              {source.external_url ? (
+                                <a
+                                  href={source.external_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  data-testid="cited-source"
+                                  className="inline-flex items-center gap-3 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-[11px] font-bold uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/30 transition-all duration-200"
+                                >
+                                  <SourceIcon className="w-3.5 h-3.5 text-secondary" />
+                                  {label}
+                                </a>
+                              ) : (
+                                <span
+                                  data-testid="cited-source"
+                                  className="inline-flex items-center gap-3 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-[11px] font-bold uppercase tracking-widest text-muted-foreground"
+                                >
+                                  <SourceIcon className="w-3.5 h-3.5 text-secondary" />
+                                  {label}
+                                </span>
+                              )}
+                            </TooltipTrigger>
+                            <TooltipContent className="bg-black text-white border-white/10 text-[10px] font-bold uppercase tracking-widest">
+                              {tooltipText}
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
