@@ -91,9 +91,13 @@ function createRLSClient(
   const headers: Record<string, string> = {
     "x-app-org-id": context.org_id,
     "x-app-user-id": context.user_id,
-    "x-app-dept-id": context.department_id || "",
     "x-app-role": context.user_role || "member",
   };
+  // Only send dept-id when non-empty — the RLS policy casts it to uuid,
+  // so an empty string causes "invalid input syntax for type uuid: """
+  if (context.department_id) {
+    headers["x-app-dept-id"] = context.department_id;
+  }
 
   if (grants && grants.length > 0) {
     headers["x-app-grants"] = JSON.stringify(grants);
@@ -175,7 +179,7 @@ export async function withRLS<T>(
   const { error: ctxError } = await supabase.rpc("set_app_context", {
     p_org_id: context.org_id,
     p_user_id: context.user_id,
-    p_dept_id: context.department_id || "",
+    p_dept_id: context.department_id || null,
     p_role: context.user_role || "member",
   });
 
