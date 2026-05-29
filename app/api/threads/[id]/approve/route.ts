@@ -161,6 +161,8 @@ export async function POST(
       }
     : {
         pending_write_action: null,
+        next_node: "END",
+        run_status: "done",
       };
 
   await graph.updateState(

@@ -1,13 +1,7 @@
-/**
- * Report builder — generates a full report from a template.
- *
- * Each section's query is run through the agent and results assembled
- * into a GeneratedReport. Sections run in parallel where possible.
- *
- * Not wired to a route yet. Call buildReport() from a worker route.
- */
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveModelClient } from "@/lib/langgraph/llm-factory";
 import { evaluateWatchlist } from "@/lib/watchlists/evaluator";
+import { loadUserContext } from "@/lib/watchlists/context";
 import type { WatchlistRunContext } from "@/lib/watchlists/types";
 import type {
   ReportTemplate,
@@ -77,7 +71,6 @@ async function generateSummary(
   templateName: string,
   orgId: string,
 ): Promise<string> {
-  const { resolveModelClient } = await import("@/lib/langgraph/llm-factory");
   const llm = await resolveModelClient("fast", orgId);
 
   const sectionSummaries = sections
@@ -140,20 +133,8 @@ export async function runScheduledReport(schedule: ReportSchedule): Promise<Gene
 
   if (error || !template) throw new Error(`Template not found: ${schedule.template_id}`);
 
-  const { data: member } = await supabaseAdmin
-    .from("org_members")
-    .select("role, department_id, users(timezone)")
-    .eq("org_id", schedule.org_id)
-    .eq("user_id", schedule.run_as_user_id)
-    .single();
-
-  const ctx: WatchlistRunContext = {
-    orgId:        schedule.org_id,
-    userId:       schedule.run_as_user_id,
-    role:         member?.role ?? "member",
-    deptId:       member?.department_id ?? null,
-    userTimezone: (member?.users as any)?.timezone ?? "UTC",
-  };
+  const ctx = await loadUserContext(schedule.org_id, schedule.run_as_user_id);
+  if (!ctx) throw new Error(`User context not found for schedule ${schedule.id}`);
 
   return buildReport(template as ReportTemplate, ctx, schedule.id);
 }

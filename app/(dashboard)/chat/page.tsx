@@ -201,9 +201,10 @@ export default function ChatPage() {
   async function handleHitl(action: "approve" | "reject" | "edit", edits?: any) {
     const res = await fetch(`/api/threads/${threadId}/approve`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, edits }) });
     if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Failed"); }
-    toast.success(`Action ${action}ed`);
+    const isRejected = action === "reject";
+    toast[isRejected ? "error" : "success"](isRejected ? "Action rejected" : action === "edit" ? "Changes saved — executing" : "Action approved");
     setPendingAction(null); setIsHitlOpen(false);
-    setMessages(p => [...p, { id: `hitl-${Date.now()}`, role: "assistant", content: action === "approve" ? "✓ Action approved — executing in the background." : "✗ Action rejected.", timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }]);
+    setMessages(p => [...p, { id: `hitl-${Date.now()}`, role: "assistant", content: isRejected ? "✗ Action rejected." : "✓ Action approved — executing in the background.", timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }]);
   }
 
   return (

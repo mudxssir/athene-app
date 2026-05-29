@@ -66,33 +66,38 @@ async function resolveConnection(
   orgId: string,
   tool: string
 ): Promise<{ connectionId: string; provider: string }> {
-  // Map tools to candidate providers
-  const candidates = tool.startsWith("email")
-    ? [GOOGLE_PROVIDER_KEY, "gmail", MS_PROVIDER_KEY, "outlook"]
-    : [GOOGLE_PROVIDER_KEY, "google_calendar", MS_PROVIDER_KEY, "ms_calendar"];
+  // Specific providers are preferred over generic ones (e.g. "gmail" beats "google"
+  // which might be a Drive connection that happens to match the "google" key).
+  const specificCandidates = tool.startsWith("email")
+    ? ["gmail", "outlook"]
+    : ["google_calendar", "ms_calendar"];
 
-  const { data: connections, error } = await supabaseAdmin
-    .from("nango_connections")
-    .select("connection_id, provider_config_key")
-    .eq("org_id", orgId)
-    .in("provider_config_key", candidates)
-    .order("created_at", { ascending: false })
-    .limit(1);
+  const genericCandidates = tool.startsWith("email")
+    ? [GOOGLE_PROVIDER_KEY, MS_PROVIDER_KEY]
+    : [GOOGLE_PROVIDER_KEY, MS_PROVIDER_KEY];
 
-  if (error) {
-    throw new Error(`Failed to resolve connections: ${error.message}`);
+  for (const candidates of [specificCandidates, genericCandidates]) {
+    const { data, error } = await supabaseAdmin
+      .from("nango_connections")
+      .select("connection_id, provider_config_key")
+      .eq("org_id", orgId)
+      .in("provider_config_key", candidates)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (error) {
+      throw new Error(`Failed to resolve connections: ${error.message}`);
+    }
+
+    if (data && data.length > 0) {
+      return {
+        connectionId: data[0].connection_id,
+        provider: data[0].provider_config_key,
+      };
+    }
   }
 
-  if (!connections || connections.length === 0) {
-    throw new Error(`No active connections (Google/Microsoft) found for this organization`);
-  }
-
-  // Use the most recent connection that matches one of our candidates
-  const bestMatch = connections[0];
-  return {
-    connectionId: bestMatch.connection_id,
-    provider: bestMatch.provider_config_key,
-  };
+  throw new Error(`No active connections (Google/Microsoft) found for this organization`);
 }
 
 // ─── Microsoft Mappers ────────────────────────────────────────────────────────
@@ -399,13 +404,17 @@ export async function actionExecutorNode(
       run_status: "running",
     };
   } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
     logger.error({ err, tool: action.tool, orgId: state.orgId }, "[action-executor] Execution failed");
     return {
       action_result: null,
-      action_error: err instanceof Error ? err.message : String(err),
+      action_error: errMsg,
       pending_write_action: null,
       awaiting_approval: false,
       run_status: "running",
+      messages: [new AIMessage({
+        content: `✗ The action was approved but failed to execute: ${errMsg}`,
+      })],
     };
   }
 }

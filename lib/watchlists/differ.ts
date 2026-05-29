@@ -1,12 +1,3 @@
-/**
- * Determines whether two watchlist answers represent a material change.
- *
- * Strategy:
- *  1. Fast path: hash equality → no change.
- *  2. Word-overlap (Jaccard) → if overlap < 0.6, it's definitely changed.
- *  3. LLM judge for borderline cases (0.6–0.85 overlap) to avoid false positives.
- *  4. Severity classification based on signal words in the new answer.
- */
 import { resolveModelClient } from "@/lib/langgraph/llm-factory";
 import type { DiffResult, AlertSeverity } from "./types";
 
@@ -109,7 +100,12 @@ export async function diffAnswers(
     return { changed: true, severity, summary };
   }
 
-  // Borderline — use LLM judge
+  // High overlap — rewording, not a material change
+  if (similarity > 0.85) {
+    return { changed: false, severity: "info", summary: "No material change." };
+  }
+
+  // Borderline (0.55–0.85) — LLM judge to avoid false positives on rewording
   const judgment = await llmJudge(previousAnswer, currentAnswer, orgId);
   if (!judgment.changed) {
     return { changed: false, severity: "info", summary: "No material change." };

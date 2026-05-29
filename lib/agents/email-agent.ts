@@ -127,6 +127,8 @@ export async function emailAgentNode(
   // ATH-37: Validate draft before triggering HITL gate.
   // If the draft is completely empty or missing basic fields, we don't trigger approval.
   const hasContent = draft.to.length > 0 || draft.subject.trim() || draft.body.trim();
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const hasInvalidRecipient = draft.to.some((addr: string) => !emailRegex.test(addr));
 
   if (!hasContent) {
     return {
@@ -134,6 +136,17 @@ export async function emailAgentNode(
       messages: [
         new AIMessage({
           content: "I'm sorry, I was unable to generate a valid email draft. Please ensure there is enough context (like a recipient name or email) in the conversation.",
+        }),
+      ],
+    };
+  }
+
+  if (hasInvalidRecipient) {
+    return {
+      run_status: "failed",
+      messages: [
+        new AIMessage({
+          content: `I found a recipient in my draft but the email address doesn't look valid. Could you confirm the correct email address for the recipient?`,
         }),
       ],
     };

@@ -145,6 +145,17 @@ User Timezone: ${timezone}`;
       };
     }
 
+    // Search is read-only — execute directly, no HITL needed
+    if (draft.action_type === "search") {
+      return {
+        messages: [
+          new AIMessage({
+            content: `I'll search your calendar for: ${draft.summary || "the requested time range"}. Please check your calendar app for the results, or connect your calendar and ask me to look up events directly.`,
+          }),
+        ],
+      };
+    }
+
     // BUG-03 FIX: Dynamic tool name based on action_type
     const toolName = `calendar-${draft.action_type}`;
 

@@ -38,18 +38,12 @@ Rules:
 - If context is too sparse to compare, say so clearly.
 - Do not hallucinate. Only state what the context supports.`;
 
-interface TimeWindowChunks {
-  past: string[];
-  current: string[];
-}
-
 /** Fetch document chunks created within a time window */
 async function fetchChunksInWindow(
   orgId: string,
   deptId: string | null,
   fromDate: Date,
   toDate: Date,
-  limit = 30,
 ): Promise<string[]> {
   let query = supabaseAdmin
     .from("document_chunks")
@@ -58,7 +52,7 @@ async function fetchChunksInWindow(
     .gte("created_at", fromDate.toISOString())
     .lte("created_at", toDate.toISOString())
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .limit(20);
 
   if (deptId) {
     query = query.eq("department_id", deptId);
@@ -114,7 +108,7 @@ export async function diffAgentNode(
   const [pastChunks, currentChunks] = await Promise.all([
     fetchChunksInWindow(orgId, deptId, pastStart, boundary),
     fetchChunksInWindow(orgId, deptId, boundary, now),
-  ]) as [TimeWindowChunks["past"], TimeWindowChunks["current"]];
+  ]);
 
   if (!pastChunks.length && !currentChunks.length) {
     return {

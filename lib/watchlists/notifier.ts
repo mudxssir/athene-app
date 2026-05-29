@@ -1,12 +1,5 @@
-/**
- * Delivers watchlist alert notifications across configured channels.
- *
- * Supported channels:
- *  - in_app  : inserts a row into watchlist_alerts (always done)
- *  - email   : sends via Gmail OAuth (if user has Gmail connected)
- *  - slack   : placeholder — requires Slack write capability (chat.postMessage)
- */
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { sendEmail } from "@/lib/integrations/google/gmail-fetcher";
 import type {
   Watchlist,
   WatchlistAlert,
@@ -92,11 +85,7 @@ async function sendEmailAlert(
       .eq("status", "active")
       .single();
 
-    if (!conn) return; // User has no Gmail connected — skip silently
-
-    const { sendEmail } = await import(
-      "@/lib/integrations/google/gmail-fetcher"
-    );
+    if (!conn) return;
 
     const subject = `[Athene Alert] ${watchlist.name} — ${alert.severity.toUpperCase()}`;
     const body = buildEmailBody(watchlist, alert);
@@ -129,11 +118,10 @@ export async function deliverAlerts(
   const alert = await createInAppAlert(watchlist, diff, evaluation, previousAnswer);
   if (!alert) return;
 
-  // Deliver to additional configured channels
-  for (const channel of watchlist.notify_channels) {
-    if (channel.type === "email" && channel.destination) {
-      await sendEmailAlert(watchlist, alert, channel.destination);
-    }
-    // slack: TODO — requires adding chat.postMessage to lib/integrations/slack/client.ts
-  }
+  const emailChannels = watchlist.notify_channels.filter(
+    (c) => c.type === "email" && c.destination,
+  );
+  await Promise.all(
+    emailChannels.map((c) => sendEmailAlert(watchlist, alert, c.destination!)),
+  );
 }

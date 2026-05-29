@@ -1,64 +1,43 @@
-/**
- * Watchlist worker — runs on a cron schedule.
- *
- * For each active watchlist whose schedule matches the current time:
- *  1. Load the user's run context (orgId, role, deptId, timezone).
- *  2. Evaluate the query via the LangGraph agent.
- *  3. Diff the new answer against the stored answer.
- *  4. If changed, create an alert and deliver notifications.
- *  5. Update watchlist with new answer + last_run_at.
- *
- * Not wired to a route yet — call runWatchlistWorker() from an API worker route.
- */
-import cronstrue from "cronstrue";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { evaluateWatchlist, hashAnswer } from "./evaluator";
+import { evaluateWatchlist } from "./evaluator";
 import { diffAnswers } from "./differ";
 import { deliverAlerts } from "./notifier";
-import type { Watchlist, WatchlistRunContext } from "./types";
+import { loadUserContext } from "./context";
+import type { Watchlist } from "./types";
 
-/** Returns true if a cron expression matches the current UTC minute */
+const WORKER_CONCURRENCY = 5;
+
+/**
+ * Minimal 5-field cron matcher (min hour dom month dow).
+ * Returns true if the expression matches the current UTC minute.
+ * Supports * and comma-separated values; no ranges or steps.
+ */
 function cronMatchesNow(cronExpr: string): boolean {
   try {
-    // Dynamic import to avoid bundling cron-parser in client builds
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { CronExpressionParser } = require("cron-schedule");
-    const interval = CronExpressionParser.parse(cronExpr, { timezone: "UTC" });
+    const fields = cronExpr.trim().split(/\s+/);
+    if (fields.length !== 5) return false;
+    const [min, hour, dom, month, dow] = fields;
     const now = new Date();
-    // Check if any execution falls within the current minute
-    const prev = interval.getPrevDate();
-    return Math.abs(now.getTime() - prev.getTime()) < 60_000;
+    const matches = (field: string, value: number) =>
+      field === "*" || field.split(",").map(Number).includes(value);
+    return (
+      matches(min,   now.getUTCMinutes()) &&
+      matches(hour,  now.getUTCHours()) &&
+      matches(dom,   now.getUTCDate()) &&
+      matches(month, now.getUTCMonth() + 1) &&
+      matches(dow,   now.getUTCDay())
+    );
   } catch {
     return false;
   }
 }
 
-async function loadRunContext(
-  watchlist: Watchlist,
-): Promise<WatchlistRunContext | null> {
-  const { data: member } = await supabaseAdmin
-    .from("org_members")
-    .select("role, department_id, users(timezone)")
-    .eq("org_id", watchlist.org_id)
-    .eq("user_id", watchlist.user_id)
-    .single();
-
-  if (!member) return null;
-
-  return {
-    orgId:         watchlist.org_id,
-    userId:        watchlist.user_id,
-    role:          member.role,
-    deptId:        member.department_id ?? null,
-    userTimezone:  (member.users as any)?.timezone ?? "UTC",
-  };
-}
-
-async function processWatchlist(watchlist: Watchlist): Promise<void> {
-  const ctx = await loadRunContext(watchlist);
+/** Returns true if an alert was created (answer changed materially) */
+async function processWatchlist(watchlist: Watchlist): Promise<boolean> {
+  const ctx = await loadUserContext(watchlist.org_id, watchlist.user_id);
   if (!ctx) {
     console.warn(`[watchlist:worker] No context for watchlist ${watchlist.id}`);
-    return;
+    return false;
   }
 
   let evaluation;
@@ -66,12 +45,11 @@ async function processWatchlist(watchlist: Watchlist): Promise<void> {
     evaluation = await evaluateWatchlist(watchlist.id, watchlist.query, ctx);
   } catch (err) {
     console.error(`[watchlist:worker] Evaluation failed for ${watchlist.id}`, err);
-    // Record the failed run time so we don't retry in the same minute
     await supabaseAdmin
       .from("watchlists")
       .update({ last_run_at: new Date().toISOString() })
       .eq("id", watchlist.id);
-    return;
+    return false;
   }
 
   const diff = await diffAnswers(
@@ -96,9 +74,8 @@ async function processWatchlist(watchlist: Watchlist): Promise<void> {
     })
     .eq("id", watchlist.id);
 
-  console.info(
-    `[watchlist:worker] ${watchlist.id} — changed=${diff.changed} severity=${diff.severity}`,
-  );
+  console.info(`[watchlist:worker] ${watchlist.id} — changed=${diff.changed} severity=${diff.severity}`);
+  return diff.changed;
 }
 
 export async function runWatchlistWorker(): Promise<{
@@ -114,34 +91,23 @@ export async function runWatchlistWorker(): Promise<{
   if (error) throw new Error(`Failed to load watchlists: ${error.message}`);
   if (!watchlists?.length) return { processed: 0, alerted: 0, errors: 0 };
 
-  // Filter to those whose cron schedule fires now (or all, if called manually)
-  const due = watchlists.filter((w: Watchlist) => cronMatchesNow(w.schedule));
+  const due = (watchlists as Watchlist[]).filter((w) => cronMatchesNow(w.schedule));
 
   let alerted = 0;
   let errors = 0;
 
-  await Promise.allSettled(
-    due.map(async (w: Watchlist) => {
-      try {
-        const prevHash = w.last_answer_hash;
-        await processWatchlist(w);
-        // Re-fetch to check if an alert was created
-        const { data: updated } = await supabaseAdmin
-          .from("watchlists")
-          .select("last_answer_hash")
-          .eq("id", w.id)
-          .single();
-        if (updated?.last_answer_hash !== prevHash) alerted++;
-      } catch {
-        errors++;
-      }
-    }),
-  );
+  for (let i = 0; i < due.length; i += WORKER_CONCURRENCY) {
+    const batch = due.slice(i, i + WORKER_CONCURRENCY);
+    const results = await Promise.allSettled(batch.map((w) => processWatchlist(w)));
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value) alerted++;
+      if (r.status === "rejected") errors++;
+    }
+  }
 
   return { processed: due.length, alerted, errors };
 }
 
-/** Run all active watchlists regardless of schedule (for manual triggers / testing) */
 export async function runAllWatchlists(): Promise<void> {
   const { data: watchlists } = await supabaseAdmin
     .from("watchlists")
@@ -149,5 +115,9 @@ export async function runAllWatchlists(): Promise<void> {
     .eq("is_active", true);
 
   if (!watchlists?.length) return;
-  await Promise.allSettled(watchlists.map((w: Watchlist) => processWatchlist(w)));
+
+  for (let i = 0; i < watchlists.length; i += WORKER_CONCURRENCY) {
+    const batch = (watchlists as Watchlist[]).slice(i, i + WORKER_CONCURRENCY);
+    await Promise.allSettled(batch.map((w) => processWatchlist(w)));
+  }
 }

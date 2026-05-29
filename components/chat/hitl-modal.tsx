@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ShieldAlert,
   CheckCircle2,
@@ -79,6 +79,16 @@ export function HitlModal({ isOpen, onClose, threadId, pendingAction, onDecision
   const [emailForm, setEmailForm] = useState<EmailForm | null>(null);
   const [jsonEdits, setJsonEdits] = useState("");
 
+  // Reset all local state whenever a new pending action arrives
+  useEffect(() => {
+    setIsEditing(false);
+    setEmailForm(null);
+    setJsonEdits("");
+    setToInput("");
+    setCcInput("");
+    setRecipientConfirmed(false);
+  }, [pendingAction?.tool, pendingAction?.payload]);
+
   if (!pendingAction) return null;
 
   const needsRecipient = isRecipientMissing(pendingAction) && !recipientConfirmed;
@@ -138,8 +148,7 @@ export function HitlModal({ isOpen, onClose, threadId, pendingAction, onDecision
         finalPayload = effectivePayload;
       }
 
-      // Always send as 'edit' so the executor uses our merged payload
-      await onDecision('edit', finalPayload);
+      await onDecision(action, action === 'approve' ? undefined : finalPayload);
       onClose();
     } catch (error: any) {
       toast.error(error.message || "Failed to process decision");
