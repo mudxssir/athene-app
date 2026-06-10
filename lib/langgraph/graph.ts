@@ -66,7 +66,11 @@ export async function getAgentGraph(): Promise<any> {
       // Diff agent produces a complete final_answer itself — terminal
       workflow.addEdge("diff_agent", END);
 
-      // The supervisor routes to a worker, planner, synthesis, or END
+      // The supervisor routes to a worker, planner, synthesis, or END.
+      // action_executor is intentionally absent from ALL_AGENTS (so the LLM
+      // can never route there) — only the HITL resume guard in supervisor.ts
+      // sets next_node="action_executor", and it must be in this map to be
+      // reachable.
       workflow.addConditionalEdges(
         "supervisor",
         (state) => state.next_node || "END",
@@ -77,6 +81,7 @@ export async function getAgentGraph(): Promise<any> {
           integration_agent: "integration_agent",
           diff_agent: "diff_agent",
           watchlist_agent: "watchlist_agent",
+          action_executor: "action_executor",
           synthesis: "synthesis",
           END: END,
         }

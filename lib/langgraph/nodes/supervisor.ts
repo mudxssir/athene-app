@@ -110,6 +110,23 @@ function summarizeRetrieval(state: AtheneStateType): string {
 export async function supervisor(state: AtheneStateType) {
   const hopCount = state.hop_count ?? 0;
 
+  // ── HITL resume guard ──────────────────────────────────────────────────────
+  // After a user approves an action, the approve endpoint sets
+  // awaiting_approval=false while leaving pending_write_action populated.
+  // When graph.stream() resumes from the checkpoint, LangGraph re-enters at
+  // START → supervisor. We must NOT ask the LLM to re-route here — it has no
+  // concept of "an action just got approved". Instead, bypass the LLM and
+  // route directly to action_executor so the payload is executed exactly once.
+  // action_executor clears pending_write_action when done, so a second resume
+  // would fall through to normal routing.
+  if (!state.awaiting_approval && state.pending_write_action) {
+    return {
+      next_node: "action_executor",
+      reasoning: "[Guard] Approved write action pending execution → action_executor (bypass LLM).",
+      hop_count: hopCount,
+    };
+  }
+
   // ── Hop-limit guard: skip LLM entirely at max hops ──
   if (hopCount >= MAX_HOPS) {
     return {

@@ -21,6 +21,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 import { recordHitlApprovalDuration, incrementHitlDecision } from "@/lib/telemetry/metrics";
 import { TOOL_NAMES } from "../tool-names";
+import { ALLOWED_WATCHLIST_SCHEDULES } from "@/lib/graph/interrupts";
 
 const MS_PROVIDER_KEY = "microsoft";
 const GOOGLE_PROVIDER_KEY = "google";
@@ -354,6 +355,14 @@ export async function actionExecutorNode(
         messages: [new AIMessage({ content: "I couldn't create the watchlist — name or query was missing. Please try again." })],
       }
     }
+
+    // Whitelist the schedule value — it is LLM-extracted and must not be
+    // stored as-is. An unlisted cron string could inject unexpected job
+    // patterns; fall back to the 6-hour default instead of failing outright.
+    const safeSchedule = (ALLOWED_WATCHLIST_SCHEDULES as readonly string[]).includes(schedule)
+      ? schedule
+      : "0 */6 * * *";
+
     try {
       const { data, error } = await supabaseAdmin
         .from("watchlists")
@@ -362,7 +371,7 @@ export async function actionExecutorNode(
           user_id: state.userId,
           name: name.trim(),
           query: query.trim(),
-          schedule: schedule ?? "0 */6 * * *",
+          schedule: safeSchedule,
           is_active: true,
         })
         .select("id, name")

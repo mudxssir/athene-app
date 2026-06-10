@@ -40,7 +40,7 @@ type EdgeWithNodes = GraphEdge & {
 };
 
 function sanitize(v: string): string {
-  return v.replace(/[",\\.()]/g, "");
+  return v.replace(/[",.()\\]/g, "");
 }
 
 function isOpen(node: GraphNode): boolean {
@@ -159,6 +159,8 @@ export async function getMyObligations(
     }
 
     const now = Date.now();
+    // Sort before slice so the MAX_OBLIGATIONS cap keeps the most urgent items,
+    // not an arbitrary head of the unsorted array.
     const items: ObligationItem[] = rawObligations
       .map(({ node, docId }) => {
         const dueDate = parseDueDate(node);
@@ -174,16 +176,16 @@ export async function getMyObligations(
           source: docRef ? { documentId: docId!, ...docRef } : null,
         };
       })
+      .sort((a, b) => {
+        // Overdue items first; among overdue, most-overdue (earliest due date) first;
+        // among upcoming, soonest due date first; no-due-date items last.
+        if (a.isOverdue !== b.isOverdue) return a.isOverdue ? -1 : 1;
+        if (!a.dueDate && !b.dueDate) return 0;
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+      })
       .slice(0, MAX_OBLIGATIONS);
-
-    // Sort: overdue first (soonest overdue last), then upcoming soonest first
-    items.sort((a, b) => {
-      if (a.isOverdue !== b.isOverdue) return a.isOverdue ? -1 : 1;
-      if (!a.dueDate && !b.dueDate) return 0;
-      if (!a.dueDate) return 1;
-      if (!b.dueDate) return -1;
-      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-    });
 
     return { person, items };
   });

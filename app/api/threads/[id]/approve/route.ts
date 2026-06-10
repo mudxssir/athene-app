@@ -158,6 +158,11 @@ export async function POST(
           payload: result.payload,
           requested_at: pendingAction.requested_at,
         },
+        // Clear awaiting_approval so the supervisor's pre-LLM guard can
+        // distinguish "just approved, ready to execute" from "still waiting".
+        // Without this flag, the resumed supervisor can't route to
+        // action_executor — it would call the LLM again and mis-route.
+        awaiting_approval: false,
       }
     : {
         pending_write_action: null,

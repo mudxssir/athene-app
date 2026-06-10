@@ -169,7 +169,10 @@ OBLIGATIONS:
 // ── KG context formatters (§6.3) ─────────────────────────────────────────────
 
 function formatBlockersContext(work: Awaited<ReturnType<typeof getMyWork>>): string {
-  if (!work.person || work.items.length === 0) return 'No open items found for this user.'
+  // Return "" (falsy) when there is no real blocker data so that synthesizeSection's
+  // existing !context guard can skip the LLM call entirely, avoiding a redundant
+  // synthesis invocation for "no data" states.
+  if (!work.person || work.items.length === 0) return ''
   const lines: string[] = []
   for (const item of work.items) {
     if (item.blockers.length === 0) continue
@@ -184,12 +187,13 @@ function formatBlockersContext(work: Awaited<ReturnType<typeof getMyWork>>): str
       }
     }
   }
-  if (lines.length === 0) return 'User has open items but none are currently blocked.'
+  // No blocked items among the open work — still return "" to skip the LLM call.
   return lines.join('\n')
 }
 
 function formatObligationsContext(ob: Awaited<ReturnType<typeof getMyObligations>>): string {
-  if (!ob.person || ob.items.length === 0) return 'No open obligations found for this user.'
+  // Same convention: empty string = no data = synthesizeSection will short-circuit.
+  if (!ob.person || ob.items.length === 0) return ''
   return ob.items
     .map((o) => {
       const due = o.dueDate ? `due ${o.dueDate}` : 'no due date'

@@ -24,15 +24,21 @@ interface Props {
 }
 
 export function WatchlistCreate({ onCreated, initialName, initialQuery, trigger }: Props) {
-  const [open, setOpen]         = useState(() => !!(initialName || initialQuery));
-  const [name, setName]         = useState(initialName ?? "");
-  const [query, setQuery]       = useState(initialQuery ?? "");
+  // Always start closed — even when initialName/initialQuery are provided — so
+  // rendering a WatchlistCreate inside a list (e.g. one per ItemCard) doesn't
+  // open N dialogs simultaneously on mount. The initial values are applied lazily
+  // inside handleOpen() instead.
+  const [open, setOpen]         = useState(false);
+  const [name, setName]         = useState("");
+  const [query, setQuery]       = useState("");
   const [schedule, setSchedule] = useState(SCHEDULES[1].value);
   const [loading, setLoading]   = useState(false);
 
   function handleOpen() {
-    if (initialName && !name) setName(initialName);
-    if (initialQuery && !query) setQuery(initialQuery);
+    // Apply initial values each time the dialog opens so the fields always
+    // reflect the current entity even if the component is re-used.
+    setName(initialName ?? "");
+    setQuery(initialQuery ?? "");
     setOpen(true);
   }
 

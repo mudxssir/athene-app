@@ -21,7 +21,11 @@ const CLOSED_STATUSES = new Set([
 const MAX_ITEMS = 30;
 
 function sanitizeForPostgrest(value: string): string {
-  return value.replace(/[",\\.()]/g, "");
+  // Strip characters that break PostgREST filter grammar.
+  // The original /[",\\.()]/ had an unescaped `.` inside the class (matching
+  // any character) and a `\\` matching a literal backslash rather than escaping
+  // the dot. Corrected: explicit character list, `.` now matches only itself.
+  return value.replace(/[",.()\\]/g, "");
 }
 
 function quotedIdList(ids: string[]): string {
@@ -207,6 +211,10 @@ export async function getMyWork(
     const allBlockerIds = Array.from(
       new Set([...hop1, ...hop2].map((b) => b.blocker.id))
     );
+    // Set for O(1) membership tests inside the per-edge loop below;
+    // allBlockerIds.includes() would be O(n) × edges, which compounds with
+    // the double-sided fan-out of the owner query.
+    const allBlockerIdSet = new Set(allBlockerIds);
     const owners = new Map<string, { id: string; label: string }>();
     if (allBlockerIds.length > 0) {
       const { data: ownEdges, error: ownErr } = await supabase
@@ -229,7 +237,7 @@ export async function getMyWork(
           if (
             personNode &&
             personNode.entity_type === "person" &&
-            allBlockerIds.includes(thingId) &&
+            allBlockerIdSet.has(thingId) &&
             (e.relation === "OWNS" || !owners.has(thingId))
           ) {
             owners.set(thingId, { id: personNode.id, label: personNode.label });

@@ -30,6 +30,26 @@ export const emailDraftSchema = z.object({
   _warning: z.string().optional(),
 });
 
+// Allowed cron schedules for watchlists — must stay in sync with
+// the SCHEDULES array in components/watchlists/watchlist-create.tsx.
+// Rejecting arbitrary strings here closes a stored-XSS / cron-injection
+// vector where an LLM-extracted schedule goes directly to the DB.
+export const ALLOWED_WATCHLIST_SCHEDULES = [
+  "0 * * * *",    // Every hour
+  "0 */6 * * *",  // Every 6 hours
+  "0 9 * * *",    // Daily 9am
+  "0 6 * * *",    // Daily 6am
+  "0 9 * * 1-5",  // Weekdays 9am
+] as const;
+
+export const watchlistCreateSchema = z.object({
+  name: z.string().trim().min(1, "Watchlist name is required").max(120, "Name too long"),
+  query: z.string().trim().min(1, "Watchlist query is required").max(1000, "Query too long"),
+  schedule: z.enum(ALLOWED_WATCHLIST_SCHEDULES, {
+    error: `Schedule must be one of: ${ALLOWED_WATCHLIST_SCHEDULES.join(", ")}`,
+  }).optional().default("0 */6 * * *"),
+});
+
 // ---- Types ---------------------------------------------------
 
 
@@ -63,6 +83,8 @@ export async function validatePayload(
     } else if (tool === "calendar-create") {
       const { calendarEventSchema } = await import("@/lib/agents/calendar-agent");
       calendarEventSchema.parse(payload);
+    } else if (tool === "watchlist-create") {
+      watchlistCreateSchema.parse(payload);
     }
   } catch (err: any) {
     const detail = err instanceof z.ZodError ? err.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', ') : err.message;
