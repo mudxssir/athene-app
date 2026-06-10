@@ -1,3 +1,5 @@
+// FROZEN (REFOCUS §3.1/§3.2): not wired into graph routing — the assistant is
+// read-only in Phase 1. Kept intact for reversibility; unfreeze via WRITE_ACTIONS_ENABLED.
 import type { AtheneStateType, AtheneStateUpdate } from "../state";
 import { vectorSearch } from "@/lib/tools/vector-search";
 import { graphQueryTool } from "../tools/graph-query";

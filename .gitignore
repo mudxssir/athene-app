@@ -51,7 +51,18 @@ supabase/.temp/
 
 # playwright reports and test results
 /test-results/
+/playwright-report/
 /tests/e2e/playwright-report/
+/playwright/.auth/
+/.test-screenshots/
+
+# nested app build output
+apps/web/.next/
+
+# stray tsc/debug dumps
+ts_errors.txt
+tsc_out.txt
+bug_report_*.html
 
 # stale worker backups
 /.worker-backup/

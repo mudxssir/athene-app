@@ -25,6 +25,23 @@ import { logger } from '../logger'
 import { PROVIDER_REGISTRY, getAllProviders } from '../integrations/providers'
 import type { ProviderConfig } from '../integrations/providers'
 import { TOOL_NAMES, buildApprovalUpdate } from '../langgraph/tool-names'
+import { WRITE_ACTIONS_ENABLED } from '../config/feature-flags'
+
+// FROZEN (REFOCUS §3.1): conversational connect/disconnect/re-sync are
+// write actions and live in the settings UI while the assistant is
+// read-only. List/status reads stay. Unfreeze via WRITE_ACTIONS_ENABLED.
+function frozenWriteActionResponse(actionLabel: string): AtheneStateUpdate {
+  return {
+    messages: [
+      new AIMessage({
+        content:
+          `${actionLabel} isn't available from chat — you can do it from the ` +
+          `**Integrations** page (Admin → Integrations). I can still list your ` +
+          `connected integrations or check sync status here.`,
+      }),
+    ],
+  }
+}
 
 // ---- System Prompt ─────────────────────────────────────────
 
@@ -539,6 +556,7 @@ export async function integrationAgentNode(
         return handleList(state)
 
       case 'connect':
+        if (!WRITE_ACTIONS_ENABLED) return frozenWriteActionResponse('Connecting a new integration')
         if (!provider) {
           return {
             messages: [
@@ -554,6 +572,7 @@ export async function integrationAgentNode(
         return handleConnect(state, provider)
 
       case 'disconnect':
+        if (!WRITE_ACTIONS_ENABLED) return frozenWriteActionResponse('Disconnecting an integration')
         if (!provider) {
           return {
             messages: [
@@ -570,6 +589,7 @@ export async function integrationAgentNode(
         return handleStatus(state, provider)
 
       case 'sync':
+        if (!WRITE_ACTIONS_ENABLED) return frozenWriteActionResponse('Triggering a re-sync')
         return handleSync(state, provider)
 
       default:

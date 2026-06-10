@@ -1,9 +1,0 @@
-{
-  "/api/admin/integrations/route": "app/api/admin/integrations/route.js",
-  "/onboarding/integrations/page": "app/onboarding/integrations/page.js",
-  "/api/nango/providers/route": "app/api/nango/providers/route.js",
-  "/api/nango/connections/route": "app/api/nango/connections/route.js",
-  "/api/nango/integrations/route": "app/api/nango/integrations/route.js",
-  "/(dashboard)/page": "app/(dashboard)/page.js",
-  "/(dashboard)/admin/integrations/page": "app/(dashboard)/admin/integrations/page.js"
-}

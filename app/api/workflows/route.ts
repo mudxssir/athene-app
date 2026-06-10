@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 import { rateLimit } from "@/lib/redis/client";
 import { parseBody } from "@/lib/validation";
+import { WRITE_ACTIONS_ENABLED } from "@/lib/config/feature-flags";
 
 const WorkflowPostSchema = z.object({
   name:   z.string().min(1).max(200).trim(),
@@ -12,6 +13,10 @@ const WorkflowPostSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  // FROZEN (REFOCUS §3.2): builder UI is frozen — no new workflows from chat/UI.
+  if (!WRITE_ACTIONS_ENABLED) {
+    return NextResponse.json({ error: "Workflow creation is disabled" }, { status: 403 });
+  }
   try {
     const { userId, orgId } = await auth();
     if (!userId || !orgId) return new NextResponse("Unauthorized", { status: 401 });

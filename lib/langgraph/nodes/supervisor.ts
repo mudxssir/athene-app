@@ -5,16 +5,15 @@ import { logger } from "@/lib/logger";
 
 const MAX_HOPS = 6;
 
+// FROZEN (REFOCUS §3.1/§3.2): email_agent, calendar_agent, action_executor,
+// report_agent removed from routing — the assistant is read-only. Restore
+// behind WRITE_ACTIONS_ENABLED when write actions return (Phase 2+).
 const ALL_AGENTS = [
   "planner",
   "retrieval",
   "cross_dept_retrieval",
-  "email_agent",
-  "calendar_agent",
   "integration_agent",
   "diff_agent",
-  "action_executor",
-  "report_agent",
   "synthesis",
   "END",
 ] as const;
@@ -28,16 +27,14 @@ const supervisorPrompt = `You are the supervisor of an AI assistant. Route the c
 ## Available Agents
 
 - planner: Decompose a complex multi-department query into sequential retrieval steps. Use ONLY on the first hop when the question clearly spans 2+ departments (e.g. "How does the AWS incident affect Q2 revenue and our SLA with Acme?").
-- retrieval: Search documents within the user's organization (Jira, Confluence, Slack, SharePoint, etc.)
+- retrieval: Search documents within the user's organization (Jira, Confluence, Slack, email, calendar, etc.). All questions ABOUT email or calendar content go here.
 - cross_dept_retrieval: Cross-department BI analysis — revenue insights, multi-team trends. **Restricted: super_user and admin roles only.**
-- email_agent: Draft or send an email. Use ONLY when the user explicitly asks to compose, write, send, or reply to an email. Do NOT use for reading, searching, or asking questions about email content.
-- calendar_agent: Read calendar, find free slots, or create events.
-- integration_agent: Manage data source connections — list connected integrations, connect a new provider (Google Drive, Slack, Notion, etc.), disconnect a source, check sync status, or trigger a re-sync. Route here when the user asks about integrations, connected apps, or data sources.
+- integration_agent: Read-only integration info — list connected integrations or check sync status. Route here when the user asks about integrations, connected apps, or data sources. (Connecting, disconnecting, and re-syncing happen in the settings UI, not in chat.)
 - diff_agent: Compare two time windows and report what changed. Route here when the user asks "what changed since [date/period]", "what's new this week/month", "what happened while I was away", or any before/after comparison over time. The diff agent answers completely on its own — do NOT route to retrieval first.
-- action_executor: Execute approved write actions (emails, calendar events, integration connect/disconnect).
-- report_agent: Plan and write structured, multi-section reports using vectorized and graph data.
 - synthesis: Synthesize a final answer from accumulated retrieved context and finish.
 - END: The request has been fully answered — stop the graph.
+
+This assistant is READ-ONLY: it cannot send emails, create calendar events, or execute write actions. If the user asks for those, route to synthesis so the answer can explain what Athene knows and that write actions are not available.
 
 ## Routing Rules
 
@@ -47,8 +44,7 @@ const supervisorPrompt = `You are the supervisor of an AI assistant. Route the c
 4. **END condition**: Route to END only after the final answer has already been delivered.
 5. **Agent specificity**: Choose the most targeted agent; avoid unnecessary retrieval hops.
 6. **Planner guard**: Only route to planner on the very first hop (hops_remaining = MAX) and only when the question clearly spans 2+ departments. Never re-route to planner on subsequent hops.
-7. **Email read vs write**: Questions about email content ("what emails", "anything in gmail", "did someone email about X") → retrieval. Only route to email_agent when the user explicitly wants to COMPOSE or SEND a new email (e.g. "write an email to...", "send a message to...", "draft a reply to...").
-8. **Temporal diff**: "What changed since X" / "what's new this week" questions go to diff_agent, not retrieval. diff_agent is terminal — it delivers the final answer itself.`;
+7. **Temporal diff**: "What changed since X" / "what's new this week" questions go to diff_agent, not retrieval. diff_agent is terminal — it delivers the final answer itself.`;
 
 // Common stopwords excluded from query-term coverage measurement
 const STOPWORDS = new Set([
@@ -149,20 +145,6 @@ export async function supervisor(state: AtheneStateType) {
   let taskType = response.task_type;
   let isCrossDeptQuery = state.is_cross_dept_query ?? false;
   let reasoning = response.reasoning;
-
-  // ── Email read guard: email_agent is write-only (draft/send).
-  // Any question ABOUT email content must go to retrieval (emails are indexed in vector DB).
-  // Only explicit compose/send intent should reach email_agent.
-  if (nextAgent === "email_agent") {
-    const lastMsg = state.messages[state.messages.length - 1];
-    const text = (typeof lastMsg?.content === "string" ? lastMsg.content : "").toLowerCase();
-    const writeIntent = /\b(send|draft|write|compose|reply|respond|email to|message to)\b/.test(text);
-    if (!writeIntent) {
-      nextAgent = "retrieval";
-      taskType = "document_search";
-      reasoning = `[Guard] email_agent requires explicit send/compose intent — routed to retrieval. (${reasoning})`;
-    }
-  }
 
   // ── Role guard: members cannot use cross_dept_retrieval ──
   if (nextAgent === "cross_dept_retrieval" && userRole === "member") {

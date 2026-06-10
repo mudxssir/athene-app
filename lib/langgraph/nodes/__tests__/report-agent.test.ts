@@ -27,7 +27,7 @@ vi.mock("@/lib/tools/vector-search", () => ({
   vectorSearch: (...args: unknown[]) => mockVectorSearch(...args),
 }));
 
-vi.mock("../tools/graph-query", () => ({
+vi.mock("../../tools/graph-query", () => ({
   graphQueryTool: {
     func: vi.fn().mockResolvedValue("No knowledge graph data available"),
   },

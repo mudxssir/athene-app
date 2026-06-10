@@ -9,7 +9,6 @@ import {
   BarChart3,
   BarChart2,
   Newspaper,
-  FlaskConical,
   GitBranch,
   Users,
   Blocks,
@@ -19,7 +18,6 @@ import {
   Bot,
   Database,
   Network,
-  Zap,
   Bell,
 } from "lucide-react";
 import { UserButton, useUser } from "@clerk/nextjs";
@@ -267,38 +265,13 @@ function AppSidebar({ role, className }: { role: UserRole; className?: string })
               href="/decisions"
               active={isRouteActive(pathname, "/decisions")}
             />
-            <SidebarItem
-              icon={FlaskConical}
-              label="Agent Laboratory"
-              href="/builder"
-              active={isRouteActive(pathname, "/builder")}
-            />
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
 
-      {/* ── Footer: Deploy button ───────────────────────────── */}
+      {/* FROZEN (REFOCUS §3.2): "Agent Laboratory" nav item and "Deploy agent"
+          footer link to /builder removed — automation builder UI is frozen. */}
       <SidebarFooter className="p-[10px] pt-6 border-t border-[var(--border-soft)]">
-        <Link
-          href="/builder"
-          className={cn(
-            "flex items-center justify-center gap-[10px] w-full",
-            // 52px height, 16px radius — exact design kit spec
-            "h-[52px] rounded-[16px]",
-            "bg-primary text-white",
-            "text-[10px] font-extrabold uppercase tracking-[0.3em]",
-            "hover:bg-[var(--primary-hover)]",
-            "active:translate-y-[1px]",
-            "transition-all duration-150",
-            // Warm deep shadow from design kit
-            "shadow-[0_14px_30px_-10px_rgba(160,74,27,0.55)]",
-            "group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:aspect-square"
-          )}
-        >
-          <Zap size={14} className="shrink-0" />
-          <span className="group-data-[collapsible=icon]:hidden">Deploy agent</span>
-        </Link>
-
         {/* ── User card — always reserves height to prevent layout shift ──── */}
         <div className="group-data-[collapsible=icon]:hidden mt-3 rounded-[14px] border border-[var(--border-soft)] bg-[var(--bg-muted)] overflow-hidden">
           {user ? (
