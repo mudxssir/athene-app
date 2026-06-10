@@ -39,6 +39,9 @@ export interface BuildResult {
   totalEdges: number
   errors: string[]
   remainingDocs: string[] // ATH-60: for recursive re-enqueuing
+  /** Chunks that fell back to content_preview (< 500 chars) because chunk_text was absent.
+   * A high ratio indicates documents need re-indexing to populate the chunk_text column. */
+  shortTextChunks: number
 }
 
 
@@ -65,6 +68,7 @@ export async function buildGraphForDocuments(
     totalEdges: 0,
     errors: [],
     remainingDocs: [],
+    shortTextChunks: 0,
   }
 
 
@@ -163,12 +167,18 @@ async function processDocument(
     throw new Error(`No indexed chunks found for document ${docId}. Document must be indexed before KG extraction.`)
   }
 
-  // Verify at least one chunk has text before proceeding
+  // Check if at least one chunk has usable text.  When all chunks are empty we
+  // can't extract anything useful — warn and skip rather than throw, so a single
+  // un-indexed document doesn't abort the rest of the batch.
   const hasText = embRows.some(
-    (row: any) => ((row.metadata as any)?.chunk_text ?? row.content_preview ?? '').length > 0
+    (row: any) => ((row.metadata as any)?.chunk_text ?? row.content_preview ?? '').trim().length > 0
   )
   if (!hasText) {
-    throw new Error(`Empty chunk text for document ${docId}; metadata may be missing chunk_text field`)
+    logger.warn(
+      { orgId, docId },
+      "[builder] All chunks have empty text — skipping KG extraction. Re-index this document to populate chunk_text."
+    )
+    return false // treated as skipped, not an error
   }
 
   // 4. Build RLS context for storage writes
@@ -184,10 +194,16 @@ async function processDocument(
   // 6. Run entity/relation extraction.
   // Use the stored sub-chunks from document_embeddings directly — no re-chunking.
   // Re-chunking with a different strategy would misalign KG citations with vector search results.
+  let docShortTextChunks = 0
   const extractorChunks = embRows
     .map((row: any, idx: number) => {
-      const text: string = (row.metadata as any)?.chunk_text ?? row.content_preview ?? ''
+      const chunkText: string = (row.metadata as any)?.chunk_text?.trim() ?? ''
+      const preview: string = row.content_preview?.trim() ?? ''
+      const text = chunkText || preview
       if (!text) return null
+      // Track chunks where chunk_text was absent and we fell back to content_preview.
+      // content_preview is capped at 200 chars, so these are always "short".
+      if (!chunkText && preview) docShortTextChunks++
       return {
         text,
         chunk_index: row.chunk_index ?? idx,
@@ -199,6 +215,17 @@ async function processDocument(
       }
     })
     .filter((c): c is NonNullable<typeof c> => c !== null)
+
+  result.shortTextChunks += docShortTextChunks
+
+  // Warn when most chunks are short-text fallbacks — signals the whole document
+  // needs re-indexing to get full chunk_text into metadata.
+  if (extractorChunks.length > 0 && docShortTextChunks / extractorChunks.length > 0.5) {
+    logger.warn(
+      { orgId, docId, shortTextChunks: docShortTextChunks, totalChunks: extractorChunks.length },
+      "[builder] >50% of chunks used content_preview fallback — re-index this document for better KG quality"
+    )
+  }
 
   // Tier A/B gate (REFOCUS §5.3): Slack chunks get embeddings only unless
   // they match decision/blocker signal patterns — no LLM call otherwise.

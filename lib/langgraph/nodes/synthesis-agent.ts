@@ -153,16 +153,30 @@ export async function synthesisAgentNode(
     ? `DOMAIN GUIDANCE:\n${(matchedModule ?? verticalModule)!.synthesis_prompt_addendum}`
     : "";
 
-  // Build vector context
-  const context =
-    vectorChunks.length > 0
-      ? vectorChunks
-          .map(
-            (c: RetrievedChunk) =>
-              `[document_id: ${c.document_id}]\nContent: ${c.content_preview}`
-          )
-          .join("\n\n---\n\n")
+  // Build vector context — use chunk_text (full stored text) for LLM context;
+  // fall back to content_preview for documents indexed before §4 P0-A migration.
+  // Chunks where both are empty are skipped — they'd inject a blank section and
+  // mislead the LLM about how much evidence is available.
+  const textChunks = vectorChunks.filter((c) => {
+    const text = (c as any).chunk_text?.trim() || c.content_preview?.trim();
+    return !!text;
+  });
+
+  let context: string;
+  if (textChunks.length === 0) {
+    context = vectorChunks.length > 0
+      ? "Retrieved chunks exist but contain no readable text. The affected documents may need to be re-indexed."
       : "No document chunks retrieved.";
+  } else {
+    context = textChunks
+      .map((c: RetrievedChunk) => {
+        const bodyText = (c as any).chunk_text?.trim() || c.content_preview?.trim() || "";
+        const titleLabel = c.title ? ` | ${c.title}` : "";
+        const header = `[document_id: ${c.document_id}${titleLabel} | ${c.source_type}]`;
+        return `${header}\n${bodyText}`;
+      })
+      .join("\n\n---\n\n");
+  }
 
   // Build graph context
   const graphContext = buildGraphContext(graphResults);
@@ -219,7 +233,7 @@ function extractCitations(text: string, chunks: RetrievedChunk[]): CitedSource[]
     if (!chunk) return [];
     return [{
       document_id: chunk.document_id,
-      title: null,
+      title: chunk.title ?? null,
       external_url: chunk.external_url,
       chunk_index: chunk.chunk_index,
       source_type: chunk.source_type,

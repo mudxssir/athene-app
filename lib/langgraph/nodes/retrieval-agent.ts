@@ -54,6 +54,12 @@ function extractQueryText(messages: any[]): string {
 
 /**
  * Parses the vector search tool output into typed chunk objects.
+ *
+ * After §4 P0-A the RPC returns both `chunk_text` (full text for LLM) and
+ * `content_preview` (200-char display snippet). Chunks where both fields are
+ * empty are filtered out — they're ghost rows that would inject blank context
+ * into the synthesis prompt and mislead the LLM about how much data exists.
+ *
  * Always returns an array — never throws.
  */
 function parseVectorResults(
@@ -63,7 +69,14 @@ function parseVectorResults(
   chunk_id?: string;
   document_id: string;
   score?: number;
+  /**
+   * Full chunk text for LLM context. Populated from `chunk_text` (new column)
+   * with `content_preview` as fallback for old-indexed documents.
+   */
+  chunk_text: string;
+  /** 200-char display snippet; also used by the cross-encoder reranker. */
   content_preview: string;
+  title?: string | null;
   chunk_index: number;
   source_type: string;
   external_url?: string | null;
@@ -75,18 +88,50 @@ function parseVectorResults(
     const results = parsed.results ?? parsed;
     if (!Array.isArray(results)) return [];
 
-    return results.map((r: any) => ({
-      type: "chunk" as const,
-      chunk_id: r.chunk_id ?? r.id,
-      document_id: r.document_id,
-      score: r.similarity ?? r.score,
-      content_preview: r.content_preview ?? r.content ?? "",
-      chunk_index: r.chunk_index ?? 0,
-      source_type: r.source_type ?? "unknown",
-      external_url: r.external_url ?? null,
-      department_id: r.department_id ?? null,
-      similarity: r.similarity ?? r.score,
-    }));
+    const mapped = results.map((r: any) => {
+      // chunk_text is the new explicit full-text column (§4 P0-A migration).
+      // Fall back to content_preview for documents indexed before the migration,
+      // then to the raw `content` field for any legacy shape.
+      const chunkText: string =
+        r.chunk_text?.trim() ||
+        r.content_preview?.trim() ||
+        r.content?.trim() ||
+        "";
+
+      // content_preview is the 200-char display snippet.  For old-format rows
+      // that only have a single combined field, truncate to 200 chars.
+      const displayPreview: string =
+        r.content_preview?.trim() ||
+        chunkText.slice(0, 200);
+
+      return {
+        type: "chunk" as const,
+        chunk_id: r.chunk_id ?? r.id,
+        document_id: r.document_id,
+        score: r.similarity ?? r.score,
+        chunk_text: chunkText,
+        content_preview: displayPreview,
+        title: r.title ?? null,
+        chunk_index: r.chunk_index ?? 0,
+        source_type: r.source_type ?? "unknown",
+        external_url: r.external_url || null,
+        department_id: r.department_id ?? null,
+        similarity: r.similarity ?? r.score,
+      };
+    });
+
+    // Filter ghost rows — chunks with no text at all can't contribute to
+    // synthesis and would silently inflate the "chunks retrieved" count.
+    const valid = mapped.filter((c) => c.chunk_text.length > 0);
+    const dropped = mapped.length - valid.length;
+    if (dropped > 0) {
+      logger.warn(
+        { dropped, total: mapped.length },
+        "[retrieval] Filtered empty-text chunks — re-index affected documents"
+      );
+    }
+
+    return valid;
   } catch {
     return [];
   }

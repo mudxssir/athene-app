@@ -12,6 +12,12 @@ type Params = {
   user_role: UserRoleValue;
   query: string;
   topK?: number;
+  /**
+   * Minimum cosine-similarity threshold (0.0–1.0). Results below this value
+   * are excluded by the RPC. Defaults to 0.0 (no filter) — callers can raise
+   * this to 0.3–0.5 when they want to suppress low-relevance noise.
+   */
+  minSimilarity?: number;
 };
 
 /**
@@ -24,6 +30,7 @@ export async function vectorSearch({
   user_role,
   query,
   topK = 5,
+  minSimilarity = 0.0,
 }: Params) {
   return withVectorSearchSpan(query, orgId, topK, async (span) => {
     // Pass orgId so BYOK embedding key is used — keeps index/query embedding spaces in sync
@@ -40,21 +47,38 @@ export async function vectorSearch({
       const { data, error } = await supabase.rpc("vector_search", {
         p_embedding: JSON.stringify(embedding),
         p_limit: topK,
+        p_min_similarity: minSimilarity,
       });
 
       if (error) {
         logger.error({ error: error.message, orgId, userId, departmentId }, "[vector-search] RPC error");
         throw new Error(`[vector-search] ${error.message}`);
       }
-      
-      if (!data || data.length === 0) {
-        logger.warn({ orgId, userId, departmentId, user_role, topK }, "[vector-search] Returned 0 results for query");
+
+      const rows = data ?? [];
+
+      if (rows.length === 0) {
+        logger.warn(
+          { orgId, userId, departmentId, user_role, topK, minSimilarity },
+          "[vector-search] 0 results — org may have no indexed content, or min_similarity threshold is too high"
+        );
       } else {
-        logger.info({ orgId, resultsCount: data.length }, "[vector-search] Retrieved chunks successfully");
+        // Warn when results lack chunk_text (old-indexed docs pre-zero-copy design).
+        const emptyText = rows.filter(
+          (r: any) => !r.chunk_text?.trim() && !r.content_preview?.trim()
+        ).length;
+        if (emptyText > 0) {
+          logger.warn(
+            { orgId, emptyText, total: rows.length },
+            "[vector-search] Some chunks have no text — re-index affected documents to populate chunk_text"
+          );
+        }
+        logger.info({ orgId, resultsCount: rows.length }, "[vector-search] Retrieved chunks");
       }
-      
-      return data ?? [];
+
+      return rows;
     });
+
     span.setAttribute("vector.results_count", result.length);
     return result;
   });
@@ -77,6 +101,8 @@ export async function crossDeptVectorSearch(params: Params) {
   }
 
   const topK = params.topK ?? 5;
+  const minSimilarity = params.minSimilarity ?? 0.0;
+
   return withVectorSearchSpan(params.query, params.orgId, topK, async (span) => {
     span.setAttribute("vector.cross_dept", true);
     // Pass orgId so BYOK embedding key is used — keeps index/query embedding spaces in sync
@@ -93,10 +119,19 @@ export async function crossDeptVectorSearch(params: Params) {
       const { data, error } = await supabase.rpc("vector_search_cross_dept", {
         p_embedding: JSON.stringify(embedding),
         p_limit: topK,
+        p_min_similarity: minSimilarity,
       });
 
       if (error) throw new Error(`[vector-search] ${error.message}`);
-      return data ?? [];
+
+      const rows = data ?? [];
+      if (rows.length === 0) {
+        logger.warn(
+          { orgId: params.orgId, topK, minSimilarity },
+          "[vector-search/cross-dept] 0 results"
+        );
+      }
+      return rows;
     });
     span.setAttribute("vector.results_count", result.length);
     return result;

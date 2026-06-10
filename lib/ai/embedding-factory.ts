@@ -352,10 +352,40 @@ function assertDims(vec: number[]): void {
   }
 }
 
+// ---- Cold-start provider visibility ------------------------------------
+
+// Fires once per process: logs which embedding provider is active so that
+// dimension mismatches are diagnosable from boot logs before any search
+// query reaches the DB.  Does NOT call the provider API — resolves config only.
+let _providerLogged = false
+
+export async function logEmbeddingProviderInfo(orgId?: string): Promise<void> {
+  if (_providerLogged) return
+  _providerLogged = true
+
+  const byok = orgId ? await fetchByokEmbeddingConfig(orgId).catch(() => null) : null
+  const system = resolveSystemConfig()
+  const active = byok ?? system
+
+  if (active) {
+    logger.info(
+      { provider: active.provider, model: active.model, dims: active.dims, source: byok ? "byok" : "system" },
+      "[EmbeddingFactory] Active provider on startup"
+    )
+  } else {
+    logger.warn(
+      { dims: EMBEDDING_DIMS },
+      "[EmbeddingFactory] No API provider configured — will use local Xenova/bge fallback"
+    )
+  }
+}
+
 // ---- Public API --------------------------------------------------------
 
 /** Embed a single text string. Uses org BYOK if orgId provided. */
 export async function embed(text: string, orgId?: string, hint?: EmbeddingHint): Promise<number[]> {
+  // Log provider once on first real call so cold-start logs show active config.
+  logEmbeddingProviderInfo(orgId).catch(() => undefined)
   const results = await embedTexts([text], orgId, hint)
   assertDims(results[0])
   return results[0]

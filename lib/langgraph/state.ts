@@ -112,9 +112,24 @@ export type AtheneStateUpdate = Partial<AtheneStateType>;
 export type UserRole = "member" | "super_user" | "admin";
 
 export interface RetrievedChunk {
+  /** RPC-assigned row UUID (document_embeddings.id). */
+  chunk_id?: string;
+  /** Legacy alias kept for callers that set id instead of chunk_id. */
   id?: string;
   document_id: string;
+  /**
+   * Full stored chunk text (metadata->>'chunk_text' or full content_preview).
+   * This is what gets sent to the LLM for synthesis context.
+   * Populated by vector_search RPC after §4 P0-A migration.
+   */
+  chunk_text?: string;
+  /**
+   * 200-character display snippet for UI tooltips and citations.
+   * Also used as the fallback for `chunk_text` on old-indexed documents.
+   */
   content_preview: string;
+  /** Document title from the documents JOIN — populated after §4 P0-A migration. */
+  title?: string | null;
   chunk_index: number;
   source_type: string;
   external_url?: string | null;
