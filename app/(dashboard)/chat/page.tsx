@@ -406,6 +406,30 @@ export default function ChatPage() {
     // threadId is stable in this closure (doesn't change during a single submit)
     const activeThreadId = threadId;
 
+    // Checks the LangGraph checkpoint to see if the agent already completed.
+    // Called before any POST retry to avoid injecting a duplicate HumanMessage
+    // into the checkpoint when the SSE stream drops (Vercel timeout, network hiccup)
+    // but the agent has already finished processing and persisted its state.
+    // Returns true and patches the assistant bubble if recovery succeeded.
+    async function tryStatusRecovery(): Promise<boolean> {
+      try {
+        const sr = await fetch(`/api/agent/status?threadId=${encodeURIComponent(activeThreadId)}`);
+        if (!sr.ok) return false;
+        const sd = await sr.json();
+        const fa = sd.values?.final_answer as string | null | undefined;
+        if (fa && (sd.status === "completed" || sd.status === "done")) {
+          setMessages(prev => prev.map(m =>
+            m.id === assistantId
+              ? { ...m, content: fa, cited_sources: sd.values?.cited_sources ?? [] }
+              : m
+          ));
+          setTimeout(loadThreadList, 500);
+          return true;
+        }
+      } catch { /* ignore */ }
+      return false;
+    }
+
     while (attempt <= MAX_RETRIES && !success) {
       if (attempt > 0) {
         setReconnecting(true);
@@ -416,27 +440,6 @@ export default function ChatPage() {
       // Tracks tokens/content received in this attempt — used to decide whether
       // to check the status endpoint vs. retry POST on unexpected stream close.
       let accumulated = "";
-
-      // Helper: check status endpoint and restore final answer if agent finished.
-      // Returns true if the agent had already completed and the message was restored.
-      async function tryStatusRecovery(): Promise<boolean> {
-        try {
-          const sr = await fetch(`/api/agent/status?threadId=${encodeURIComponent(activeThreadId)}`);
-          if (!sr.ok) return false;
-          const sd = await sr.json();
-          const fa = sd.values?.final_answer as string | null | undefined;
-          if (fa && (sd.status === "completed" || sd.status === "done")) {
-            setMessages(prev => prev.map(m =>
-              m.id === assistantId
-                ? { ...m, content: fa, cited_sources: sd.values?.cited_sources ?? [] }
-                : m
-            ));
-            setTimeout(loadThreadList, 500);
-            return true;
-          }
-        } catch { /* ignore */ }
-        return false;
-      }
 
       try {
         const res = await fetch("/api/agent", {

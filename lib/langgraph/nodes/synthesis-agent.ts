@@ -145,7 +145,7 @@ export async function synthesisAgentNode(
     : null;
   // Match by department_id stored on chunks against modules by any activating_source presence
   // Fallback: match module by dept UUID via a direct lookup on chunks source_type
-  const chunkSourceTypes = [...new Set(vectorChunks.map((c) => (c as any).source_type).filter(Boolean))];
+  const chunkSourceTypes = [...new Set(vectorChunks.map((c) => c.source_type).filter(Boolean))];
   const matchedModule = VERTICAL_MODULES.find((m) =>
     m.activating_sources.some((s) => chunkSourceTypes.includes(s))
   );
@@ -158,7 +158,7 @@ export async function synthesisAgentNode(
   // Chunks where both are empty are skipped — they'd inject a blank section and
   // mislead the LLM about how much evidence is available.
   const textChunks = vectorChunks.filter((c) => {
-    const text = (c as any).chunk_text?.trim() || c.content_preview?.trim();
+    const text = c.chunk_text?.trim() || c.content_preview?.trim();
     return !!text;
   });
 
@@ -170,7 +170,7 @@ export async function synthesisAgentNode(
   } else {
     context = textChunks
       .map((c: RetrievedChunk) => {
-        const bodyText = (c as any).chunk_text?.trim() || c.content_preview?.trim() || "";
+        const bodyText = c.chunk_text?.trim() || c.content_preview?.trim() || "";
         const titleLabel = c.title ? ` | ${c.title}` : "";
         const header = `[document_id: ${c.document_id}${titleLabel} | ${c.source_type}]`;
         return `${header}\n${bodyText}`;
