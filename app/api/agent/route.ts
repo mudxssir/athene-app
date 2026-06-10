@@ -128,6 +128,7 @@ export async function POST(req: NextRequest) {
       .eq("id", effectiveThreadId)
       .maybeSingle();
 
+    const isNewThread = !existingThread;
     const newMessageCount = (existingThread?.message_count || 0) + 1;
 
     const { error: threadError } = await supabaseAdmin
@@ -139,6 +140,9 @@ export async function POST(req: NextRequest) {
         message_count: newMessageCount,
         last_message_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        // Derive title from first message — stored once, never overwritten on updates.
+        // ON CONFLICT + spread means title is only included on INSERT (new thread).
+        ...(isNewThread ? { title: message.replace(/\s+/g, " ").trim().slice(0, 80) } : {}),
       }, { onConflict: "id" });
 
     if (threadError) {
