@@ -23,14 +23,6 @@ const INTERNAL_TO_CLERK_ROLE: Record<string, string> = {
   super_user: "org:bi_analyst",
 };
 
-// Internal role → Clerk org role (inverse of mapRole in lib/auth/clerk.ts)
-const INTERNAL_TO_CLERK_ROLE: Record<string, string> = {
-  admin: "org:admin",
-  member: "org:member",
-  super_user: "org:bi_analyst",
-};
-
-
 /**
  * PATCH /api/admin/users/[id]
  * Updates user role, department, or active status.

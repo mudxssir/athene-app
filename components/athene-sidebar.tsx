@@ -19,6 +19,7 @@ import {
   Database,
   Network,
   Bell,
+  Briefcase,
 } from "lucide-react";
 import { UserButton, useUser } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
@@ -102,6 +103,7 @@ function AppSidebar({ role, className }: { role: UserRole; className?: string })
 
   const primaryItems = [
     { icon: LayoutDashboard, label: "Today",     href: "/dashboard" },
+    { icon: Briefcase,       label: "My Work",   href: "/my-work" },
     { icon: MessageSquare,   label: "Ask",       href: "/chat" },
     { icon: Network,         label: "Graph",     href: "/graph" },
     { icon: Newspaper,       label: "Briefings", href: "/briefing" },
