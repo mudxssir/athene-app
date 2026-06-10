@@ -9,6 +9,7 @@ import type { UserRole } from "@/lib/auth/rbac";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { AlertInbox } from "@/components/watchlists/alert-inbox";
 // stampFor is derived from ROUTE_CONFIG in kit.tsx — single source of truth
 import { stampFor } from "@/components/ui/kit";
 
@@ -103,6 +104,7 @@ const Header = memo(function HeaderContent({ role }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-2">
+          <AlertInbox />
           <ThemeToggle />
           {role === "admin" && (
             <>

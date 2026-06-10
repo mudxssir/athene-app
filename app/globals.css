@@ -468,3 +468,8 @@
   .stagger-4 { animation-delay: 400ms; }
   .stagger-5 { animation-delay: 500ms; }
 }
+
+@keyframes athene-sync-slide {
+  0%   { transform: translateX(-150%); }
+  100% { transform: translateX(350%); }
+}

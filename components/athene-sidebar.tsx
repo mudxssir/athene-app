@@ -20,6 +20,7 @@ import {
   Database,
   Network,
   Zap,
+  Bell,
 } from "lucide-react";
 import { UserButton, useUser } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
@@ -106,8 +107,9 @@ function AppSidebar({ role, className }: { role: UserRole; className?: string })
     { icon: MessageSquare,   label: "Ask",       href: "/chat" },
     { icon: Network,         label: "Graph",     href: "/graph" },
     { icon: Newspaper,       label: "Briefings", href: "/briefing" },
-    { icon: BarChart3,       label: "Insights",  href: "/insights" },
-    { icon: Blocks,          label: "Sources",   href: "/admin/integrations" },
+    { icon: BarChart3,       label: "Insights",   href: "/insights" },
+    { icon: Bell,            label: "Watchlists", href: "/watchlists" },
+    { icon: Blocks,          label: "Sources",    href: "/admin/integrations" },
   ];
 
   const adminItems = [

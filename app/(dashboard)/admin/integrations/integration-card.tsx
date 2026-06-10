@@ -149,13 +149,21 @@ export function IntegrationCard({
 
   return (
     <div className={cn(
-      "group relative rounded-[2rem] sm:rounded-[2.5rem] bg-card border p-4 sm:p-6 md:p-8 transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl",
+      "group relative rounded-[2rem] sm:rounded-[2.5rem] bg-card border overflow-hidden p-4 sm:p-6 md:p-8 transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl",
       isError
         ? "border-amber-400/25 hover:border-amber-400/40 hover:shadow-amber-500/5"
         : isStale
         ? "border-yellow-400/25 hover:border-yellow-400/40 hover:shadow-yellow-500/5"
         : "border-white/5 hover:border-white/10 hover:shadow-primary/5"
     )}>
+      {/* Sync progress bar — indeterminate, shown at top of card while syncing */}
+      {isSyncing && (
+        <div className="absolute top-0 left-0 right-0 h-[3px] bg-blue-400/20 overflow-hidden">
+          <div className="h-full w-1/2 bg-blue-400 rounded-full"
+            style={{ animation: "athene-sync-slide 1.6s ease-in-out infinite" }}
+          />
+        </div>
+      )}
       <div className="absolute top-0 right-0 p-8 flex flex-col items-end gap-2">
         <Badge className={cn("rounded-full px-3 py-1 font-black text-[9px] uppercase tracking-widest border", config.color)}>
            <div className="flex items-center gap-1.5">

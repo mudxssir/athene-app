@@ -16,6 +16,7 @@ import { ProviderConfig, getProvider } from "@/lib/integrations/providers";
 
 export default function OnboardingConnectionsPage() {
   const [connectedCount, setConnectedCount] = useState(0);
+  const [connectedProviders, setConnectedProviders] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
   const topProviders = [
@@ -89,10 +90,19 @@ export default function OnboardingConnectionsPage() {
                      no Nango catalog modal. Each card manages its own connection state. */}
                  <OAuthConnectButton
                    provider={provider}
-                   onConnected={() => setConnectedCount(prev => prev + 1)}
+                   onConnected={() => {
+                     setConnectedCount(prev => prev + 1);
+                     setConnectedProviders(prev => new Set([...prev, provider.key]));
+                   }}
                    onError={(msg) => setError(msg)}
                    className="w-full h-10 rounded-xl bg-white text-black hover:bg-white/90"
                  />
+                 {connectedProviders.has(provider.key) && (
+                   <p className="mt-2 flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-emerald-400/80">
+                     <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                     Indexing in background
+                   </p>
+                 )}
               </div>
            ))}
         </div>
