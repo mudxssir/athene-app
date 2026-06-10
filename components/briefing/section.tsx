@@ -1,10 +1,10 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Calendar, Mail, FileText, ChevronRight, Brain, AlertCircle, WifiOff } from 'lucide-react';
+import { Calendar, Mail, FileText, ChevronRight, Brain, AlertCircle, WifiOff, ShieldAlert, CalendarClock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
-type SectionType = 'calendar' | 'emails' | 'docs' | 'knowledge';
+type SectionType = 'calendar' | 'emails' | 'docs' | 'knowledge' | 'blockers' | 'obligations';
 
 interface BriefingSectionProps {
   type: SectionType;
@@ -18,32 +18,40 @@ interface BriefingSectionProps {
 // Defined as ReactNode (not ReactElement) so we render directly — no
 // cloneElement needed (which would silently strip the color className).
 const icons: Record<SectionType, React.ReactNode> = {
-  calendar: <Calendar className="w-8 h-8 text-primary" />,
-  emails:   <Mail     className="w-8 h-8 text-secondary" />,
-  docs:     <FileText className="w-8 h-8 text-accent" />,
-  knowledge:<Brain    className="w-8 h-8 text-primary" />,
+  calendar:    <Calendar      className="w-8 h-8 text-primary" />,
+  emails:      <Mail          className="w-8 h-8 text-secondary" />,
+  docs:        <FileText      className="w-8 h-8 text-accent" />,
+  knowledge:   <Brain         className="w-8 h-8 text-primary" />,
+  blockers:    <ShieldAlert   className="w-8 h-8 text-amber-500" />,
+  obligations: <CalendarClock className="w-8 h-8 text-red-500" />,
 };
 
 const gradients = {
-  calendar: 'bg-primary/20',
-  emails: 'bg-secondary/20',
-  docs: 'bg-accent/20',
-  knowledge: 'bg-primary/20',
+  calendar:    'bg-primary/20',
+  emails:      'bg-secondary/20',
+  docs:        'bg-accent/20',
+  knowledge:   'bg-primary/20',
+  blockers:    'bg-amber-500/20',
+  obligations: 'bg-red-500/20',
 };
 
 const borderColors = {
-  calendar: 'border-primary/20',
-  emails: 'border-secondary/20',
-  docs: 'border-accent/20',
-  knowledge: 'border-primary/20',
+  calendar:    'border-primary/20',
+  emails:      'border-secondary/20',
+  docs:        'border-accent/20',
+  knowledge:   'border-primary/20',
+  blockers:    'border-amber-500/20',
+  obligations: 'border-red-500/20',
 };
 
 /** Label shown for each section when no data source is connected */
 const noDataLabels: Record<SectionType, string> = {
-  calendar: 'calendar',
-  emails:   'email',
-  docs:     'document',
-  knowledge:'knowledge',
+  calendar:    'calendar',
+  emails:      'email',
+  docs:        'document',
+  knowledge:   'knowledge',
+  blockers:    'blocker',
+  obligations: 'obligation',
 };
 
 export function BriefingSection({ type, title, content, className, status }: BriefingSectionProps) {

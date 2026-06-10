@@ -21,6 +21,8 @@ interface BriefingContent {
   calendar?: string;
   emails?: string;
   docs?: string;
+  blockers?: string;
+  obligations?: string;
   knowledge?: string;
   section_status?: Record<string, 'ok' | 'failed' | 'no_data'>;
 }
@@ -405,8 +407,28 @@ export default function BriefingPage() {
               status={briefing.content?.section_status?.docs}
             />
           </TCard>
-          {briefing.content?.knowledge && (
+          {(briefing.content?.blockers || briefing.content?.section_status?.blockers) && (
             <TCard i={5}>
+              <BriefingSection
+                type="blockers"
+                title="Your Blockers"
+                content={briefing.content.blockers ?? ""}
+                status={briefing.content?.section_status?.blockers}
+              />
+            </TCard>
+          )}
+          {(briefing.content?.obligations || briefing.content?.section_status?.obligations) && (
+            <TCard i={6}>
+              <BriefingSection
+                type="obligations"
+                title="Obligations & Deadlines"
+                content={briefing.content.obligations ?? ""}
+                status={briefing.content?.section_status?.obligations}
+              />
+            </TCard>
+          )}
+          {briefing.content?.knowledge && (
+            <TCard i={7}>
               <BriefingSection
                 type="knowledge"
                 title="Executive Summary"

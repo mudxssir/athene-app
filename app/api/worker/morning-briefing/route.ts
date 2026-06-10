@@ -34,6 +34,11 @@ import { indexEmailChunks } from '@/lib/integrations/google/gmail-fetcher'
 import { fetchDriveChunks } from '@/lib/integrations/google/drive-fetcher'
 import { fetchCalendarChunks } from '@/lib/integrations/google/calendar-fetcher'
 
+// KG personal context (§6.3)
+import { getMyWork } from '@/lib/knowledge-graph/my-work'
+import { getMyObligations } from '@/lib/knowledge-graph/my-obligations'
+import type { RLSContext } from '@/lib/supabase/rls-client'
+
 import type { FetchedChunk } from '@/lib/integrations/base'
 
 // ---- Payload schema -----------------------------------------
@@ -50,6 +55,9 @@ interface BriefingContent {
   calendar?: string
   emails?: string
   docs?: string
+  // §6.3: personal KG sections
+  blockers?: string
+  obligations?: string
   knowledge?: string
   section_status?: Record<string, 'ok' | 'failed' | 'no_data'>
 }
@@ -122,7 +130,24 @@ Focus on business impact, not file names.
 DOCUMENT DATA:
 {context}`,
 
-  knowledge: `You are a strategic executive assistant. Based on all the information provided (calendar, emails, and documents), write a 2–3 sentence high-level synthesis of today's key priorities, emerging themes, and recommended focus areas.
+  // §6.3 — personal KG sections
+  blockers: `You are a strategic executive assistant. Below is a structured list of work items the user currently owns or is assigned to, along with what is blocking them (sourced from the organizational knowledge graph).
+Write a concise 2–4 sentence briefing covering: which items are blocked, what is blocking them, how long they have been blocked, and whether any blockers require immediate action today.
+Flag uncertain inferences explicitly (marked as INFERRED or AMBIGUOUS in the data).
+If no blockers exist, say so in one sentence.
+
+BLOCKER DATA:
+{context}`,
+
+  obligations: `You are a strategic executive assistant. Below is a list of the user's open commitments, deadlines, and regulatory obligations extracted from organizational documents.
+Write a concise 2–3 sentence briefing covering: overdue obligations (most urgent), obligations due this week, and any compliance or contractual items that need attention today.
+If there are no open obligations, say so in one sentence.
+
+OBLIGATIONS DATA:
+{context}`,
+
+  knowledge: `You are a strategic executive assistant. Based on all the information provided, write a 2–3 sentence high-level synthesis of today's key priorities, emerging themes, and recommended focus areas.
+Include the most important personal blockers or obligations if they are urgent.
 This is the executive summary — make it sharp and actionable.
 
 CALENDAR:
@@ -132,7 +157,47 @@ EMAILS:
 {emailContext}
 
 DOCS:
-{docsContext}`,
+{docsContext}
+
+BLOCKERS:
+{blockersContext}
+
+OBLIGATIONS:
+{obligationsContext}`,
+}
+
+// ── KG context formatters (§6.3) ─────────────────────────────────────────────
+
+function formatBlockersContext(work: Awaited<ReturnType<typeof getMyWork>>): string {
+  if (!work.person || work.items.length === 0) return 'No open items found for this user.'
+  const lines: string[] = []
+  for (const item of work.items) {
+    if (item.blockers.length === 0) continue
+    lines.push(`ITEM: ${item.node.label} (${item.node.entity_type})`)
+    for (const b of item.blockers) {
+      const prov = b.provenance !== 'EXTRACTED' ? ` [${b.provenance}]` : ''
+      const owner = b.owner ? ` — owner: ${b.owner.label}` : ''
+      lines.push(`  BLOCKED BY: ${b.node.label}${prov}${owner}`)
+      for (const u of b.upstream) {
+        const upProv = u.provenance !== 'EXTRACTED' ? ` [${u.provenance}]` : ''
+        lines.push(`    UPSTREAM: ${u.node.label}${upProv}`)
+      }
+    }
+  }
+  if (lines.length === 0) return 'User has open items but none are currently blocked.'
+  return lines.join('\n')
+}
+
+function formatObligationsContext(ob: Awaited<ReturnType<typeof getMyObligations>>): string {
+  if (!ob.person || ob.items.length === 0) return 'No open obligations found for this user.'
+  return ob.items
+    .map((o) => {
+      const due = o.dueDate ? `due ${o.dueDate}` : 'no due date'
+      const overdue = o.isOverdue ? ' [OVERDUE]' : ''
+      const actor = o.actor ? ` — responsible: ${o.actor}` : ''
+      return `${o.isOverdue ? '⚠ ' : ''}${o.node.label} (${due}${overdue})${actor}`
+    })
+    .join('\n')
 }
 
 // llm is passed in rather than resolved per-call — resolveModelClient is async
@@ -225,6 +290,24 @@ export async function POST(request: Request): Promise<Response> {
 
   logger.info({ internalOrgId, internalUserId }, '[morning-briefing] Starting briefing generation')
 
+  // ── §6.3: Build RLS context for personal KG fetches ──────
+  // Fetch the member's display_name, email, and role for person-node resolution.
+  const { data: memberDetail } = await supabaseAdmin
+    .from('org_members')
+    .select('display_name, email, role')
+    .eq('id', internalUserId)
+    .maybeSingle()
+
+  const rlsCtx: RLSContext = {
+    org_id: internalOrgId,
+    user_id: internalUserId,
+    user_role: (memberDetail?.role ?? 'member') as RLSContext['user_role'],
+  }
+  const identity = {
+    displayName: memberDetail?.display_name ?? null,
+    email: memberDetail?.email ?? null,
+  }
+
   // ── 1. Find active connections ────────────────────────────
   const [gmailConnId, calendarConnId, driveConnId] = await Promise.all([
     findConnection(internalOrgId, 'gmail'),
@@ -241,12 +324,12 @@ export async function POST(request: Request): Promise<Response> {
   const resolvedCalendarConnId = calendarConnId ?? googleUmbrellaConnId
   const resolvedDriveConnId = driveConnId ?? googleUmbrellaConnId
 
-  // ── 2. Fetch chunks in parallel ───────────────────────────
+  // ── 2. Fetch chunks + personal KG data in parallel ───────
   const now = new Date()
   const future = new Date()
   future.setDate(future.getDate() + 7) // next 7 days
 
-  const [emailChunks, calendarChunks, driveChunks] = await Promise.all([
+  const [emailChunks, calendarChunks, driveChunks, myWork, myObligations] = await Promise.all([
     resolvedGmailConnId
       ? safeFetch('gmail', () => indexEmailChunks(resolvedGmailConnId, internalOrgId, { limit: 50 }))
       : Promise.resolve([] as FetchedChunk[]),
@@ -258,43 +341,72 @@ export async function POST(request: Request): Promise<Response> {
     resolvedDriveConnId
       ? safeFetch('drive', () => fetchDriveChunks(resolvedDriveConnId, internalOrgId))
       : Promise.resolve([] as FetchedChunk[]),
+
+    // §6.3 — personal KG: blockers
+    getMyWork(rlsCtx, identity).catch((err) => {
+      logger.warn({ err: err?.message }, '[morning-briefing] getMyWork failed, skipping blockers section')
+      return { person: null, items: [] } as Awaited<ReturnType<typeof getMyWork>>
+    }),
+
+    // §6.3 — personal KG: obligations
+    getMyObligations(rlsCtx, identity).catch((err) => {
+      logger.warn({ err: err?.message }, '[morning-briefing] getMyObligations failed, skipping obligations section')
+      return { person: null, items: [] } as Awaited<ReturnType<typeof getMyObligations>>
+    }),
   ])
 
   logger.info(
-    { internalOrgId, emailChunks: emailChunks.length, calendarChunks: calendarChunks.length, driveChunks: driveChunks.length },
-    '[morning-briefing] Fetched source chunks'
+    {
+      internalOrgId,
+      emailChunks: emailChunks.length,
+      calendarChunks: calendarChunks.length,
+      driveChunks: driveChunks.length,
+      myWorkItems: myWork.items.length,
+      myObligationsItems: myObligations.items.length,
+    },
+    '[morning-briefing] Fetched source chunks + KG context'
   )
 
   // ── 3. Synthesize each section ────────────────────────────
-  // Initialize the LLM client once — reused across all 4 section calls.
+  // Initialize the LLM client once — reused across all section calls.
   const llm = await resolveModelClient('medium', internalOrgId)
 
   const calendarCtx = chunksToContext(calendarChunks, 30)
   const emailCtx = chunksToContext(emailChunks, 30)
   const docsCtx = chunksToContext(driveChunks, 20)
+  const blockersCtx = formatBlockersContext(myWork)
+  const obligationsCtx = formatObligationsContext(myObligations)
 
-  const [calendarResult, emailsResult, docsResult] = await Promise.all([
+  const [calendarResult, emailsResult, docsResult, blockersResult, obligationsResult] = await Promise.all([
     synthesizeSection(llm, internalOrgId, 'calendar', calendarCtx),
     synthesizeSection(llm, internalOrgId, 'emails', emailCtx),
     synthesizeSection(llm, internalOrgId, 'docs', docsCtx),
+    synthesizeSection(llm, internalOrgId, 'blockers', blockersCtx),
+    synthesizeSection(llm, internalOrgId, 'obligations', obligationsCtx),
   ])
 
-  // Knowledge synthesis runs after the parallel sections — it needs their context
+  // Knowledge synthesis runs after the parallel sections — it needs all context
   const knowledgeResult = await synthesizeSection(llm, internalOrgId, 'knowledge', '', {
     calendarContext: calendarCtx,
     emailContext: emailCtx,
     docsContext: docsCtx,
+    blockersContext: blockersCtx,
+    obligationsContext: obligationsCtx,
   })
 
   const content: BriefingContent = {
     calendar: calendarResult.text || undefined,
     emails: emailsResult.text || undefined,
     docs: docsResult.text || undefined,
+    blockers: blockersResult.text || undefined,
+    obligations: obligationsResult.text || undefined,
     knowledge: knowledgeResult.text || undefined,
     section_status: {
       calendar: calendarResult.status,
       emails: emailsResult.status,
       docs: docsResult.status,
+      blockers: blockersResult.status,
+      obligations: obligationsResult.status,
       knowledge: knowledgeResult.status,
     }
   }
