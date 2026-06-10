@@ -18,6 +18,8 @@ import type { KGEdge, KGNode, KGProvenance } from "./types";
 import { strongerProvenance, unionStrings, nodeKey, edgeKey } from "./utils";
 import { logger } from "@/lib/logger";
 import { embedBatch } from "@/lib/ai/embedder";
+import { registerAlias } from "./entity-resolver";
+import { KG_CONFIG } from "./config";
 
 // ---- Node upsert ----------------------------------------------
 
@@ -167,7 +169,7 @@ async function _upsertNodesWithClient(
                 p_org_id: ctx.org_id,
                 p_embedding: embeddings[i],
                 p_entity_type: node.entity_type,
-                p_threshold: 0.92,
+                p_threshold: KG_CONFIG.entity_resolution.merge_similarity_threshold,
               });
               return data ?? null;
             } catch {
@@ -176,10 +178,23 @@ async function _upsertNodesWithClient(
           })
         );
 
-        // Attach embedding and canonical_id to each insert row
+        // Attach embedding and canonical_id to each insert row.
+        // When a canonical is found, also register this label as an alias
+        // so future lookups find it via the alias table (not just ilike).
         for (let i = 0; i < insertArray.length; i++) {
           insertArray[i].label_embedding = embeddings[i];
           insertArray[i].canonical_id = canonicalIds[i];
+          if (canonicalIds[i]) {
+            // Best-effort — registerAlias swallows its own errors
+            registerAlias(
+              ctx.org_id,
+              canonicalIds[i],
+              insertArray[i].label,
+              "extraction",
+              KG_CONFIG.entity_resolution.merge_similarity_threshold,
+              embeddings[i]
+            );
+          }
         }
       } catch (embErr) {
         logger.warn(

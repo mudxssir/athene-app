@@ -10,6 +10,7 @@ import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
+import { resolveEntityAdmin } from "@/lib/knowledge-graph/entity-resolver";
 
 export const causalChainTool = new DynamicStructuredTool({
   name: "causalChain",
@@ -39,20 +40,34 @@ export const causalChainTool = new DynamicStructuredTool({
     }
 
     try {
-      // Find entity by label (case-insensitive)
+      // Resolve entity via alias-aware multi-source lookup.
+      // SERVICE-ROLE JUSTIFICATION: causal-chain runs inside the agent graph which
+      // already validates org membership via Clerk auth before invocation.
+      // Tracked for withRLS() migration in the P0 RLS audit (§5.1).
+      const candidates = await resolveEntityAdmin(orgId, entityLabel);
+      if (candidates.length === 0) {
+        return JSON.stringify({ error: `Entity "${entityLabel}" not found in knowledge graph.` });
+      }
+
+      const top = candidates[0];
+      if (candidates.length > 1) {
+        logger.info(
+          { entityLabel, top: top.label, second: candidates[1].label, sim: top.similarity },
+          "[causal-chain] Multiple entity candidates — using top match"
+        );
+      }
+
       const { data: node, error: nodeErr } = await supabaseAdmin
         .from("kg_nodes")
         .select("id, label, entity_type")
+        .eq("id", top.canonicalNodeId)
         .eq("org_id", orgId)
-        .ilike("label", `%${entityLabel}%`)
-        .limit(1)
         .maybeSingle();
 
       if (nodeErr) {
-        logger.error({ err: nodeErr.message, entityLabel }, "[causal-chain] Node lookup failed");
-        return JSON.stringify({ error: `Node lookup failed: ${nodeErr.message}` });
+        logger.error({ err: nodeErr.message, entityLabel }, "[causal-chain] Node fetch failed");
+        return JSON.stringify({ error: `Node fetch failed: ${nodeErr.message}` });
       }
-
       if (!node) {
         return JSON.stringify({ error: `Entity "${entityLabel}" not found in knowledge graph.` });
       }

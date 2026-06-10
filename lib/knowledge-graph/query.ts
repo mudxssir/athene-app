@@ -6,6 +6,7 @@
 
 import { withRLS, type RLSContext } from "@/lib/supabase/rls-client";
 import type { KGNode } from "./types";
+import { resolveEntity, type EntityCandidate, type ResolveEntityOptions } from "./entity-resolver";
 
 /**
  * Sanitise a value for use in raw PostgREST `.or()` filter strings.
@@ -380,6 +381,41 @@ export async function getCommunity(
     };
   });
 }
+
+// ---- Entity Resolution -------------------------------------------
+
+/**
+ * Resolve a free-text entity name to a node (or ranked candidates).
+ *
+ * Replaces the `ilike label … limit(1)` pattern used in causal-chain.ts
+ * and other tools. Resolution order: exact → alias_exact → embedding →
+ * alias_embedding. Returns null when nothing matches above threshold.
+ *
+ * For multi-candidate use, call resolveEntity() from entity-resolver.ts directly.
+ */
+export async function resolveNodeByLabel(
+  ctx: RLSContext,
+  query: string,
+  opts?: ResolveEntityOptions
+): Promise<GraphNode | null> {
+  const candidates = await resolveEntity(ctx, query, opts);
+  if (candidates.length === 0) return null;
+
+  const top = candidates[0];
+  return withRLS(ctx, async (supabase) => {
+    const { data, error } = await supabase
+      .from("kg_nodes")
+      .select("*")
+      .eq("id", top.canonicalNodeId)
+      .eq("org_id", ctx.org_id)
+      .maybeSingle();
+
+    if (error) throw new Error(`resolveNodeByLabel fetch failed: ${error.message}`);
+    return (data as GraphNode) ?? null;
+  });
+}
+
+export type { EntityCandidate, ResolveEntityOptions };
 
 // ---- KG-Guided Retrieval -----------------------------------------
 
