@@ -1,5 +1,6 @@
 import { githubFetch } from './client';
 import { FetchedChunk } from '../base';
+import type { StructuredLink } from '@/lib/knowledge-graph/types';
 
 const PRS_QUERY = `
   query GetPRs($owner: String!, $repo: String!, $cursor: String) {
@@ -18,6 +19,12 @@ const PRS_QUERY = `
           reviews(first: 50) {
             nodes {
               body
+            }
+          }
+          closingIssuesReferences(first: 10) {
+            nodes {
+              number
+              title
             }
           }
         }
@@ -40,7 +47,17 @@ export async function githubPrsFetcher(connectionId: string, orgId: string, owne
     for (const pr of prsResult.nodes) {
       const allReviews = pr.reviews?.nodes?.map((r: any) => r.body).filter(Boolean).join('\n---\n') || '';
       const fullContent = `Pull Request: ${pr.title}\n\n${pr.body}\n\nReviews:\n${allReviews}`;
-      
+
+      // REFOCUS §5.3: "Closes #N" references — structured-links.ts swaps
+      // RESOLVES into a RESOLVED_BY edge on the resolved issue.
+      const structuredLinks: StructuredLink[] = (pr.closingIssuesReferences?.nodes ?? [])
+        .filter((issue: any) => issue?.number)
+        .map((issue: any) => ({
+          relation: 'RESOLVES' as const,
+          target_label: `#${issue.number}: ${issue.title ?? ''}`.trim(),
+          target_entity_type: 'ticket',
+        }));
+
       const chunk: FetchedChunk = {
         chunk_id: pr.id,
         title: pr.title,
@@ -51,7 +68,8 @@ export async function githubPrsFetcher(connectionId: string, orgId: string, owne
           resource_type: 'pull_request',
           created_at: pr.createdAt,
           owner,
-          repo
+          repo,
+          ...(structuredLinks.length > 0 ? { structured_links: structuredLinks } : {})
         }
       };
       

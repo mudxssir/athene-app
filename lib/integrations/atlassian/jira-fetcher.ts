@@ -3,6 +3,39 @@ import { extractTextFromADF } from "./adf-to-text";
 import type { FetchedChunk } from "../base";
 import { assertSafeMetadata } from "../base";
 import { type SyncConfig, getSelectedResourceIds } from "../sync-config";
+import type { StructuredLink } from "@/lib/knowledge-graph/types";
+
+/**
+ * Map Jira issue links to structured graph links (REFOCUS §5.3).
+ * outwardIssue = this issue [outward verb] that issue ("blocks");
+ * inwardIssue  = that issue [outward verb] this issue ("is blocked by").
+ */
+function extractJiraLinks(issue: any): StructuredLink[] {
+  const links: StructuredLink[] = [];
+
+  for (const link of issue.fields?.issuelinks ?? []) {
+    const typeName: string = (link.type?.name ?? "").toLowerCase();
+    const outward = link.outwardIssue;
+    const inward = link.inwardIssue;
+    const target = outward ?? inward;
+    if (!target?.key) continue;
+
+    const label = `[${target.key}] ${target.fields?.summary ?? ""}`.trim();
+
+    let relation: StructuredLink["relation"];
+    if (typeName.includes("block")) {
+      relation = outward ? "BLOCKS" : "BLOCKED_BY";
+    } else if (typeName.includes("depend") && outward) {
+      relation = "DEPENDS_ON";
+    } else {
+      relation = "RELATED_TO";
+    }
+
+    links.push({ relation, target_label: label });
+  }
+
+  return links;
+}
 
 /**
  * Fetches Jira issues for the given connection and org.
@@ -49,7 +82,7 @@ export async function fetchJiraIssues(
       cloudId,
       `/rest/api/3/search?jql=${encodeURIComponent(
         jql
-      )}&startAt=${startAt}&maxResults=${maxResults}&fields=summary,description,status,assignee,reporter,created,updated,priority,sprint,comment`,
+      )}&startAt=${startAt}&maxResults=${maxResults}&fields=summary,description,status,assignee,reporter,created,updated,priority,sprint,comment,issuelinks`,
       orgId,
       "jira"
     );
@@ -84,6 +117,8 @@ export async function fetchJiraIssues(
         lines.push('', 'Comments:', commentLines)
       }
 
+      const structuredLinks = extractJiraLinks(issue);
+
       const chunk: FetchedChunk = {
         chunk_id: `jira_${issue.id}`,
         title: `[${issue.key}] ${issue.fields.summary}`,
@@ -96,6 +131,7 @@ export async function fetchJiraIssues(
           status: issue.fields.status?.name,
           priority: priority ?? null,
           last_modified: issue.fields.updated,
+          ...(structuredLinks.length > 0 ? { structured_links: structuredLinks } : {}),
         },
       };
 

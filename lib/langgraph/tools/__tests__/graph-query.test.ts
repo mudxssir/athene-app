@@ -3,7 +3,7 @@
 //
 // Mocks:
 //   - @langchain/openai (ChatOpenAI) → controlled entity extraction
-//   - @/lib/supabase/server (supabaseAdmin) → controlled DB reads
+//   - @/lib/supabase/rls-client (withRLS) → controlled DB reads
 //   - ./registry → no-op registerTool to avoid side effects
 // ============================================================
 
@@ -71,11 +71,13 @@ const {
   }
 })
 
-vi.mock('@/lib/supabase/server', () => ({
-  supabaseAdmin: {
-    from: mockFrom,
-    rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
-  },
+vi.mock('@/lib/supabase/rls-client', () => ({
+  withRLS: vi.fn(async (_ctx: unknown, cb: (c: unknown) => Promise<unknown>) =>
+    cb({
+      from: mockFrom,
+      rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+    }),
+  ),
 }))
 
 // ---- Import after mocks ------------------------------------
@@ -85,7 +87,7 @@ import { graphQueryTool } from '@/lib/langgraph/tools/graph-query'
 // ---- Helpers ------------------------------------------------
 
 function makeConfig(orgId: string, role: string) {
-  return { configurable: { orgId, role } }
+  return { configurable: { orgId, userId: 'user-1', role } }
 }
 
 function fakeLLMResponse(content: string) {

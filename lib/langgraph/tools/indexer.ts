@@ -16,11 +16,15 @@
 // ============================================================
 
 import { createHash } from "node:crypto";
+// SERVICE-ROLE JUSTIFICATION: indexing is a background write path that runs
+// at ingest time before any user RLS context exists (embeddings, chunk counts,
+// document locks). No user-facing reads are served from this module.
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { RLSContext } from "@/lib/supabase/rls-client";
 import {
   extractEntitiesAndRelations,
 } from "@/lib/knowledge-graph/extractor";
+import { shouldRunExtraction } from "@/lib/knowledge-graph/extraction-gate";
 import { deleteByDocument, upsertEdges, upsertNodes } from "@/lib/knowledge-graph/storage";
 import type { ExtractorChunk, Visibility } from "@/lib/knowledge-graph/types";
 import { chunk as chunkText, countTokens } from "./chunker";
@@ -199,6 +203,10 @@ export async function indexDocument(
   if (buildGraph && chunks.length > 0) {
     if (!rlsContext) {
       logger.warn({ documentId }, "[indexer] buildGraph requested but no rlsContext provided — skipping KG");
+    } else if (!shouldRunExtraction(sourceType, chunks.map((c) => c.text))) {
+      // Tier A/B gate (REFOCUS §5.3): Tier B sources (Slack) get embeddings
+      // only unless a decision/blocker signal pattern matches — no LLM call.
+      logger.info({ documentId, sourceType }, "[indexer] Tier B — no signal match, skipping KG extraction");
     } else {
       const extractorChunks: ExtractorChunk[] = chunks.map((c) => ({
         text: c.text,

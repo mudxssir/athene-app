@@ -4,13 +4,12 @@
  * Runs two parallel retrievals across different time windows, then
  * synthesises a structured diff: what's new, what's gone, what shifted.
  *
- * Not wired into the graph yet. Add to graph.ts and supervisor routing
- * when ready to ship.
+ * Wired into graph.ts + supervisor routing (REFOCUS §5.4).
  */
 import { AIMessage } from "@langchain/core/messages";
 import type { AtheneState, AtheneStateUpdate } from "../state";
 import { resolveModelClient } from "../llm-factory";
-import { supabaseAdmin } from "@/lib/supabase/server";
+import { withRLS, type RLSContext } from "@/lib/supabase/rls-client";
 
 const DIFF_SYSTEM_PROMPT = `You are an enterprise intelligence analyst comparing two snapshots of knowledge across a time window.
 
@@ -38,31 +37,33 @@ Rules:
 - If context is too sparse to compare, say so clearly.
 - Do not hallucinate. Only state what the context supports.`;
 
-/** Fetch document chunks created within a time window */
+/** Fetch document chunks created within a time window (RLS-scoped, §5.1) */
 async function fetchChunksInWindow(
-  orgId: string,
-  deptId: string | null,
+  ctx: RLSContext,
   fromDate: Date,
   toDate: Date,
 ): Promise<string[]> {
-  let query = supabaseAdmin
-    .from("document_chunks")
-    .select("content_preview, source_type, metadata")
-    .eq("org_id", orgId)
-    .gte("created_at", fromDate.toISOString())
-    .lte("created_at", toDate.toISOString())
-    .order("created_at", { ascending: false })
-    .limit(20);
+  return withRLS(ctx, async (supabase) => {
+    let query = supabase
+      .from("document_embeddings")
+      .select("content_preview, source_type, metadata")
+      .eq("org_id", ctx.org_id)
+      .gte("created_at", fromDate.toISOString())
+      .lte("created_at", toDate.toISOString())
+      .order("created_at", { ascending: false })
+      .limit(20);
 
-  if (deptId) {
-    query = query.eq("department_id", deptId);
-  }
+    if (ctx.department_id) {
+      query = query.eq("department_id", ctx.department_id);
+    }
 
-  const { data } = await query;
-  return (data ?? []).map(
-    (r: any) =>
-      `[${r.source_type}] ${r.content_preview}${r.metadata?.chunk_text ? " " + r.metadata.chunk_text.slice(0, 300) : ""}`,
-  );
+    const { data, error } = await query;
+    if (error) throw new Error(`diff window fetch failed: ${error.message}`);
+    return (data ?? []).map(
+      (r: any) =>
+        `[${r.source_type}] ${r.content_preview ?? ""}${r.metadata?.chunk_text ? " " + r.metadata.chunk_text.slice(0, 300) : ""}`,
+    );
+  });
 }
 
 /** Parse a natural language time reference into a Date boundary */
@@ -90,7 +91,7 @@ function parseTimeBoundary(query: string): Date {
 export async function diffAgentNode(
   state: AtheneState,
 ): Promise<AtheneStateUpdate> {
-  const { orgId, deptId, messages } = state;
+  const { orgId, userId, deptId, role, messages } = state;
   const userQuery = messages.filter((m) => m._getType() === "human").pop()?.content;
   if (!userQuery || typeof userQuery !== "string") {
     return {
@@ -99,6 +100,13 @@ export async function diffAgentNode(
     };
   }
 
+  const ctx: RLSContext = {
+    org_id: orgId,
+    user_id: userId,
+    department_id: deptId ?? undefined,
+    user_role: (role as RLSContext["user_role"]) ?? undefined,
+  };
+
   const boundary = parseTimeBoundary(userQuery);
   const now = new Date();
   // "Past" window: equal-length period before the boundary
@@ -106,8 +114,8 @@ export async function diffAgentNode(
   const pastStart = new Date(boundary.getTime() - windowMs);
 
   const [pastChunks, currentChunks] = await Promise.all([
-    fetchChunksInWindow(orgId, deptId, pastStart, boundary),
-    fetchChunksInWindow(orgId, deptId, boundary, now),
+    fetchChunksInWindow(ctx, pastStart, boundary),
+    fetchChunksInWindow(ctx, boundary, now),
   ]);
 
   if (!pastChunks.length && !currentChunks.length) {

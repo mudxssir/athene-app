@@ -13,8 +13,14 @@
 // ============================================================
 
 import { createHash } from 'node:crypto'
+// SERVICE-ROLE JUSTIFICATION: KG build runs as a QStash background job after
+// indexing — no user RLS context exists. Reads are confined to documents /
+// document_embeddings as extraction input; user-facing reads live in query.ts
+// under withRLS().
 import { supabaseAdmin } from '@/lib/supabase/server'
 import { extractEntitiesAndRelations } from './extractor'
+import { shouldRunExtraction } from './extraction-gate'
+import { buildStructuredLinkGraph } from './structured-links'
 import { upsertGraph, deleteByDocument } from './storage'
 import { detectCommunities } from './community'
 import { extractAndUpsertEvents } from './event-extractor'
@@ -126,7 +132,7 @@ async function processDocument(
   // 1. Load the document metadata for content_hash dedup check
   const { data: doc, error: docErr } = await supabaseAdmin
     .from('documents')
-    .select('id, org_id, connection_id, external_id, source_type, content_hash, last_extracted_hash, department_id, visibility')
+    .select('id, org_id, connection_id, external_id, source_type, content_hash, last_extracted_hash, department_id, visibility, title, metadata')
     .eq('id', docId)
     .eq('org_id', orgId)
     .single()
@@ -194,7 +200,30 @@ async function processDocument(
     })
     .filter((c): c is NonNullable<typeof c> => c !== null)
 
-  const { nodes, edges } = await extractEntitiesAndRelations(extractorChunks, supabaseAdmin)
+  // Tier A/B gate (REFOCUS §5.3): Slack chunks get embeddings only unless
+  // they match decision/blocker signal patterns — no LLM call otherwise.
+  const chunkTexts = extractorChunks.map((c) => c.text)
+  const runLLM = shouldRunExtraction(doc.source_type, chunkTexts)
+  if (!runLLM) {
+    logger.info({ docId, sourceType: doc.source_type }, '[builder] Tier B — no signal match, skipping LLM extraction')
+  }
+
+  const { nodes, edges } = runLLM
+    ? await extractEntitiesAndRelations(extractorChunks, supabaseAdmin)
+    : { nodes: [], edges: [] }
+
+  // Structured links (REFOCUS §5.3): Jira/Linear/GitHub blocking links are
+  // stated by the source system — ingested as EXTRACTED/1.0 edges, no LLM.
+  const structured = buildStructuredLinkGraph({
+    id: doc.id,
+    org_id: doc.org_id,
+    title: doc.title ?? null,
+    department_id: doc.department_id ?? null,
+    visibility: doc.visibility ?? null,
+    metadata: (doc.metadata ?? null) as Record<string, unknown> | null,
+  })
+  nodes.push(...structured.nodes)
+  edges.push(...structured.edges)
 
   // BUG-12 FIX: Only update global counters after full success
   if (nodes.length > 0 || edges.length > 0) {

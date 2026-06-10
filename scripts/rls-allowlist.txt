@@ -1,0 +1,85 @@
+# RLS audit allowlist (REFOCUS §5.1)
+#
+# Files allowed to import supabaseAdmin. Every entry must carry a
+# `// SERVICE-ROLE JUSTIFICATION:` comment at the import site (lib/) or
+# enforce Clerk org-membership auth before any query (app/api/).
+#
+# Adding a file here requires review: user-facing READS must go through
+# withRLS() — service-role is for background writes, cross-org admin
+# jobs, and worker routes only.
+#
+# Format: one repo-relative path per line. Lines starting with # ignored.
+
+# ── lib: background write paths ─────────────────────────────────
+lib/langgraph/tools/indexer.ts
+lib/langgraph/tools/nango-salesforce.ts
+lib/langgraph/tools/nango-hubspot.ts
+lib/knowledge-graph/entity-resolver.ts
+lib/knowledge-graph/builder.ts
+lib/knowledge-graph/modules/resolver.ts
+lib/knowledge-graph/backfill-entity-resolution.ts
+lib/knowledge-graph/community.ts
+lib/knowledge-graph/event-extractor.ts
+
+# ── app/api: Clerk-authed admin surface ─────────────────────────
+app/api/admin/audit-log/route.ts
+app/api/admin/automations/[id]/route.ts
+app/api/admin/automations/route.ts
+app/api/admin/bi-audit/route.ts
+app/api/admin/bi-grants/[id]/route.ts
+app/api/admin/bi-grants/route.ts
+app/api/admin/departments/route.ts
+app/api/admin/integrations/[id]/check/route.ts
+app/api/admin/integrations/[id]/index/route.ts
+app/api/admin/integrations/route.ts
+app/api/admin/keys/route.ts
+app/api/admin/usage/route.ts
+app/api/admin/users/[id]/route.ts
+app/api/admin/users/route.ts
+
+# ── app/api: QStash-verified background workers ─────────────────
+app/api/worker/checkpoint-prune/route.ts
+app/api/worker/hitl-cleanup/route.ts
+app/api/worker/index/route.ts
+app/api/worker/kg-entity-resolution/route.ts
+app/api/worker/morning-briefing/route.ts
+app/api/worker/nango-fetch/route.ts
+
+# ── app/api: webhooks / infra (signature- or env-gated) ─────────
+app/api/nango/webhook/route.ts
+app/api/oauth/callback/route.ts
+app/api/health/route.ts
+app/api/test/pipeline/route.ts
+
+# ── app/api: Clerk-authed user routes (org-scoped via auth();
+#    pre-refocus pattern — migrate to withRLS opportunistically,
+#    do NOT add new routes to this section) ──────────────────────
+app/api/agent/route.ts
+app/api/briefing/route.ts
+app/api/connections/[id]/abort/route.ts
+app/api/connections/[id]/browse/route.ts
+app/api/connections/[id]/configure/route.ts
+app/api/connections/[id]/sync-config/route.ts
+app/api/connections/[id]/sync/route.ts
+app/api/connections/delete/route.ts
+app/api/connections/route.ts
+app/api/dashboard_stats/route.ts
+app/api/files/download/route.ts
+app/api/files/route.ts
+app/api/files/upload/route.ts
+app/api/graph/decisions/route.ts
+app/api/graph/edges/route.ts
+app/api/graph/nodes/route.ts
+app/api/graph/timeline/route.ts
+app/api/insights/route.ts
+app/api/integrations/resources/save/route.ts
+app/api/intelligence/route.ts
+app/api/threads/[id]/route.ts
+app/api/threads/route.ts
+app/api/user/role/route.ts
+app/api/watchlists/[id]/route.ts
+app/api/watchlists/[id]/run/route.ts
+app/api/watchlists/alerts/[id]/route.ts
+app/api/watchlists/alerts/route.ts
+app/api/watchlists/route.ts
+app/api/workflows/route.ts

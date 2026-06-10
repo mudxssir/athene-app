@@ -14,6 +14,9 @@
 // ============================================================
 
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
+// SERVICE-ROLE JUSTIFICATION: background write path (kg_events upserts) run
+// from builder.ts after indexing — no user RLS context exists. Event reads
+// for users go through causal-chain / query paths under withRLS().
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { resolveModelClient } from "@/lib/langgraph/llm-factory";
 import { logger } from "@/lib/logger";

@@ -33,6 +33,7 @@ export type EntityType =
   // Engineering module
   | "incident"
   | "runbook"
+  | "ticket"
   | "pull_request"
   | "tech_debt_item"
   | "sla_item"
@@ -81,6 +82,7 @@ export type KGRelation =
   // Incident / Engineering
   | "CAUSED"
   | "RESOLVED_BY"
+  | "BLOCKS"
   | "BLOCKED_BY"
   | "DEPLOYED_WITH"
   | "DEPRECATED_BY"
@@ -170,4 +172,22 @@ export type KGEdge = {
 export type ExtractionResult = {
   nodes: KGNode[];
   edges: KGEdge[];
+};
+
+/**
+ * A dependency/blocking link stated structurally by the source system
+ * (Jira issue links, Linear relations, GitHub closing references).
+ * Emitted by fetchers into chunk metadata as `structured_links`, then
+ * converted to EXTRACTED/1.0 edges by the graph builder (REFOCUS §5.3) —
+ * no LLM involved.
+ *
+ * Direction: this document's entity → target. "RESOLVES" is the one
+ * exception: the builder swaps it to `target —RESOLVED_BY→ this entity`.
+ */
+export type StructuredLink = {
+  relation: "BLOCKS" | "BLOCKED_BY" | "DEPENDS_ON" | "RELATED_TO" | "RESOLVES";
+  /** Human-readable label of the linked entity, e.g. "PROJ-123: Fix login" */
+  target_label: string;
+  /** Entity type of the target node (defaults to "ticket") */
+  target_entity_type?: string;
 };

@@ -16,6 +16,9 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { withRLS, type RLSContext } from "@/lib/supabase/rls-client";
+// SERVICE-ROLE JUSTIFICATION: supabaseAdmin is used only by registerAlias(),
+// a background write path invoked from extraction/backfill jobs where no
+// user RLS context exists. All read paths go through withRLS().
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { embed } from "@/lib/ai/embedder";
 import { logger } from "@/lib/logger";
@@ -52,19 +55,6 @@ export async function resolveEntity(
 }
 
 /**
- * Service-role variant for tools that already run as supabaseAdmin
- * (e.g. causal-chain.ts). Does not enforce RLS — caller is responsible
- * for org scoping. Marked for migration to withRLS() in the P0 RLS audit.
- */
-export async function resolveEntityAdmin(
-  orgId: string,
-  query: string,
-  opts?: ResolveEntityOptions
-): Promise<EntityCandidate[]> {
-  return _resolve(supabaseAdmin as unknown as SupabaseClient, orgId, query, opts);
-}
-
-/**
  * Convenience wrapper: returns the canonical node ID of the top-ranked
  * candidate, or null if nothing matches above threshold.
  * Logs a warning if disambiguation is needed.
@@ -75,16 +65,6 @@ export async function resolveNodeId(
   opts?: ResolveEntityOptions
 ): Promise<string | null> {
   const candidates = await resolveEntity(ctx, query, opts);
-  return _pickTopId(candidates, query);
-}
-
-/** Service-role variant of resolveNodeId. */
-export async function resolveNodeIdAdmin(
-  orgId: string,
-  query: string,
-  opts?: ResolveEntityOptions
-): Promise<string | null> {
-  const candidates = await resolveEntityAdmin(orgId, query, opts);
   return _pickTopId(candidates, query);
 }
 

@@ -90,6 +90,7 @@ Additional relation types:
     relation_types: [
       "CAUSED_INCIDENT",
       "RESOLVED_BY",
+      "BLOCKS",
       "BLOCKED_BY",
       "DEPLOYED_WITH",
       "DEPRECATED_BY",
@@ -113,10 +114,15 @@ Additional relation types:
 
 - \`CAUSED_INCIDENT\` — a service, change, or deploy caused an incident
 - \`RESOLVED_BY\` — an incident or issue was resolved by a person or runbook
+- \`BLOCKS\` — a ticket, PR, or task prevents another entity from progressing
 - \`BLOCKED_BY\` — a ticket, project, or task is blocked by another entity
 - \`DEPLOYED_WITH\` — a change or feature was deployed alongside another
 - \`DEPRECATED_BY\` — a service or API was replaced by another
-- \`ONCALL_FOR\` — a person or team is on-call for a service`,
+- \`ONCALL_FOR\` — a person or team is on-call for a service
+
+Blocking extraction rules for engineering sources:
+- Explicit issue links ("blocked by PROJ-123", Jira/Linear "blocks" links, "depends on #456"): \`EXTRACTED\`, confidence 1.0.
+- Textual waiting language ("waiting on the API team", "can't merge until X lands"): \`INFERRED\`, confidence 0.6–0.9.`,
   },
 
   // ── Customer Success ───────────────────────────────────────

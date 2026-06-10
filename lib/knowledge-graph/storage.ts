@@ -181,21 +181,26 @@ async function _upsertNodesWithClient(
         // Attach embedding and canonical_id to each insert row.
         // When a canonical is found, also register this label as an alias
         // so future lookups find it via the alias table (not just ilike).
+        const aliasWrites: Promise<void>[] = [];
         for (let i = 0; i < insertArray.length; i++) {
           insertArray[i].label_embedding = embeddings[i];
           insertArray[i].canonical_id = canonicalIds[i];
           if (canonicalIds[i]) {
-            // Best-effort — registerAlias swallows its own errors
-            registerAlias(
-              ctx.org_id,
-              canonicalIds[i],
-              insertArray[i].label,
-              "extraction",
-              KG_CONFIG.entity_resolution.merge_similarity_threshold,
-              embeddings[i]
+            // Best-effort — registerAlias swallows its own errors, but must
+            // be awaited so the serverless runtime doesn't kill the write.
+            aliasWrites.push(
+              registerAlias(
+                ctx.org_id,
+                canonicalIds[i],
+                insertArray[i].label,
+                "extraction",
+                KG_CONFIG.entity_resolution.merge_similarity_threshold,
+                embeddings[i]
+              )
             );
           }
         }
+        await Promise.all(aliasWrites);
       } catch (embErr) {
         logger.warn(
           { orgId: ctx.org_id, err: embErr instanceof Error ? embErr.message : String(embErr) },

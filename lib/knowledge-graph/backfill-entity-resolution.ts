@@ -14,6 +14,8 @@
 // The worker chains itself via QStash for large orgs.
 // ============================================================
 
+// SERVICE-ROLE JUSTIFICATION: resumable per-org backfill runs as a QStash
+// background job (no user RLS context); writes canonical_id/aliases only.
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 import { registerAlias } from "./entity-resolver";

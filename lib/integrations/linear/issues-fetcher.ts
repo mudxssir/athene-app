@@ -1,6 +1,40 @@
 import { linearFetch } from './client'
 import { FetchedChunk } from '../base'
 import { type SyncConfig, getSelectedResourceIds } from '../sync-config'
+import type { StructuredLink } from '@/lib/knowledge-graph/types'
+
+/**
+ * Map Linear issue relations to structured graph links (REFOCUS §5.3).
+ * `relations` are outgoing (this issue → related); `inverseRelations`
+ * are incoming (other issue → this one).
+ */
+function extractLinearLinks(issue: any): StructuredLink[] {
+  const links: StructuredLink[] = []
+
+  for (const rel of issue.relations?.nodes ?? []) {
+    const target = rel.relatedIssue
+    if (!target?.identifier) continue
+    const label = `${target.identifier}: ${target.title ?? ''}`.trim()
+    if (rel.type === 'blocks') {
+      links.push({ relation: 'BLOCKS', target_label: label })
+    } else {
+      links.push({ relation: 'RELATED_TO', target_label: label })
+    }
+  }
+
+  for (const rel of issue.inverseRelations?.nodes ?? []) {
+    const source = rel.issue
+    if (!source?.identifier) continue
+    const label = `${source.identifier}: ${source.title ?? ''}`.trim()
+    if (rel.type === 'blocks') {
+      links.push({ relation: 'BLOCKED_BY', target_label: label })
+    } else {
+      links.push({ relation: 'RELATED_TO', target_label: label })
+    }
+  }
+
+  return links
+}
 
 // Query without team filter — used when all teams are synced.
 const ISSUES_QUERY = `
@@ -39,6 +73,24 @@ const ISSUES_QUERY = `
           nodes {
             body
             createdAt
+          }
+        }
+        relations(first: 20) {
+          nodes {
+            type
+            relatedIssue {
+              identifier
+              title
+            }
+          }
+        }
+        inverseRelations(first: 20) {
+          nodes {
+            type
+            issue {
+              identifier
+              title
+            }
           }
         }
       }
@@ -94,6 +146,24 @@ const ISSUES_QUERY_FILTERED = `
             createdAt
           }
         }
+        relations(first: 20) {
+          nodes {
+            type
+            relatedIssue {
+              identifier
+              title
+            }
+          }
+        }
+        inverseRelations(first: 20) {
+          nodes {
+            type
+            issue {
+              identifier
+              title
+            }
+          }
+        }
       }
     }
   }
@@ -145,6 +215,8 @@ export async function linearIssuesFetcher(
       if (issue.description) lines.push('', issue.description)
       if (comments) lines.push('', 'Comments:', comments)
 
+      const structuredLinks = extractLinearLinks(issue)
+
       chunks.push({
         chunk_id: issue.id,
         title: `${issue.identifier}: ${issue.title}`,
@@ -159,6 +231,7 @@ export async function linearIssuesFetcher(
           priority,
           team: team ?? null,
           assignee: assignee ?? null,
+          ...(structuredLinks.length > 0 ? { structured_links: structuredLinks } : {}),
         },
       })
     }

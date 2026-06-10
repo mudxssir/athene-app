@@ -4,13 +4,16 @@
 // Queries kg_events to retrieve chronological event sequences
 // for a named entity. Use for incident timelines, decision
 // histories, or causal chain analysis across departments.
+//
+// All reads run inside withRLS() — org isolation and node/event
+// visibility are enforced by Postgres policies (REFOCUS §5.1).
 // ============================================================
 
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
-import { supabaseAdmin } from "@/lib/supabase/server";
+import { withRLS, type RLSContext } from "@/lib/supabase/rls-client";
 import { logger } from "@/lib/logger";
-import { resolveEntityAdmin } from "@/lib/knowledge-graph/entity-resolver";
+import { resolveEntity } from "@/lib/knowledge-graph/entity-resolver";
 
 export const causalChainTool = new DynamicStructuredTool({
   name: "causalChain",
@@ -33,18 +36,25 @@ export const causalChainTool = new DynamicStructuredTool({
       .describe("Filter by event types: incident, decision, escalation, milestone, alert, change"),
   }),
   func: async ({ entityLabel, maxEvents = 20, eventTypes }, _runManager, config) => {
-    const orgId = (config as any)?.configurable?.orgId ?? (config as any)?.metadata?.orgId ?? "";
+    const cfg = (config as any)?.configurable ?? (config as any)?.metadata ?? {};
+    const orgId: string = cfg.orgId ?? "";
+    const userId: string = cfg.userId ?? "";
+    const role: string = cfg.role ?? "member";
+    const deptId: string | null = cfg.deptId ?? null;
 
-    if (!orgId) {
+    if (!orgId || !userId) {
       return JSON.stringify({ error: "Missing org context for causal chain lookup." });
     }
 
+    const ctx: RLSContext = {
+      org_id: orgId,
+      user_id: userId,
+      user_role: role as RLSContext["user_role"],
+      department_id: deptId ?? undefined,
+    };
+
     try {
-      // Resolve entity via alias-aware multi-source lookup.
-      // SERVICE-ROLE JUSTIFICATION: causal-chain runs inside the agent graph which
-      // already validates org membership via Clerk auth before invocation.
-      // Tracked for withRLS() migration in the P0 RLS audit (§5.1).
-      const candidates = await resolveEntityAdmin(orgId, entityLabel);
+      const candidates = await resolveEntity(ctx, entityLabel);
       if (candidates.length === 0) {
         return JSON.stringify({ error: `Entity "${entityLabel}" not found in knowledge graph.` });
       }
@@ -57,46 +67,48 @@ export const causalChainTool = new DynamicStructuredTool({
         );
       }
 
-      const { data: node, error: nodeErr } = await supabaseAdmin
-        .from("kg_nodes")
-        .select("id, label, entity_type")
-        .eq("id", top.canonicalNodeId)
-        .eq("org_id", orgId)
-        .maybeSingle();
+      return await withRLS(ctx, async (supabase) => {
+        const { data: node, error: nodeErr } = await supabase
+          .from("kg_nodes")
+          .select("id, label, entity_type")
+          .eq("id", top.canonicalNodeId)
+          .eq("org_id", orgId)
+          .maybeSingle();
 
-      if (nodeErr) {
-        logger.error({ err: nodeErr.message, entityLabel }, "[causal-chain] Node fetch failed");
-        return JSON.stringify({ error: `Node fetch failed: ${nodeErr.message}` });
-      }
-      if (!node) {
-        return JSON.stringify({ error: `Entity "${entityLabel}" not found in knowledge graph.` });
-      }
+        if (nodeErr) {
+          logger.error({ err: nodeErr.message, entityLabel }, "[causal-chain] Node fetch failed");
+          return JSON.stringify({ error: `Node fetch failed: ${nodeErr.message}` });
+        }
+        if (!node) {
+          return JSON.stringify({ error: `Entity "${entityLabel}" not found in knowledge graph.` });
+        }
 
-      let eventsQuery = supabaseAdmin
-        .from("kg_events")
-        .select(
-          "id, event_type, event_time, description, caused_by_event_id, metadata, confidence, source_document_id"
-        )
-        .eq("org_id", orgId)
-        .eq("entity_id", node.id)
-        .order("event_time", { ascending: true })
-        .limit(maxEvents);
+        let eventsQuery = supabase
+          .from("kg_events")
+          .select(
+            "id, event_type, event_time, description, caused_by_event_id, metadata, confidence, source_document_id"
+          )
+          .eq("org_id", orgId)
+          .eq("entity_id", node.id)
+          .order("event_time", { ascending: true })
+          .limit(maxEvents);
 
-      if (eventTypes && eventTypes.length > 0) {
-        eventsQuery = eventsQuery.in("event_type", eventTypes);
-      }
+        if (eventTypes && eventTypes.length > 0) {
+          eventsQuery = eventsQuery.in("event_type", eventTypes);
+        }
 
-      const { data: events, error: eventsErr } = await eventsQuery;
+        const { data: events, error: eventsErr } = await eventsQuery;
 
-      if (eventsErr) {
-        logger.warn({ err: eventsErr.message }, "[causal-chain] Events query failed");
-        return JSON.stringify({ error: `Events query failed: ${eventsErr.message}` });
-      }
+        if (eventsErr) {
+          logger.warn({ err: eventsErr.message }, "[causal-chain] Events query failed");
+          return JSON.stringify({ error: `Events query failed: ${eventsErr.message}` });
+        }
 
-      return JSON.stringify({
-        entity: { id: node.id, label: node.label, type: node.entity_type },
-        events: events ?? [],
-        count: events?.length ?? 0,
+        return JSON.stringify({
+          entity: { id: node.id, label: node.label, type: node.entity_type },
+          events: events ?? [],
+          count: events?.length ?? 0,
+        });
       });
     } catch (err) {
       logger.error({ err: err instanceof Error ? err.message : String(err) }, "[causal-chain] Unexpected error");

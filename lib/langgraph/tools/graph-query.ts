@@ -20,7 +20,8 @@
 
 import { DynamicStructuredTool } from '@langchain/core/tools'
 import { z } from 'zod'
-import { supabaseAdmin } from '@/lib/supabase/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { withRLS, type RLSContext } from '@/lib/supabase/rls-client'
 import { resolveModelClient } from '../llm-factory'
 import { registerTool } from './registry'
 import { logger } from '@/lib/logger'
@@ -89,6 +90,7 @@ async function extractEntityLabels(
 // ---- Node lookup --------------------------------------------
 
 async function findNodes(
+  supabase: SupabaseClient,
   orgId: string,
   labels: string[],
   entityTypes: string[] | undefined,
@@ -96,7 +98,7 @@ async function findNodes(
 ): Promise<GraphNode[]> {
   if (labels.length === 0) return []
 
-  let query = supabaseAdmin
+  let query = supabase
     .from('kg_nodes')
     .select('id, label, entity_type, visibility, department_ids, description')
     .eq('org_id', orgId)
@@ -124,6 +126,7 @@ async function findNodes(
 // ---- BFS traversal ------------------------------------------
 
 async function traverseFromNode(
+  supabase: SupabaseClient,
   orgId: string,
   startId: string,
   maxHops: number,
@@ -152,7 +155,7 @@ async function traverseFromNode(
     visited.add(id)
 
     // Fetch adjacent edges
-    const { data: edgeRows, error: edgeErr } = await supabaseAdmin
+    const { data: edgeRows, error: edgeErr } = await supabase
       .from('kg_edges')
       .select('source_node, target_node, relation, provenance, confidence')
       .eq('org_id', orgId)
@@ -174,7 +177,7 @@ async function traverseFromNode(
     }
 
     // Fetch the node itself
-    const { data: nodeRow } = await supabaseAdmin
+    const { data: nodeRow } = await supabase
       .from('kg_nodes')
       .select('id, label, entity_type, visibility, department_ids, description')
       .eq('id', id)
@@ -250,11 +253,20 @@ export const graphQueryTool = new DynamicStructuredTool({
       .describe('Optionally filter by entity type (person, project, service, …)'),
   }),
   func: async ({ question, maxHops, entityTypes }, _runManager, config) => {
-    const ctx = (config as any)?.configurable ?? {}
-    const orgId: string = ctx.orgId ?? ''
-    const role: string = ctx.role ?? 'member'
+    const cfg = (config as any)?.configurable ?? {}
+    const orgId: string = cfg.orgId ?? ''
+    const userId: string = cfg.userId ?? ''
+    const role: string = cfg.role ?? 'member'
+    const deptId: string | null = cfg.deptId ?? null
 
-    if (!orgId) return 'Knowledge graph unavailable: missing org context.'
+    if (!orgId || !userId) return 'Knowledge graph unavailable: missing org context.'
+
+    const rlsCtx: RLSContext = {
+      org_id: orgId,
+      user_id: userId,
+      user_role: role as RLSContext['user_role'],
+      department_id: deptId ?? undefined,
+    }
 
     try {
       const labels = await extractEntityLabels(question, orgId)
@@ -262,36 +274,41 @@ export const graphQueryTool = new DynamicStructuredTool({
         return 'No entities found in your question to look up in the knowledge graph.'
       }
 
-      const seedNodes = await findNodes(orgId, labels, entityTypes, role)
-      if (seedNodes.length === 0) return 'No knowledge graph data available yet.'
+      // All graph reads run inside withRLS (REFOCUS §5.1); the role-based
+      // visibility filters below remain as defense-in-depth.
+      return await withRLS(rlsCtx, async (supabase) => {
+        const seedNodes = await findNodes(supabase, orgId, labels, entityTypes, role)
+        if (seedNodes.length === 0) return 'No knowledge graph data available yet.'
 
-      const allNodes = new Map<string, GraphNode>()
-      const allEdges = new Map<string, GraphEdge>()
-      let anyBoundary = false
-      const visited = new Set<string>()
+        const allNodes = new Map<string, GraphNode>()
+        const allEdges = new Map<string, GraphEdge>()
+        let anyBoundary = false
+        const visited = new Set<string>()
 
-      for (const node of seedNodes) {
-        allNodes.set(node.id, node)
-        const { nodes, edges, boundaryReached } = await traverseFromNode(
-          orgId,
-          node.id,
-          maxHops,
-          role,
-          visited,
-        )
-        for (const n of nodes) allNodes.set(n.id, n)
-        for (const e of edges) {
-          const key = `${e.source_node}|${e.relation}|${e.target_node}`
-          allEdges.set(key, e)
+        for (const node of seedNodes) {
+          allNodes.set(node.id, node)
+          const { nodes, edges, boundaryReached } = await traverseFromNode(
+            supabase,
+            orgId,
+            node.id,
+            maxHops,
+            role,
+            visited,
+          )
+          for (const n of nodes) allNodes.set(n.id, n)
+          for (const e of edges) {
+            const key = `${e.source_node}|${e.relation}|${e.target_node}`
+            allEdges.set(key, e)
+          }
+          if (boundaryReached) anyBoundary = true
         }
-        if (boundaryReached) anyBoundary = true
-      }
 
-      return formatResult(
-        Array.from(allNodes.values()),
-        Array.from(allEdges.values()),
-        anyBoundary,
-      )
+        return formatResult(
+          Array.from(allNodes.values()),
+          Array.from(allEdges.values()),
+          anyBoundary,
+        )
+      })
     } catch (err: unknown) {
       logger.error({ err: err instanceof Error ? err.message : String(err) }, '[graph-query] error')
       return 'No knowledge graph data available yet.'

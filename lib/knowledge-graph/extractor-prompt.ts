@@ -48,6 +48,15 @@ Only use these values for \`relation\`:
 - \`CAUSED\` — an entity caused an incident or failure
 - \`RESOLVED_BY\` — an incident was resolved by a person or process
 - \`RISKS\` — a risk item threatens a project or process
+- \`BLOCKS\` — X prevents Y from progressing (Y is waiting on X)
+- \`BLOCKED_BY\` — X cannot progress until Y is resolved (inverse of BLOCKS)
+
+## Blocking rules
+
+When the text states that work is blocked, waiting, or gated:
+- Explicit blocking statements ("X blocks Y", "Y is blocked by X", a ticket marked "blocked by X"): provenance \`EXTRACTED\`, confidence 1.0.
+- Textual waiting language ("waiting on X", "can't start until X ships", "pending X's review"): provenance \`INFERRED\`, confidence 0.6–0.9 depending on how direct the statement is.
+- Prefer \`BLOCKS\`/\`BLOCKED_BY\` over \`DEPENDS_ON\` when the text describes work being actively stuck, not just a structural dependency.
 
 ## Provenance rules
 

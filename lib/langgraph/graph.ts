@@ -10,6 +10,7 @@ import { actionExecutorNode } from "./nodes/action-executor";
 import { reportAgent } from "./nodes/report-agent";
 import { plannerAgent } from "./nodes/planner-agent";
 import { integrationAgentNode } from "./nodes/integration-agent";
+import { diffAgentNode } from "./nodes/diff-agent";
 import { getCheckpointer } from "./checkpointer";
 
 // Shared compilation promise to prevent race conditions during cold starts
@@ -33,6 +34,8 @@ export async function getAgentGraph(): Promise<any> {
         .addNode("email_agent", emailAgentNode)
         .addNode("calendar_agent", calendarAgentNode)
         .addNode("integration_agent", integrationAgentNode)
+        // Temporal diff agent (REFOCUS §5.4) — "what changed since X" queries
+        .addNode("diff_agent", diffAgentNode)
         .addNode("synthesis", synthesisAgentNode)
         .addNode("report_agent", reportAgent)
         // Write-action executor (paused by interrupt_before for HITL approval)
@@ -56,6 +59,9 @@ export async function getAgentGraph(): Promise<any> {
       // Synthesis is the terminal node for answers
       workflow.addEdge("synthesis", END);
 
+      // Diff agent produces a complete final_answer itself — terminal
+      workflow.addEdge("diff_agent", END);
+
       // The supervisor routes to a worker, planner, synthesis, or END
       workflow.addConditionalEdges(
         "supervisor",
@@ -67,6 +73,7 @@ export async function getAgentGraph(): Promise<any> {
           email_agent: "email_agent",
           calendar_agent: "calendar_agent",
           integration_agent: "integration_agent",
+          diff_agent: "diff_agent",
           report_agent: "report_agent",
           synthesis: "synthesis",
           action_executor: "action_executor",

@@ -64,6 +64,9 @@ jobs:
       - name: Run ESLint
         run: pnpm run lint
 
+      - name: RLS consistency check (REFOCUS §5.1)
+        run: pnpm run check:rls
+
   unit-tests:
     name: Vitest Unit Tests
     runs-on: ubuntu-latest

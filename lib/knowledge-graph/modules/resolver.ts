@@ -9,6 +9,9 @@
 // hitting the DB on every chunk extraction call.
 // ============================================================
 
+// SERVICE-ROLE JUSTIFICATION: reads org connection source types (no user
+// content) to assemble the extraction prompt during background indexing —
+// no user RLS context exists at extraction time.
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { redis } from "@/lib/redis/client";
 import { VERTICAL_MODULES, type VerticalModule } from "./registry";

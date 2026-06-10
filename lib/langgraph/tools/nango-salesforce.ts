@@ -1,3 +1,6 @@
+// SERVICE-ROLE JUSTIFICATION: connector sync writes (documents/connections)
+// run as a background ingest job with no user RLS context. Frozen connector
+// per REFOCUS §3.4 — not in active tool registry.
 import { supabaseAdmin }                from '@/lib/supabase/server'
 import { fetchSalesforceAccounts }      from '@/lib/integrations/salesforce/accounts-fetcher'
 import { fetchSalesforceOpportunities } from '@/lib/integrations/salesforce/opportunities-fetcher'

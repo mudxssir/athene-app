@@ -9,7 +9,8 @@
     "build": "next build --webpack",
     "postinstall": "rimraf .next",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "check:rls": "node scripts/check-rls.mjs"
   },
   "overrides": {
     "react": "19.2.3",
@@ -68,6 +69,8 @@
     "cronstrue": "^3.14.0",
     "exceljs": "^4.4.0",
     "gpt-tokenizer": "^2.9.0",
+    "graphology": "^0.26.0",
+    "graphology-communities-louvain": "^2.0.2",
     "lightningcss-darwin-arm64": "^1.32.0",
     "lucide-react": "^0.468.0",
     "mammoth": "^1.8.0",
