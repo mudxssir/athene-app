@@ -8,6 +8,9 @@ export const TOOL_NAMES = {
   CALENDAR_CREATE: 'calendar-create',
   INTEGRATION_CONNECT: 'integration-connect',
   INTEGRATION_DISCONNECT: 'integration-disconnect',
+  // Internal Athene actions (not gated by WRITE_ACTIONS_ENABLED — these are
+  // platform features, not external write actions):
+  WATCHLIST_CREATE: 'watchlist-create',
 } as const
 
 export type ToolName = (typeof TOOL_NAMES)[keyof typeof TOOL_NAMES]

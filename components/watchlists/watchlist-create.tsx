@@ -14,15 +14,27 @@ const SCHEDULES = [
 ];
 
 interface Props {
-  onCreated: () => void;
+  onCreated?: () => void;
+  /** Pre-fill the name field and open the dialog immediately. */
+  initialName?: string;
+  /** Pre-fill the query field and open the dialog immediately. */
+  initialQuery?: string;
+  /** Replace the default "+ New Watchlist" trigger with a custom element. */
+  trigger?: React.ReactNode;
 }
 
-export function WatchlistCreate({ onCreated }: Props) {
-  const [open, setOpen]         = useState(false);
-  const [name, setName]         = useState("");
-  const [query, setQuery]       = useState("");
+export function WatchlistCreate({ onCreated, initialName, initialQuery, trigger }: Props) {
+  const [open, setOpen]         = useState(() => !!(initialName || initialQuery));
+  const [name, setName]         = useState(initialName ?? "");
+  const [query, setQuery]       = useState(initialQuery ?? "");
   const [schedule, setSchedule] = useState(SCHEDULES[1].value);
   const [loading, setLoading]   = useState(false);
+
+  function handleOpen() {
+    if (initialName && !name) setName(initialName);
+    if (initialQuery && !query) setQuery(initialQuery);
+    setOpen(true);
+  }
 
   async function handleCreate() {
     if (!name.trim() || !query.trim()) {
@@ -40,7 +52,7 @@ export function WatchlistCreate({ onCreated }: Props) {
       toast.success("Watchlist created");
       setOpen(false);
       setName(""); setQuery(""); setSchedule(SCHEDULES[1].value);
-      onCreated();
+      onCreated?.();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create watchlist");
     } finally {
@@ -50,17 +62,21 @@ export function WatchlistCreate({ onCreated }: Props) {
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className={cn(
-          "inline-flex items-center gap-2 h-11 px-6 rounded-2xl",
-          "bg-primary text-white text-[11px] font-extrabold uppercase tracking-[0.22em]",
-          "hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
-        )}
-      >
-        <Plus size={14} />
-        New Watchlist
-      </button>
+      {trigger ? (
+        <span onClick={handleOpen} style={{ cursor: "pointer" }}>{trigger}</span>
+      ) : (
+        <button
+          onClick={handleOpen}
+          className={cn(
+            "inline-flex items-center gap-2 h-11 px-6 rounded-2xl",
+            "bg-primary text-white text-[11px] font-extrabold uppercase tracking-[0.22em]",
+            "hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
+          )}
+        >
+          <Plus size={14} />
+          New Watchlist
+        </button>
+      )}
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setOpen(false)}>

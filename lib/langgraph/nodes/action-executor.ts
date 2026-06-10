@@ -340,6 +340,57 @@ export async function actionExecutorNode(
     }
   }
 
+  // ── Watchlist creation (internal Athene action) ───────────────────────────
+
+  if (action.tool === TOOL_NAMES.WATCHLIST_CREATE) {
+    const { name, query, schedule } = (action.payload ?? {}) as Record<string, string>
+    if (!name?.trim() || !query?.trim()) {
+      return {
+        action_result: null,
+        action_error: "Missing name or query in watchlist payload",
+        pending_write_action: null,
+        awaiting_approval: false,
+        run_status: "running",
+        messages: [new AIMessage({ content: "I couldn't create the watchlist — name or query was missing. Please try again." })],
+      }
+    }
+    try {
+      const { data, error } = await supabaseAdmin
+        .from("watchlists")
+        .insert({
+          org_id: state.orgId,
+          user_id: state.userId,
+          name: name.trim(),
+          query: query.trim(),
+          schedule: schedule ?? "0 */6 * * *",
+          is_active: true,
+        })
+        .select("id, name")
+        .single()
+      if (error) throw error
+      logger.info({ orgId: state.orgId, watchlistId: data?.id }, "[action-executor] watchlist created")
+      return {
+        action_result: { id: data?.id, name: data?.name },
+        action_error: null,
+        pending_write_action: null,
+        awaiting_approval: false,
+        run_status: "running",
+        messages: [new AIMessage({ content: `✓ Watchlist **"${data?.name}"** created. Athene will check it every few hours and alert you when something changes.` })],
+      }
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err)
+      logger.error({ err: errMsg, orgId: state.orgId }, "[action-executor] watchlist-create failed")
+      return {
+        action_result: null,
+        action_error: errMsg,
+        pending_write_action: null,
+        awaiting_approval: false,
+        run_status: "running",
+        messages: [new AIMessage({ content: "I couldn't create the watchlist. Please try again or create it from the Watchlists page." })],
+      }
+    }
+  }
+
   // ── Email / Calendar tools ────────────────────────────────────────────────
 
   try {

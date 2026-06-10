@@ -18,11 +18,13 @@ import {
   ArrowUpRight,
   CalendarClock,
   TriangleAlert,
+  Bell,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { WatchlistCreate } from "@/components/watchlists/watchlist-create";
 
 // ── §6.1 types ────────────────────────────────────────────────────────────────
 
@@ -243,6 +245,15 @@ function ItemCard({ item }: { item: MyWorkItem }) {
           <Badge className="bg-primary/10 text-primary border-none text-[9px] font-bold uppercase tracking-widest">
             {item.node.entity_type === "pull_request" ? "PR" : "Ticket"}
           </Badge>
+          <WatchlistCreate
+            initialName={`Watch: ${item.node.label}`}
+            initialQuery={`What is the current status of "${item.node.label}"? Are there any new blockers or updates?`}
+            trigger={
+              <span title="Watch this item" aria-label="Watch this item">
+                <Bell className="w-4 h-4 text-muted-foreground hover:text-primary transition-colors cursor-pointer" />
+              </span>
+            }
+          />
           {item.url && (
             <a href={item.url} target="_blank" rel="noopener noreferrer" aria-label="Open in source">
               <ArrowUpRight className="w-4 h-4 text-muted-foreground hover:text-foreground" />
@@ -304,18 +315,29 @@ function ObligationCard({ item }: { item: ObligationItem }) {
             )}
           </div>
         </div>
-        {due && (
-          <Badge
-            className={cn(
-              "border-none text-[9px] font-bold uppercase tracking-widest shrink-0",
-              due.overdue
-                ? "bg-red-500/10 text-red-600 dark:text-red-400"
-                : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-            )}
-          >
-            {due.label}
-          </Badge>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {due && (
+            <Badge
+              className={cn(
+                "border-none text-[9px] font-bold uppercase tracking-widest",
+                due.overdue
+                  ? "bg-red-500/10 text-red-600 dark:text-red-400"
+                  : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+              )}
+            >
+              {due.label}
+            </Badge>
+          )}
+          <WatchlistCreate
+            initialName={`Watch: ${item.node.label}`}
+            initialQuery={`What is the current status of the obligation "${item.node.label}"? Has there been any progress or updates?`}
+            trigger={
+              <span title="Watch this obligation" aria-label="Watch this obligation">
+                <Bell className="w-4 h-4 text-muted-foreground hover:text-primary transition-colors cursor-pointer" />
+              </span>
+            }
+          />
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-4">

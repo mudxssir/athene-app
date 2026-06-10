@@ -5,15 +5,17 @@ import { logger } from "@/lib/logger";
 
 const MAX_HOPS = 6;
 
-// FROZEN (REFOCUS §3.1/§3.2): email_agent, calendar_agent, action_executor,
-// report_agent removed from routing — the assistant is read-only. Restore
-// behind WRITE_ACTIONS_ENABLED when write actions return (Phase 2+).
+// FROZEN (REFOCUS §3.1/§3.2): email_agent, calendar_agent, report_agent removed
+// from routing — the assistant is read-only for external writes. Restore behind
+// WRITE_ACTIONS_ENABLED when write actions return (Phase 2+).
+// watchlist_agent is NOT frozen — it creates internal Athene watchlists.
 const ALL_AGENTS = [
   "planner",
   "retrieval",
   "cross_dept_retrieval",
   "integration_agent",
   "diff_agent",
+  "watchlist_agent",
   "synthesis",
   "END",
 ] as const;
@@ -31,10 +33,11 @@ const supervisorPrompt = `You are the supervisor of an AI assistant. Route the c
 - cross_dept_retrieval: Cross-department BI analysis — revenue insights, multi-team trends. **Restricted: super_user and admin roles only.**
 - integration_agent: Read-only integration info — list connected integrations or check sync status. Route here when the user asks about integrations, connected apps, or data sources. (Connecting, disconnecting, and re-syncing happen in the settings UI, not in chat.)
 - diff_agent: Compare two time windows and report what changed. Route here when the user asks "what changed since [date/period]", "what's new this week/month", "what happened while I was away", or any before/after comparison over time. The diff agent answers completely on its own — do NOT route to retrieval first.
+- watchlist_agent: Create a watchlist — a standing query Athene monitors and alerts the user when the answer changes. Route here when the user says "watch this", "keep an eye on X", "alert me when Y changes", "monitor X for me", or "create a watchlist for Z". The watchlist_agent proposes the watchlist and asks for confirmation — route here immediately, do not retrieve first.
 - synthesis: Synthesize a final answer from accumulated retrieved context and finish.
 - END: The request has been fully answered — stop the graph.
 
-This assistant is READ-ONLY: it cannot send emails, create calendar events, or execute write actions. If the user asks for those, route to synthesis so the answer can explain what Athene knows and that write actions are not available.
+This assistant is READ-ONLY for external systems: it cannot send emails or create calendar events. Watchlist creation (internal Athene feature) IS supported via watchlist_agent.
 
 ## Routing Rules
 
@@ -44,7 +47,8 @@ This assistant is READ-ONLY: it cannot send emails, create calendar events, or e
 4. **END condition**: Route to END only after the final answer has already been delivered.
 5. **Agent specificity**: Choose the most targeted agent; avoid unnecessary retrieval hops.
 6. **Planner guard**: Only route to planner on the very first hop (hops_remaining = MAX) and only when the question clearly spans 2+ departments. Never re-route to planner on subsequent hops.
-7. **Temporal diff**: "What changed since X" / "what's new this week" questions go to diff_agent, not retrieval. diff_agent is terminal — it delivers the final answer itself.`;
+7. **Temporal diff**: "What changed since X" / "what's new this week" questions go to diff_agent, not retrieval. diff_agent is terminal — it delivers the final answer itself.
+8. **Watchlist guard**: "Watch this", "monitor X", "alert me when Y" go to watchlist_agent immediately. Never route to retrieval first — the agent extracts the query from context itself.`;
 
 // Common stopwords excluded from query-term coverage measurement
 const STOPWORDS = new Set([
