@@ -67,6 +67,9 @@ jobs:
       - name: RLS consistency check (REFOCUS §5.1)
         run: pnpm run check:rls
 
+      - name: chunk_text choke-point check (P0-6)
+        run: pnpm run check:chunk-text
+
   unit-tests:
     name: Vitest Unit Tests
     runs-on: ubuntu-latest

@@ -1,0 +1,60 @@
+// ============================================================
+// chunk-text-store.ts — single choke point for persisted chunk text (P0-6)
+//
+// Chunk text is persisted inside document_embeddings.metadata under the
+// 'chunk_text' key (zero-copy design: KG extraction and small-to-big
+// retrieval re-read it instead of re-fetching the live source).
+//
+// EVERY read or write of that key in application code goes through this
+// module, so the planned encryption flip (playbook P7: per-org AES-GCM via
+// the KMS-derived org key) is a change to these two functions plus a
+// re-encryption job — not a refactor hunt.
+//
+// Known non-TS reader: the vector_search RPC family COALESCEs
+// metadata->>'chunk_text' in SQL (supabase/migrations/*vector_search*).
+// When encryption lands, those RPCs must return the raw metadata value and
+// decryption moves to the app-side row mapping (retrieval-agent), or the
+// column moves out of metadata entirely. Tracked in playbook P7 item 1.
+// ============================================================
+
+/**
+ * Returns a metadata object carrying the persisted chunk text.
+ * Spread-merges on top of the base metadata; never mutates the input.
+ */
+export function writeChunkText(
+  baseMeta: Record<string, unknown>,
+  text: string
+): Record<string, unknown> {
+  return { ...baseMeta, chunk_text: text }
+}
+
+/**
+ * Reads the stored chunk text from a document_embeddings row shape.
+ * Falls back to content_preview (200-char cap) for pre-zero-copy rows;
+ * returns null when neither is usable.
+ */
+export function readChunkText(row: {
+  metadata?: unknown
+  content_preview?: string | null
+}): string | null {
+  const fromMeta = (row.metadata as Record<string, unknown> | null | undefined)?.[
+    'chunk_text'
+  ]
+  if (typeof fromMeta === 'string' && fromMeta.trim().length > 0) {
+    return fromMeta.trim()
+  }
+  const preview = row.content_preview?.trim()
+  return preview && preview.length > 0 ? preview : null
+}
+
+/**
+ * True when the row's text came from the full stored chunk_text (false =
+ * content_preview fallback or nothing). Lets callers keep telemetry about
+ * short-text fallbacks (builder.ts shortTextChunks counter).
+ */
+export function hasFullChunkText(row: { metadata?: unknown }): boolean {
+  const fromMeta = (row.metadata as Record<string, unknown> | null | undefined)?.[
+    'chunk_text'
+  ]
+  return typeof fromMeta === 'string' && fromMeta.trim().length > 0
+}

@@ -10,7 +10,8 @@
     "postinstall": "rimraf .next",
     "start": "next start",
     "lint": "eslint",
-    "check:rls": "node scripts/check-rls.mjs"
+    "check:rls": "node scripts/check-rls.mjs",
+    "check:chunk-text": "node scripts/check-chunk-text-store.mjs"
   },
   "overrides": {
     "react": "19.2.3",

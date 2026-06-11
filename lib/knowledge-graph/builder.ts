@@ -24,6 +24,7 @@ import { buildStructuredLinkGraph } from './structured-links'
 import { upsertGraph, deleteByDocument } from './storage'
 import { detectCommunities } from './community'
 import { extractAndUpsertEvents } from './event-extractor'
+import { readChunkText, hasFullChunkText } from '@/lib/indexing/chunk-text-store'
 import type { RLSContext } from '@/lib/supabase/rls-client'
 import { logger } from '@/lib/logger'
 
@@ -170,9 +171,7 @@ async function processDocument(
   // Check if at least one chunk has usable text.  When all chunks are empty we
   // can't extract anything useful — warn and skip rather than throw, so a single
   // un-indexed document doesn't abort the rest of the batch.
-  const hasText = embRows.some(
-    (row: any) => ((row.metadata as any)?.chunk_text ?? row.content_preview ?? '').trim().length > 0
-  )
+  const hasText = embRows.some((row: any) => readChunkText(row) !== null)
   if (!hasText) {
     logger.warn(
       { orgId, docId },
@@ -197,13 +196,11 @@ async function processDocument(
   let docShortTextChunks = 0
   const extractorChunks = embRows
     .map((row: any, idx: number) => {
-      const chunkText: string = (row.metadata as any)?.chunk_text?.trim() ?? ''
-      const preview: string = row.content_preview?.trim() ?? ''
-      const text = chunkText || preview
+      const text = readChunkText(row) ?? ''
       if (!text) return null
       // Track chunks where chunk_text was absent and we fell back to content_preview.
       // content_preview is capped at 200 chars, so these are always "short".
-      if (!chunkText && preview) docShortTextChunks++
+      if (!hasFullChunkText(row)) docShortTextChunks++
       return {
         text,
         chunk_index: row.chunk_index ?? idx,

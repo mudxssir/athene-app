@@ -18,6 +18,7 @@ import type { FetchedChunk } from './base'
 import { logger } from '@/lib/logger'
 import { embedBatchDetailed, type EmbeddingHint } from '@/lib/ai/embedding-factory'
 import { chunk as tokenChunk } from '@/lib/langgraph/tools/chunker'
+import { writeChunkText } from '@/lib/indexing/chunk-text-store'
 
 // ---- Constants --------------------------------------------------
 
@@ -337,7 +338,7 @@ export async function indexDocument(
     : null
 
   const records = contentChunks.map((text, index) => {
-    const meta: Record<string, unknown> = { ...chunk.metadata, chunk_text: text }
+    const meta = writeChunkText(chunk.metadata, text)
     if (structuredFields) meta.structured_fields = structuredFields
     return {
       org_id: orgId,
@@ -445,7 +446,7 @@ export async function indexDocuments(
       ? extractStructuredFields(item.chunk.metadata)
       : null
     return item.subChunks.map((text, index) => {
-      const meta: Record<string, unknown> = { ...item.chunk.metadata, chunk_text: text }
+      const meta = writeChunkText(item.chunk.metadata, text)
       if (structuredFields) meta.structured_fields = structuredFields
       return {
         org_id: orgId,

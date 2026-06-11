@@ -10,6 +10,7 @@ import { AIMessage } from "@langchain/core/messages";
 import type { AtheneState, AtheneStateUpdate } from "../state";
 import { resolveModelClient } from "../llm-factory";
 import { withRLS, type RLSContext } from "@/lib/supabase/rls-client";
+import { readChunkText } from "@/lib/indexing/chunk-text-store";
 
 const DIFF_SYSTEM_PROMPT = `You are an enterprise intelligence analyst comparing two snapshots of knowledge across a time window.
 
@@ -61,7 +62,7 @@ async function fetchChunksInWindow(
     if (error) throw new Error(`diff window fetch failed: ${error.message}`);
     return (data ?? []).map(
       (r: any) =>
-        `[${r.source_type}] ${r.content_preview ?? ""}${r.metadata?.chunk_text ? " " + r.metadata.chunk_text.slice(0, 300) : ""}`,
+        `[${r.source_type}] ${readChunkText(r)?.slice(0, 300) ?? ""}`,
     );
   });
 }
