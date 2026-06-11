@@ -119,7 +119,7 @@ function chunkEmail(content: string): string[] {
  * actual tag (starts with a letter or `/`). This avoids corrupting code/SQL
  * content where `<`, `>` appear as comparison operators (e.g. `WHERE age < 30`).
  */
-function normalizeContent(content: string): string {
+export function normalizeContent(content: string): string {
   return content
     .replace(/<\/?\s*[a-zA-Z][^>]*>/g, ' ')  // strip HTML tags (letter-prefixed only)
     .replace(/&(?:amp|lt|gt|quot|nbsp|apos);/gi, (m) => ({
@@ -153,7 +153,7 @@ function extractStructuredFields(meta: Record<string, unknown>): Record<string, 
  * email    | gmail, outlook                  | 2000 char / 200 overlap
  * document | everything else (default)       | 512 tok / 64 overlap
  */
-function chunkContent(content: string, sourceType?: string): string[] {
+export function chunkContent(content: string, sourceType?: string): string[] {
   if (!sourceType) {
     return tokenChunk(content, { chunkSize: 512, overlap: 64 }).map((c) => c.text)
   }
@@ -224,7 +224,7 @@ function normalizeContentTracked(content: string, title?: string): string {
 }
 
 /** Resolve the embedding hint from source type (only relevant for Google provider). */
-function resolveEmbeddingHint(sourceType?: string): EmbeddingHint {
+export function resolveEmbeddingHint(sourceType?: string): EmbeddingHint {
   if (sourceType && RECORD_SOURCE_TYPES.has(sourceType)) return 'structured'
   return 'document'
 }

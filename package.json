@@ -11,7 +11,9 @@
     "start": "next start",
     "lint": "eslint",
     "check:rls": "node scripts/check-rls.mjs",
-    "check:chunk-text": "node scripts/check-chunk-text-store.mjs"
+    "check:chunk-text": "node scripts/check-chunk-text-store.mjs",
+    "eval:fixtures": "tsx scripts/eval/generate-fixtures.ts",
+    "eval:retrieval": "NODE_OPTIONS=--conditions=react-server tsx scripts/eval/run-eval.ts"
   },
   "overrides": {
     "react": "19.2.3",

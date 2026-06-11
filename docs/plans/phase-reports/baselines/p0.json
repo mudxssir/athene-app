@@ -1,0 +1,58 @@
+{
+  "generated_at": "2026-06-11T12:25:48.302Z",
+  "git_sha": "40e9c9a",
+  "embedding_model": "jina-embeddings-v3",
+  "pipeline_version": 1,
+  "top_k": 5,
+  "macro": {
+    "recall_at_5": 0.9854,
+    "mrr": 0.7991
+  },
+  "shapes": [
+    {
+      "shape": "email",
+      "provider": "google",
+      "n_docs": 30,
+      "n_chunks": 30,
+      "n_queries": 55,
+      "recall_at_5": 0.9818,
+      "mrr": 0.7597
+    },
+    {
+      "shape": "prose",
+      "provider": "notion",
+      "n_docs": 30,
+      "n_chunks": 30,
+      "n_queries": 55,
+      "recall_at_5": 1,
+      "mrr": 0.9545
+    },
+    {
+      "shape": "tabular",
+      "provider": "snowflake",
+      "n_docs": 30,
+      "n_chunks": 30,
+      "n_queries": 55,
+      "recall_at_5": 1,
+      "mrr": 0.7724
+    },
+    {
+      "shape": "thread",
+      "provider": "slack",
+      "n_docs": 30,
+      "n_chunks": 30,
+      "n_queries": 55,
+      "recall_at_5": 0.9636,
+      "mrr": 0.7648
+    },
+    {
+      "shape": "work_item",
+      "provider": "jira",
+      "n_docs": 30,
+      "n_chunks": 30,
+      "n_queries": 55,
+      "recall_at_5": 0.9818,
+      "mrr": 0.7439
+    }
+  ]
+}

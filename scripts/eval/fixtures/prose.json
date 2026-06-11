@@ -1,0 +1,543 @@
+{
+  "shape": "prose",
+  "provider": "notion",
+  "documents": [
+    {
+      "id": "prose-001",
+      "title": "Project Basalt — planning notes",
+      "content": "# Project Basalt planning notes\n\n## Decisions\nWe decided that Dana Okafor will lead the notification-hub migration for Project Basalt.\nThe approved budget for this workstream is $651K, targeting Q1 delivery in EMEA.\n\n## Context\nThe team reviewed open action items and agreed to follow up next week.\nGeneral discussion covered hiring plans and the upcoming offsite agenda.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the notification-hub cutover slips, downstream reporting in EMEA is affected.\nNotes also touched on documentation cleanup across NA-East teams."
+    },
+    {
+      "id": "prose-002",
+      "title": "Project Cobble — planning notes",
+      "content": "# Project Cobble planning notes\n\n## Decisions\nWe decided that Priya Raman will lead the ledger-core migration for Project Cobble.\nThe approved budget for this workstream is $359K, targeting Q3 delivery in NA-West.\n\n## Context\nNotes also touched on documentation cleanup across EMEA teams.\nRoutine status: deployments are green and the on-call week was quiet.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the ledger-core cutover slips, downstream reporting in NA-West is affected.\nledger-core dashboards were reviewed; no anomalies were flagged."
+    },
+    {
+      "id": "prose-003",
+      "title": "Project Vermilion — planning notes",
+      "content": "# Project Vermilion planning notes\n\n## Decisions\nWe decided that Clara Westbrook will lead the billing-service migration for Project Vermilion.\nThe approved budget for this workstream is $221K, targeting Q1 delivery in LATAM.\n\n## Context\nThe team reviewed open action items and agreed to follow up next week.\nRoutine status: deployments are green and the on-call week was quiet.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the billing-service cutover slips, downstream reporting in LATAM is affected.\nThe team reviewed open action items and agreed to follow up next week."
+    },
+    {
+      "id": "prose-004",
+      "title": "Project Oxbow — planning notes",
+      "content": "# Project Oxbow planning notes\n\n## Decisions\nWe decided that Yuki Tanabe will lead the ingest-pipeline migration for Project Oxbow.\nThe approved budget for this workstream is $95K, targeting Q4 delivery in LATAM.\n\n## Context\nsearch-indexer dashboards were reviewed; no anomalies were flagged.\nNotes also touched on documentation cleanup across LATAM teams.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the ingest-pipeline cutover slips, downstream reporting in LATAM is affected.\nThe team reviewed open action items and agreed to follow up next week."
+    },
+    {
+      "id": "prose-005",
+      "title": "Project Heliotrope — planning notes",
+      "content": "# Project Heliotrope planning notes\n\n## Decisions\nWe decided that Jonas Pieterse will lead the ledger-core migration for Project Heliotrope.\nThe approved budget for this workstream is $337K, targeting Q4 delivery in NA-West.\n\n## Context\nThe team reviewed open action items and agreed to follow up next week.\nThe team reviewed open action items and agreed to follow up next week.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the ledger-core cutover slips, downstream reporting in NA-West is affected.\nRoutine status: deployments are green and the on-call week was quiet."
+    },
+    {
+      "id": "prose-006",
+      "title": "Project Vermilion — planning notes",
+      "content": "# Project Vermilion planning notes\n\n## Decisions\nWe decided that Yuki Tanabe will lead the ingest-pipeline migration for Project Vermilion.\nThe approved budget for this workstream is $190K, targeting Q1 delivery in NA-East.\n\n## Context\nnotification-hub dashboards were reviewed; no anomalies were flagged.\nNotes also touched on documentation cleanup across EMEA teams.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the ingest-pipeline cutover slips, downstream reporting in NA-East is affected.\nGeneral discussion covered hiring plans and the upcoming offsite agenda."
+    },
+    {
+      "id": "prose-007",
+      "title": "Project Nimbus — planning notes",
+      "content": "# Project Nimbus planning notes\n\n## Decisions\nWe decided that Omar Haddad will lead the auth-gateway migration for Project Nimbus.\nThe approved budget for this workstream is $793K, targeting Q2 delivery in EMEA.\n\n## Context\nGeneral discussion covered hiring plans and the upcoming offsite agenda.\nThe team reviewed open action items and agreed to follow up next week.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the auth-gateway cutover slips, downstream reporting in EMEA is affected.\nThe team reviewed open action items and agreed to follow up next week."
+    },
+    {
+      "id": "prose-008",
+      "title": "Project Basalt — planning notes",
+      "content": "# Project Basalt planning notes\n\n## Decisions\nWe decided that Priya Raman will lead the auth-gateway migration for Project Basalt.\nThe approved budget for this workstream is $470K, targeting Q1 delivery in NA-West.\n\n## Context\nGeneral discussion covered hiring plans and the upcoming offsite agenda.\nGeneral discussion covered hiring plans and the upcoming offsite agenda.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the auth-gateway cutover slips, downstream reporting in NA-West is affected.\nNotes also touched on documentation cleanup across NA-West teams."
+    },
+    {
+      "id": "prose-009",
+      "title": "Project Nimbus — planning notes",
+      "content": "# Project Nimbus planning notes\n\n## Decisions\nWe decided that Lena Kowalczyk will lead the webhook-relay migration for Project Nimbus.\nThe approved budget for this workstream is $734K, targeting Q1 delivery in APAC.\n\n## Context\nRoutine status: deployments are green and the on-call week was quiet.\nNotes also touched on documentation cleanup across LATAM teams.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the webhook-relay cutover slips, downstream reporting in APAC is affected.\nGeneral discussion covered hiring plans and the upcoming offsite agenda."
+    },
+    {
+      "id": "prose-010",
+      "title": "Project Oxbow — planning notes",
+      "content": "# Project Oxbow planning notes\n\n## Decisions\nWe decided that Felix Duarte will lead the ledger-core migration for Project Oxbow.\nThe approved budget for this workstream is $911K, targeting Q2 delivery in APAC.\n\n## Context\nRoutine status: deployments are green and the on-call week was quiet.\nRoutine status: deployments are green and the on-call week was quiet.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the ledger-core cutover slips, downstream reporting in APAC is affected.\nRoutine status: deployments are green and the on-call week was quiet."
+    },
+    {
+      "id": "prose-011",
+      "title": "Project Nimbus — planning notes",
+      "content": "# Project Nimbus planning notes\n\n## Decisions\nWe decided that Mei-Ling Chau will lead the report-engine migration for Project Nimbus.\nThe approved budget for this workstream is $720K, targeting Q2 delivery in LATAM.\n\n## Context\nNotes also touched on documentation cleanup across EMEA teams.\nNotes also touched on documentation cleanup across NA-East teams.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the report-engine cutover slips, downstream reporting in LATAM is affected.\nNotes also touched on documentation cleanup across LATAM teams."
+    },
+    {
+      "id": "prose-012",
+      "title": "Project Quillon — planning notes",
+      "content": "# Project Quillon planning notes\n\n## Decisions\nWe decided that Sofia Brandt will lead the webhook-relay migration for Project Quillon.\nThe approved budget for this workstream is $626K, targeting Q3 delivery in EMEA.\n\n## Context\nRoutine status: deployments are green and the on-call week was quiet.\nGeneral discussion covered hiring plans and the upcoming offsite agenda.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the webhook-relay cutover slips, downstream reporting in EMEA is affected.\nGeneral discussion covered hiring plans and the upcoming offsite agenda."
+    },
+    {
+      "id": "prose-013",
+      "title": "Project Tessera — planning notes",
+      "content": "# Project Tessera planning notes\n\n## Decisions\nWe decided that Dana Okafor will lead the webhook-relay migration for Project Tessera.\nThe approved budget for this workstream is $583K, targeting Q2 delivery in EMEA.\n\n## Context\nRoutine status: deployments are green and the on-call week was quiet.\nThe team reviewed open action items and agreed to follow up next week.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the webhook-relay cutover slips, downstream reporting in EMEA is affected.\nRoutine status: deployments are green and the on-call week was quiet."
+    },
+    {
+      "id": "prose-014",
+      "title": "Project Cobble — planning notes",
+      "content": "# Project Cobble planning notes\n\n## Decisions\nWe decided that Jonas Pieterse will lead the ledger-core migration for Project Cobble.\nThe approved budget for this workstream is $796K, targeting Q4 delivery in NA-East.\n\n## Context\nNotes also touched on documentation cleanup across EMEA teams.\nThe team reviewed open action items and agreed to follow up next week.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the ledger-core cutover slips, downstream reporting in NA-East is affected.\nbilling-service dashboards were reviewed; no anomalies were flagged."
+    },
+    {
+      "id": "prose-015",
+      "title": "Project Basalt — planning notes",
+      "content": "# Project Basalt planning notes\n\n## Decisions\nWe decided that Sofia Brandt will lead the ledger-core migration for Project Basalt.\nThe approved budget for this workstream is $227K, targeting Q1 delivery in LATAM.\n\n## Context\nGeneral discussion covered hiring plans and the upcoming offsite agenda.\nGeneral discussion covered hiring plans and the upcoming offsite agenda.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the ledger-core cutover slips, downstream reporting in LATAM is affected.\nThe team reviewed open action items and agreed to follow up next week."
+    },
+    {
+      "id": "prose-016",
+      "title": "Project Heliotrope — planning notes",
+      "content": "# Project Heliotrope planning notes\n\n## Decisions\nWe decided that Mei-Ling Chau will lead the ingest-pipeline migration for Project Heliotrope.\nThe approved budget for this workstream is $805K, targeting Q4 delivery in NA-West.\n\n## Context\nRoutine status: deployments are green and the on-call week was quiet.\nThe team reviewed open action items and agreed to follow up next week.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the ingest-pipeline cutover slips, downstream reporting in NA-West is affected.\nGeneral discussion covered hiring plans and the upcoming offsite agenda."
+    },
+    {
+      "id": "prose-017",
+      "title": "Project Vermilion — planning notes",
+      "content": "# Project Vermilion planning notes\n\n## Decisions\nWe decided that Felix Duarte will lead the report-engine migration for Project Vermilion.\nThe approved budget for this workstream is $665K, targeting Q2 delivery in LATAM.\n\n## Context\nGeneral discussion covered hiring plans and the upcoming offsite agenda.\nRoutine status: deployments are green and the on-call week was quiet.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the report-engine cutover slips, downstream reporting in LATAM is affected.\ningest-pipeline dashboards were reviewed; no anomalies were flagged."
+    },
+    {
+      "id": "prose-018",
+      "title": "Project Tessera — planning notes",
+      "content": "# Project Tessera planning notes\n\n## Decisions\nWe decided that Yuki Tanabe will lead the ledger-core migration for Project Tessera.\nThe approved budget for this workstream is $845K, targeting Q1 delivery in APAC.\n\n## Context\nNotes also touched on documentation cleanup across LATAM teams.\nNotes also touched on documentation cleanup across NA-East teams.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the ledger-core cutover slips, downstream reporting in APAC is affected.\nNotes also touched on documentation cleanup across NA-East teams."
+    },
+    {
+      "id": "prose-019",
+      "title": "Project Meridian — planning notes",
+      "content": "# Project Meridian planning notes\n\n## Decisions\nWe decided that Priya Raman will lead the billing-service migration for Project Meridian.\nThe approved budget for this workstream is $821K, targeting Q4 delivery in NA-West.\n\n## Context\nGeneral discussion covered hiring plans and the upcoming offsite agenda.\nRoutine status: deployments are green and the on-call week was quiet.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the billing-service cutover slips, downstream reporting in NA-West is affected.\nsearch-indexer dashboards were reviewed; no anomalies were flagged."
+    },
+    {
+      "id": "prose-020",
+      "title": "Project Larkspur — planning notes",
+      "content": "# Project Larkspur planning notes\n\n## Decisions\nWe decided that Priya Raman will lead the webhook-relay migration for Project Larkspur.\nThe approved budget for this workstream is $650K, targeting Q1 delivery in LATAM.\n\n## Context\nsearch-indexer dashboards were reviewed; no anomalies were flagged.\nNotes also touched on documentation cleanup across NA-East teams.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the webhook-relay cutover slips, downstream reporting in LATAM is affected.\nreport-engine dashboards were reviewed; no anomalies were flagged."
+    },
+    {
+      "id": "prose-021",
+      "title": "Project Basalt — planning notes",
+      "content": "# Project Basalt planning notes\n\n## Decisions\nWe decided that Clara Westbrook will lead the report-engine migration for Project Basalt.\nThe approved budget for this workstream is $719K, targeting Q3 delivery in APAC.\n\n## Context\nGeneral discussion covered hiring plans and the upcoming offsite agenda.\nRoutine status: deployments are green and the on-call week was quiet.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the report-engine cutover slips, downstream reporting in APAC is affected.\nRoutine status: deployments are green and the on-call week was quiet."
+    },
+    {
+      "id": "prose-022",
+      "title": "Project Larkspur — planning notes",
+      "content": "# Project Larkspur planning notes\n\n## Decisions\nWe decided that Yuki Tanabe will lead the notification-hub migration for Project Larkspur.\nThe approved budget for this workstream is $540K, targeting Q2 delivery in LATAM.\n\n## Context\nauth-gateway dashboards were reviewed; no anomalies were flagged.\nGeneral discussion covered hiring plans and the upcoming offsite agenda.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the notification-hub cutover slips, downstream reporting in LATAM is affected.\nThe team reviewed open action items and agreed to follow up next week."
+    },
+    {
+      "id": "prose-023",
+      "title": "Project Vermilion — planning notes",
+      "content": "# Project Vermilion planning notes\n\n## Decisions\nWe decided that Dana Okafor will lead the ledger-core migration for Project Vermilion.\nThe approved budget for this workstream is $61K, targeting Q3 delivery in NA-East.\n\n## Context\nGeneral discussion covered hiring plans and the upcoming offsite agenda.\nRoutine status: deployments are green and the on-call week was quiet.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the ledger-core cutover slips, downstream reporting in NA-East is affected.\nThe team reviewed open action items and agreed to follow up next week."
+    },
+    {
+      "id": "prose-024",
+      "title": "Project Nimbus — planning notes",
+      "content": "# Project Nimbus planning notes\n\n## Decisions\nWe decided that Clara Westbrook will lead the ledger-core migration for Project Nimbus.\nThe approved budget for this workstream is $792K, targeting Q2 delivery in NA-West.\n\n## Context\nRoutine status: deployments are green and the on-call week was quiet.\nRoutine status: deployments are green and the on-call week was quiet.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the ledger-core cutover slips, downstream reporting in NA-West is affected.\nGeneral discussion covered hiring plans and the upcoming offsite agenda."
+    },
+    {
+      "id": "prose-025",
+      "title": "Project Oxbow — planning notes",
+      "content": "# Project Oxbow planning notes\n\n## Decisions\nWe decided that Clara Westbrook will lead the ledger-core migration for Project Oxbow.\nThe approved budget for this workstream is $925K, targeting Q1 delivery in NA-East.\n\n## Context\nRoutine status: deployments are green and the on-call week was quiet.\nnotification-hub dashboards were reviewed; no anomalies were flagged.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the ledger-core cutover slips, downstream reporting in NA-East is affected.\nNotes also touched on documentation cleanup across NA-West teams."
+    },
+    {
+      "id": "prose-026",
+      "title": "Project Larkspur — planning notes",
+      "content": "# Project Larkspur planning notes\n\n## Decisions\nWe decided that Ravi Menon will lead the auth-gateway migration for Project Larkspur.\nThe approved budget for this workstream is $301K, targeting Q1 delivery in LATAM.\n\n## Context\nThe team reviewed open action items and agreed to follow up next week.\nnotification-hub dashboards were reviewed; no anomalies were flagged.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the auth-gateway cutover slips, downstream reporting in LATAM is affected.\nledger-core dashboards were reviewed; no anomalies were flagged."
+    },
+    {
+      "id": "prose-027",
+      "title": "Project Oxbow — planning notes",
+      "content": "# Project Oxbow planning notes\n\n## Decisions\nWe decided that Lena Kowalczyk will lead the billing-service migration for Project Oxbow.\nThe approved budget for this workstream is $186K, targeting Q1 delivery in LATAM.\n\n## Context\nNotes also touched on documentation cleanup across LATAM teams.\nThe team reviewed open action items and agreed to follow up next week.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the billing-service cutover slips, downstream reporting in LATAM is affected.\nGeneral discussion covered hiring plans and the upcoming offsite agenda."
+    },
+    {
+      "id": "prose-028",
+      "title": "Project Tessera — planning notes",
+      "content": "# Project Tessera planning notes\n\n## Decisions\nWe decided that Mei-Ling Chau will lead the webhook-relay migration for Project Tessera.\nThe approved budget for this workstream is $621K, targeting Q4 delivery in LATAM.\n\n## Context\nRoutine status: deployments are green and the on-call week was quiet.\nNotes also touched on documentation cleanup across NA-East teams.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the webhook-relay cutover slips, downstream reporting in LATAM is affected.\nNotes also touched on documentation cleanup across EMEA teams."
+    },
+    {
+      "id": "prose-029",
+      "title": "Project Pradel — planning notes",
+      "content": "# Project Pradel planning notes\n\n## Decisions\nWe decided that Jonas Pieterse will lead the webhook-relay migration for Project Pradel.\nThe approved budget for this workstream is $571K, targeting Q1 delivery in NA-East.\n\n## Context\nRoutine status: deployments are green and the on-call week was quiet.\nNotes also touched on documentation cleanup across NA-West teams.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the webhook-relay cutover slips, downstream reporting in NA-East is affected.\nRoutine status: deployments are green and the on-call week was quiet."
+    },
+    {
+      "id": "prose-030",
+      "title": "Project Nimbus — planning notes",
+      "content": "# Project Nimbus planning notes\n\n## Decisions\nWe decided that Felix Duarte will lead the notification-hub migration for Project Nimbus.\nThe approved budget for this workstream is $884K, targeting Q1 delivery in LATAM.\n\n## Context\nThe team reviewed open action items and agreed to follow up next week.\nwebhook-relay dashboards were reviewed; no anomalies were flagged.\nAlternatives considered included deferring to next quarter and outsourcing the work.\n\n## Risks\nIf the notification-hub cutover slips, downstream reporting in LATAM is affected.\nRoutine status: deployments are green and the on-call week was quiet."
+    }
+  ],
+  "queries": [
+    {
+      "id": "prose-q-0a",
+      "query": "who is leading the notification-hub migration for project Basalt?",
+      "relevant_doc_ids": [
+        "prose-001"
+      ]
+    },
+    {
+      "id": "prose-q-0b",
+      "query": "what is the approved budget for Basalt's notification-hub workstream?",
+      "relevant_doc_ids": [
+        "prose-001"
+      ]
+    },
+    {
+      "id": "prose-q-1a",
+      "query": "who is leading the ledger-core migration for project Cobble?",
+      "relevant_doc_ids": [
+        "prose-002"
+      ]
+    },
+    {
+      "id": "prose-q-1b",
+      "query": "what is the approved budget for Cobble's ledger-core workstream?",
+      "relevant_doc_ids": [
+        "prose-002"
+      ]
+    },
+    {
+      "id": "prose-q-2a",
+      "query": "who is leading the billing-service migration for project Vermilion?",
+      "relevant_doc_ids": [
+        "prose-003"
+      ]
+    },
+    {
+      "id": "prose-q-2b",
+      "query": "what is the approved budget for Vermilion's billing-service workstream?",
+      "relevant_doc_ids": [
+        "prose-003"
+      ]
+    },
+    {
+      "id": "prose-q-3a",
+      "query": "who is leading the ingest-pipeline migration for project Oxbow?",
+      "relevant_doc_ids": [
+        "prose-004"
+      ]
+    },
+    {
+      "id": "prose-q-3b",
+      "query": "what is the approved budget for Oxbow's ingest-pipeline workstream?",
+      "relevant_doc_ids": [
+        "prose-004"
+      ]
+    },
+    {
+      "id": "prose-q-4a",
+      "query": "who is leading the ledger-core migration for project Heliotrope?",
+      "relevant_doc_ids": [
+        "prose-005"
+      ]
+    },
+    {
+      "id": "prose-q-4b",
+      "query": "what is the approved budget for Heliotrope's ledger-core workstream?",
+      "relevant_doc_ids": [
+        "prose-005"
+      ]
+    },
+    {
+      "id": "prose-q-5a",
+      "query": "who is leading the ingest-pipeline migration for project Vermilion?",
+      "relevant_doc_ids": [
+        "prose-006"
+      ]
+    },
+    {
+      "id": "prose-q-5b",
+      "query": "what is the approved budget for Vermilion's ingest-pipeline workstream?",
+      "relevant_doc_ids": [
+        "prose-006"
+      ]
+    },
+    {
+      "id": "prose-q-6a",
+      "query": "who is leading the auth-gateway migration for project Nimbus?",
+      "relevant_doc_ids": [
+        "prose-007"
+      ]
+    },
+    {
+      "id": "prose-q-6b",
+      "query": "what is the approved budget for Nimbus's auth-gateway workstream?",
+      "relevant_doc_ids": [
+        "prose-007"
+      ]
+    },
+    {
+      "id": "prose-q-7a",
+      "query": "who is leading the auth-gateway migration for project Basalt?",
+      "relevant_doc_ids": [
+        "prose-008"
+      ]
+    },
+    {
+      "id": "prose-q-7b",
+      "query": "what is the approved budget for Basalt's auth-gateway workstream?",
+      "relevant_doc_ids": [
+        "prose-008"
+      ]
+    },
+    {
+      "id": "prose-q-8a",
+      "query": "who is leading the webhook-relay migration for project Nimbus?",
+      "relevant_doc_ids": [
+        "prose-009"
+      ]
+    },
+    {
+      "id": "prose-q-8b",
+      "query": "what is the approved budget for Nimbus's webhook-relay workstream?",
+      "relevant_doc_ids": [
+        "prose-009"
+      ]
+    },
+    {
+      "id": "prose-q-9a",
+      "query": "who is leading the ledger-core migration for project Oxbow?",
+      "relevant_doc_ids": [
+        "prose-010"
+      ]
+    },
+    {
+      "id": "prose-q-9b",
+      "query": "what is the approved budget for Oxbow's ledger-core workstream?",
+      "relevant_doc_ids": [
+        "prose-010"
+      ]
+    },
+    {
+      "id": "prose-q-10a",
+      "query": "who is leading the report-engine migration for project Nimbus?",
+      "relevant_doc_ids": [
+        "prose-011"
+      ]
+    },
+    {
+      "id": "prose-q-10b",
+      "query": "what is the approved budget for Nimbus's report-engine workstream?",
+      "relevant_doc_ids": [
+        "prose-011"
+      ]
+    },
+    {
+      "id": "prose-q-11a",
+      "query": "who is leading the webhook-relay migration for project Quillon?",
+      "relevant_doc_ids": [
+        "prose-012"
+      ]
+    },
+    {
+      "id": "prose-q-11b",
+      "query": "what is the approved budget for Quillon's webhook-relay workstream?",
+      "relevant_doc_ids": [
+        "prose-012"
+      ]
+    },
+    {
+      "id": "prose-q-12a",
+      "query": "who is leading the webhook-relay migration for project Tessera?",
+      "relevant_doc_ids": [
+        "prose-013"
+      ]
+    },
+    {
+      "id": "prose-q-12b",
+      "query": "what is the approved budget for Tessera's webhook-relay workstream?",
+      "relevant_doc_ids": [
+        "prose-013"
+      ]
+    },
+    {
+      "id": "prose-q-13a",
+      "query": "who is leading the ledger-core migration for project Cobble?",
+      "relevant_doc_ids": [
+        "prose-014"
+      ]
+    },
+    {
+      "id": "prose-q-13b",
+      "query": "what is the approved budget for Cobble's ledger-core workstream?",
+      "relevant_doc_ids": [
+        "prose-014"
+      ]
+    },
+    {
+      "id": "prose-q-14a",
+      "query": "who is leading the ledger-core migration for project Basalt?",
+      "relevant_doc_ids": [
+        "prose-015"
+      ]
+    },
+    {
+      "id": "prose-q-14b",
+      "query": "what is the approved budget for Basalt's ledger-core workstream?",
+      "relevant_doc_ids": [
+        "prose-015"
+      ]
+    },
+    {
+      "id": "prose-q-15a",
+      "query": "who is leading the ingest-pipeline migration for project Heliotrope?",
+      "relevant_doc_ids": [
+        "prose-016"
+      ]
+    },
+    {
+      "id": "prose-q-15b",
+      "query": "what is the approved budget for Heliotrope's ingest-pipeline workstream?",
+      "relevant_doc_ids": [
+        "prose-016"
+      ]
+    },
+    {
+      "id": "prose-q-16a",
+      "query": "who is leading the report-engine migration for project Vermilion?",
+      "relevant_doc_ids": [
+        "prose-017"
+      ]
+    },
+    {
+      "id": "prose-q-16b",
+      "query": "what is the approved budget for Vermilion's report-engine workstream?",
+      "relevant_doc_ids": [
+        "prose-017"
+      ]
+    },
+    {
+      "id": "prose-q-17a",
+      "query": "who is leading the ledger-core migration for project Tessera?",
+      "relevant_doc_ids": [
+        "prose-018"
+      ]
+    },
+    {
+      "id": "prose-q-17b",
+      "query": "what is the approved budget for Tessera's ledger-core workstream?",
+      "relevant_doc_ids": [
+        "prose-018"
+      ]
+    },
+    {
+      "id": "prose-q-18a",
+      "query": "who is leading the billing-service migration for project Meridian?",
+      "relevant_doc_ids": [
+        "prose-019"
+      ]
+    },
+    {
+      "id": "prose-q-18b",
+      "query": "what is the approved budget for Meridian's billing-service workstream?",
+      "relevant_doc_ids": [
+        "prose-019"
+      ]
+    },
+    {
+      "id": "prose-q-19a",
+      "query": "who is leading the webhook-relay migration for project Larkspur?",
+      "relevant_doc_ids": [
+        "prose-020"
+      ]
+    },
+    {
+      "id": "prose-q-19b",
+      "query": "what is the approved budget for Larkspur's webhook-relay workstream?",
+      "relevant_doc_ids": [
+        "prose-020"
+      ]
+    },
+    {
+      "id": "prose-q-20a",
+      "query": "who is leading the report-engine migration for project Basalt?",
+      "relevant_doc_ids": [
+        "prose-021"
+      ]
+    },
+    {
+      "id": "prose-q-20b",
+      "query": "what is the approved budget for Basalt's report-engine workstream?",
+      "relevant_doc_ids": [
+        "prose-021"
+      ]
+    },
+    {
+      "id": "prose-q-21a",
+      "query": "who is leading the notification-hub migration for project Larkspur?",
+      "relevant_doc_ids": [
+        "prose-022"
+      ]
+    },
+    {
+      "id": "prose-q-21b",
+      "query": "what is the approved budget for Larkspur's notification-hub workstream?",
+      "relevant_doc_ids": [
+        "prose-022"
+      ]
+    },
+    {
+      "id": "prose-q-22a",
+      "query": "who is leading the ledger-core migration for project Vermilion?",
+      "relevant_doc_ids": [
+        "prose-023"
+      ]
+    },
+    {
+      "id": "prose-q-22b",
+      "query": "what is the approved budget for Vermilion's ledger-core workstream?",
+      "relevant_doc_ids": [
+        "prose-023"
+      ]
+    },
+    {
+      "id": "prose-q-23a",
+      "query": "who is leading the ledger-core migration for project Nimbus?",
+      "relevant_doc_ids": [
+        "prose-024"
+      ]
+    },
+    {
+      "id": "prose-q-23b",
+      "query": "what is the approved budget for Nimbus's ledger-core workstream?",
+      "relevant_doc_ids": [
+        "prose-024"
+      ]
+    },
+    {
+      "id": "prose-q-24a",
+      "query": "who is leading the ledger-core migration for project Oxbow?",
+      "relevant_doc_ids": [
+        "prose-025"
+      ]
+    },
+    {
+      "id": "prose-q-24b",
+      "query": "what is the approved budget for Oxbow's ledger-core workstream?",
+      "relevant_doc_ids": [
+        "prose-025"
+      ]
+    },
+    {
+      "id": "prose-q-25a",
+      "query": "who is leading the auth-gateway migration for project Larkspur?",
+      "relevant_doc_ids": [
+        "prose-026"
+      ]
+    },
+    {
+      "id": "prose-q-25b",
+      "query": "what is the approved budget for Larkspur's auth-gateway workstream?",
+      "relevant_doc_ids": [
+        "prose-026"
+      ]
+    },
+    {
+      "id": "prose-q-26a",
+      "query": "who is leading the billing-service migration for project Oxbow?",
+      "relevant_doc_ids": [
+        "prose-027"
+      ]
+    },
+    {
+      "id": "prose-q-26b",
+      "query": "what is the approved budget for Oxbow's billing-service workstream?",
+      "relevant_doc_ids": [
+        "prose-027"
+      ]
+    },
+    {
+      "id": "prose-q-27a",
+      "query": "who is leading the webhook-relay migration for project Tessera?",
+      "relevant_doc_ids": [
+        "prose-028"
+      ]
+    }
+  ]
+}

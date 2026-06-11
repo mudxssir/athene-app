@@ -1,0 +1,41 @@
+# P0-8: nightly retrieval eval — recall@5 / MRR per data shape.
+# Not a per-PR gate (embedding API cost); phase gates compare the uploaded
+# report against docs/plans/phase-reports/baselines/p0.json.
+name: Nightly Retrieval Eval
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  retrieval-eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run retrieval eval
+        env:
+          NODE_OPTIONS: "--conditions=react-server"
+          JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
+          # Dummy DB env — pipeline modules assert presence at import; the
+          # eval is in-memory and never opens a connection.
+          SUPABASE_URL: "https://eval-dummy.supabase.co"
+          SUPABASE_SERVICE_ROLE_KEY: "eval-dummy"
+        run: pnpm exec tsx scripts/eval/run-eval.ts --out eval-report.json
+        # NODE_OPTIONS via env to survive pnpm exec
+        # (react-server condition stubs the server-only package)
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: retrieval-eval-report
+          path: eval-report.json
