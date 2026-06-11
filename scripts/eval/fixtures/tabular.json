@@ -4,180 +4,180 @@
   "documents": [
     {
       "id": "table-001",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.VERMILION_Q2_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.VERMILION_Q2_REVENUE (2580 rows)\nColumns:\n  region               varchar — 5 distinct values: EMEA (258), EMEA (129)\n  revenue_usd          number — range: 1000–258000, avg: 9546, total: 2322000\n  account_owner        varchar — top values: Mei-Ling Chau (86)\n  close_date           date — range: 2026-01-02 to 2026-01-28\n\nANALYTICS.SALES.VERMILION_Q2_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: EMEA: 1290000, NA-East: 438600"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.NIMBUS_Q2_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.NIMBUS_Q2_REVENUE (8940 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-East (894), APAC (447)\n  revenue_usd          number — range: 1000–894000, avg: 33078, total: 8046000\n  account_owner        varchar — top values: Priya Raman (298)\n  close_date           date — range: 2026-01-02 to 2026-01-28\n\nANALYTICS.SALES.NIMBUS_Q2_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-East: 4470000, APAC: 1519800"
     },
     {
       "id": "table-002",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.COBBLE_Q2_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.COBBLE_Q2_REVENUE (7000 rows)\nColumns:\n  region               varchar — 5 distinct values: APAC (700), EMEA (350)\n  revenue_usd          number — range: 1000–700000, avg: 25900, total: 6300000\n  account_owner        varchar — top values: Omar Haddad (233)\n  close_date           date — range: 2026-01-02 to 2026-02-28\n\nANALYTICS.SALES.COBBLE_Q2_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: APAC: 3500000, APAC: 1190000"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.BASALT_Q1_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.BASALT_Q1_REVENUE (4670 rows)\nColumns:\n  region               varchar — 5 distinct values: EMEA (467), LATAM (233)\n  revenue_usd          number — range: 1000–467000, avg: 17279, total: 4203000\n  account_owner        varchar — top values: Clara Westbrook (155)\n  close_date           date — range: 2026-01-02 to 2026-02-28\n\nANALYTICS.SALES.BASALT_Q1_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: EMEA: 2335000, EMEA: 793900"
     },
     {
       "id": "table-003",
       "title": "SNOWFLAKE: ANALYTICS.SALES.MERIDIAN_Q3_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.MERIDIAN_Q3_REVENUE (3880 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-East (388), NA-West (194)\n  revenue_usd          number — range: 1000–388000, avg: 14356, total: 3492000\n  account_owner        varchar — top values: Priya Raman (129)\n  close_date           date — range: 2026-01-02 to 2026-03-28\n\nANALYTICS.SALES.MERIDIAN_Q3_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-East: 1940000, EMEA: 659600"
+      "content": "Table: ANALYTICS.SALES.MERIDIAN_Q3_REVENUE (3560 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-East (356), LATAM (178)\n  revenue_usd          number — range: 1000–356000, avg: 13172, total: 3204000\n  account_owner        varchar — top values: Marcus Lindqvist (118)\n  close_date           date — range: 2026-01-02 to 2026-03-28\n\nANALYTICS.SALES.MERIDIAN_Q3_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-East: 1780000, LATAM: 605200"
     },
     {
       "id": "table-004",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.COBBLE_Q2_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.COBBLE_Q2_REVENUE (2650 rows)\nColumns:\n  region               varchar — 5 distinct values: APAC (265), EMEA (132)\n  revenue_usd          number — range: 1000–265000, avg: 9805, total: 2385000\n  account_owner        varchar — top values: Dana Okafor (88)\n  close_date           date — range: 2026-01-02 to 2026-04-28\n\nANALYTICS.SALES.COBBLE_Q2_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: APAC: 1325000, NA-West: 450500"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.NIMBUS_Q4_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.NIMBUS_Q4_REVENUE (680 rows)\nColumns:\n  region               varchar — 5 distinct values: LATAM (68), EMEA (34)\n  revenue_usd          number — range: 1000–68000, avg: 2516, total: 612000\n  account_owner        varchar — top values: Lena Kowalczyk (22)\n  close_date           date — range: 2026-01-02 to 2026-04-28\n\nANALYTICS.SALES.NIMBUS_Q4_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: LATAM: 340000, NA-West: 115600"
     },
     {
       "id": "table-005",
       "title": "SNOWFLAKE: ANALYTICS.SALES.COBBLE_Q1_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.COBBLE_Q1_REVENUE (5220 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-East (522), NA-East (261)\n  revenue_usd          number — range: 1000–522000, avg: 19314, total: 4698000\n  account_owner        varchar — top values: Yuki Tanabe (174)\n  close_date           date — range: 2026-01-02 to 2026-05-28\n\nANALYTICS.SALES.COBBLE_Q1_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-East: 2610000, APAC: 887400"
+      "content": "Table: ANALYTICS.SALES.COBBLE_Q1_REVENUE (3270 rows)\nColumns:\n  region               varchar — 5 distinct values: EMEA (327), APAC (163)\n  revenue_usd          number — range: 1000–327000, avg: 12099, total: 2943000\n  account_owner        varchar — top values: Ravi Menon (109)\n  close_date           date — range: 2026-01-02 to 2026-05-28\n\nANALYTICS.SALES.COBBLE_Q1_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: EMEA: 1635000, EMEA: 555900"
     },
     {
       "id": "table-006",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.COBBLE_Q2_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.COBBLE_Q2_REVENUE (5080 rows)\nColumns:\n  region               varchar — 5 distinct values: EMEA (508), NA-East (254)\n  revenue_usd          number — range: 1000–508000, avg: 18796, total: 4572000\n  account_owner        varchar — top values: Yuki Tanabe (169)\n  close_date           date — range: 2026-01-02 to 2026-06-28\n\nANALYTICS.SALES.COBBLE_Q2_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: EMEA: 2540000, NA-West: 863600"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.HELIOTROPE_Q1_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.HELIOTROPE_Q1_REVENUE (1550 rows)\nColumns:\n  region               varchar — 5 distinct values: EMEA (155), NA-West (77)\n  revenue_usd          number — range: 1000–155000, avg: 5735, total: 1395000\n  account_owner        varchar — top values: Ravi Menon (51)\n  close_date           date — range: 2026-01-02 to 2026-06-28\n\nANALYTICS.SALES.HELIOTROPE_Q1_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: EMEA: 775000, APAC: 263500"
     },
     {
       "id": "table-007",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.MERIDIAN_Q4_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.MERIDIAN_Q4_REVENUE (7370 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-East (737), LATAM (368)\n  revenue_usd          number — range: 1000–737000, avg: 27269, total: 6633000\n  account_owner        varchar — top values: Dana Okafor (245)\n  close_date           date — range: 2026-01-02 to 2026-07-28\n\nANALYTICS.SALES.MERIDIAN_Q4_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-East: 3685000, APAC: 1252900"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.QUILLON_Q4_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.QUILLON_Q4_REVENUE (1800 rows)\nColumns:\n  region               varchar — 5 distinct values: APAC (180), EMEA (90)\n  revenue_usd          number — range: 1000–180000, avg: 6660, total: 1620000\n  account_owner        varchar — top values: Yuki Tanabe (60)\n  close_date           date — range: 2026-01-02 to 2026-07-28\n\nANALYTICS.SALES.QUILLON_Q4_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: APAC: 900000, NA-West: 306000"
     },
     {
       "id": "table-008",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.FALCATA_Q3_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.FALCATA_Q3_REVENUE (4750 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-West (475), APAC (237)\n  revenue_usd          number — range: 1000–475000, avg: 17575, total: 4275000\n  account_owner        varchar — top values: Sofia Brandt (158)\n  close_date           date — range: 2026-01-02 to 2026-08-28\n\nANALYTICS.SALES.FALCATA_Q3_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-West: 2375000, EMEA: 807500"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.NIMBUS_Q1_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.NIMBUS_Q1_REVENUE (4610 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-West (461), NA-East (230)\n  revenue_usd          number — range: 1000–461000, avg: 17057, total: 4149000\n  account_owner        varchar — top values: Yuki Tanabe (153)\n  close_date           date — range: 2026-01-02 to 2026-08-28\n\nANALYTICS.SALES.NIMBUS_Q1_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-West: 2305000, NA-West: 783700"
     },
     {
       "id": "table-009",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.VERMILION_Q1_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.VERMILION_Q1_REVENUE (8220 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-East (822), EMEA (411)\n  revenue_usd          number — range: 1000–822000, avg: 30414, total: 7398000\n  account_owner        varchar — top values: Felix Duarte (274)\n  close_date           date — range: 2026-01-02 to 2026-09-28\n\nANALYTICS.SALES.VERMILION_Q1_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-East: 4110000, EMEA: 1397400"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.FALCATA_Q4_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.FALCATA_Q4_REVENUE (6600 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-West (660), NA-West (330)\n  revenue_usd          number — range: 1000–660000, avg: 24420, total: 5940000\n  account_owner        varchar — top values: Mei-Ling Chau (220)\n  close_date           date — range: 2026-01-02 to 2026-09-28\n\nANALYTICS.SALES.FALCATA_Q4_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-West: 3300000, LATAM: 1122000"
     },
     {
       "id": "table-010",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.FALCATA_Q2_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.FALCATA_Q2_REVENUE (6900 rows)\nColumns:\n  region               varchar — 5 distinct values: LATAM (690), APAC (345)\n  revenue_usd          number — range: 1000–690000, avg: 25530, total: 6210000\n  account_owner        varchar — top values: Clara Westbrook (230)\n  close_date           date — range: 2026-01-02 to 2026-01-28\n\nANALYTICS.SALES.FALCATA_Q2_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: LATAM: 3450000, LATAM: 1173000"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.QUILLON_Q2_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.QUILLON_Q2_REVENUE (5070 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-East (507), NA-East (253)\n  revenue_usd          number — range: 1000–507000, avg: 18759, total: 4563000\n  account_owner        varchar — top values: Ravi Menon (169)\n  close_date           date — range: 2026-01-02 to 2026-01-28\n\nANALYTICS.SALES.QUILLON_Q2_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-East: 2535000, NA-East: 861900"
     },
     {
       "id": "table-011",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.LARKSPUR_Q3_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.LARKSPUR_Q3_REVENUE (9280 rows)\nColumns:\n  region               varchar — 5 distinct values: EMEA (928), NA-West (464)\n  revenue_usd          number — range: 1000–928000, avg: 34336, total: 8352000\n  account_owner        varchar — top values: Yuki Tanabe (309)\n  close_date           date — range: 2026-01-02 to 2026-02-28\n\nANALYTICS.SALES.LARKSPUR_Q3_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: EMEA: 4640000, EMEA: 1577600"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.PRADEL_Q4_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.PRADEL_Q4_REVENUE (4420 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-West (442), LATAM (221)\n  revenue_usd          number — range: 1000–442000, avg: 16354, total: 3978000\n  account_owner        varchar — top values: Felix Duarte (147)\n  close_date           date — range: 2026-01-02 to 2026-02-28\n\nANALYTICS.SALES.PRADEL_Q4_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-West: 2210000, APAC: 751400"
     },
     {
       "id": "table-012",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.QUILLON_Q2_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.QUILLON_Q2_REVENUE (8640 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-East (864), NA-East (432)\n  revenue_usd          number — range: 1000–864000, avg: 31968, total: 7776000\n  account_owner        varchar — top values: Dana Okafor (288)\n  close_date           date — range: 2026-01-02 to 2026-03-28\n\nANALYTICS.SALES.QUILLON_Q2_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-East: 4320000, EMEA: 1468800"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.OXBOW_Q2_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.OXBOW_Q2_REVENUE (7010 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-West (701), NA-West (350)\n  revenue_usd          number — range: 1000–701000, avg: 25937, total: 6309000\n  account_owner        varchar — top values: Marcus Lindqvist (233)\n  close_date           date — range: 2026-01-02 to 2026-03-28\n\nANALYTICS.SALES.OXBOW_Q2_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-West: 3505000, NA-East: 1191700"
     },
     {
       "id": "table-013",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.VERMILION_Q3_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.VERMILION_Q3_REVENUE (5520 rows)\nColumns:\n  region               varchar — 5 distinct values: APAC (552), EMEA (276)\n  revenue_usd          number — range: 1000–552000, avg: 20424, total: 4968000\n  account_owner        varchar — top values: Ravi Menon (184)\n  close_date           date — range: 2026-01-02 to 2026-04-28\n\nANALYTICS.SALES.VERMILION_Q3_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: APAC: 2760000, NA-East: 938400"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.VERMILION_Q2_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.VERMILION_Q2_REVENUE (5310 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-East (531), LATAM (265)\n  revenue_usd          number — range: 1000–531000, avg: 19647, total: 4779000\n  account_owner        varchar — top values: Marcus Lindqvist (177)\n  close_date           date — range: 2026-01-02 to 2026-04-28\n\nANALYTICS.SALES.VERMILION_Q2_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-East: 2655000, APAC: 902700"
     },
     {
       "id": "table-014",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.NIMBUS_Q3_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.NIMBUS_Q3_REVENUE (1480 rows)\nColumns:\n  region               varchar — 5 distinct values: LATAM (148), LATAM (74)\n  revenue_usd          number — range: 1000–148000, avg: 5476, total: 1332000\n  account_owner        varchar — top values: Felix Duarte (49)\n  close_date           date — range: 2026-01-02 to 2026-05-28\n\nANALYTICS.SALES.NIMBUS_Q3_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: LATAM: 740000, NA-East: 251600"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.LARKSPUR_Q3_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.LARKSPUR_Q3_REVENUE (2430 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-West (243), APAC (121)\n  revenue_usd          number — range: 1000–243000, avg: 8991, total: 2187000\n  account_owner        varchar — top values: Lena Kowalczyk (81)\n  close_date           date — range: 2026-01-02 to 2026-05-28\n\nANALYTICS.SALES.LARKSPUR_Q3_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-West: 1215000, EMEA: 413100"
     },
     {
       "id": "table-015",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.PRADEL_Q4_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.PRADEL_Q4_REVENUE (5980 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-West (598), LATAM (299)\n  revenue_usd          number — range: 1000–598000, avg: 22126, total: 5382000\n  account_owner        varchar — top values: Priya Raman (199)\n  close_date           date — range: 2026-01-02 to 2026-06-28\n\nANALYTICS.SALES.PRADEL_Q4_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-West: 2990000, APAC: 1016600"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.LARKSPUR_Q2_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.LARKSPUR_Q2_REVENUE (4260 rows)\nColumns:\n  region               varchar — 5 distinct values: APAC (426), EMEA (213)\n  revenue_usd          number — range: 1000–426000, avg: 15762, total: 3834000\n  account_owner        varchar — top values: Lena Kowalczyk (142)\n  close_date           date — range: 2026-01-02 to 2026-06-28\n\nANALYTICS.SALES.LARKSPUR_Q2_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: APAC: 2130000, EMEA: 724200"
     },
     {
       "id": "table-016",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.BASALT_Q1_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.BASALT_Q1_REVENUE (2850 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-West (285), EMEA (142)\n  revenue_usd          number — range: 1000–285000, avg: 10545, total: 2565000\n  account_owner        varchar — top values: Sofia Brandt (95)\n  close_date           date — range: 2026-01-02 to 2026-07-28\n\nANALYTICS.SALES.BASALT_Q1_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-West: 1425000, EMEA: 484500"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.HELIOTROPE_Q2_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.HELIOTROPE_Q2_REVENUE (6440 rows)\nColumns:\n  region               varchar — 5 distinct values: LATAM (644), LATAM (322)\n  revenue_usd          number — range: 1000–644000, avg: 23828, total: 5796000\n  account_owner        varchar — top values: Lena Kowalczyk (214)\n  close_date           date — range: 2026-01-02 to 2026-07-28\n\nANALYTICS.SALES.HELIOTROPE_Q2_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: LATAM: 3220000, NA-East: 1094800"
     },
     {
       "id": "table-017",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.QUILLON_Q4_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.QUILLON_Q4_REVENUE (4880 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-East (488), NA-West (244)\n  revenue_usd          number — range: 1000–488000, avg: 18056, total: 4392000\n  account_owner        varchar — top values: Clara Westbrook (162)\n  close_date           date — range: 2026-01-02 to 2026-08-28\n\nANALYTICS.SALES.QUILLON_Q4_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-East: 2440000, NA-West: 829600"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.TESSERA_Q3_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.TESSERA_Q3_REVENUE (8490 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-East (849), NA-East (424)\n  revenue_usd          number — range: 1000–849000, avg: 31413, total: 7641000\n  account_owner        varchar — top values: Felix Duarte (283)\n  close_date           date — range: 2026-01-02 to 2026-08-28\n\nANALYTICS.SALES.TESSERA_Q3_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-East: 4245000, APAC: 1443300"
     },
     {
       "id": "table-018",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.QUILLON_Q3_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.QUILLON_Q3_REVENUE (1400 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-West (140), NA-West (70)\n  revenue_usd          number — range: 1000–140000, avg: 5180, total: 1260000\n  account_owner        varchar — top values: Dana Okafor (46)\n  close_date           date — range: 2026-01-02 to 2026-09-28\n\nANALYTICS.SALES.QUILLON_Q3_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-West: 700000, EMEA: 238000"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.OXBOW_Q4_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.OXBOW_Q4_REVENUE (2270 rows)\nColumns:\n  region               varchar — 5 distinct values: APAC (227), APAC (113)\n  revenue_usd          number — range: 1000–227000, avg: 8399, total: 2043000\n  account_owner        varchar — top values: Marcus Lindqvist (75)\n  close_date           date — range: 2026-01-02 to 2026-09-28\n\nANALYTICS.SALES.OXBOW_Q4_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: APAC: 1135000, LATAM: 385900"
     },
     {
       "id": "table-019",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.FALCATA_Q4_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.FALCATA_Q4_REVENUE (1490 rows)\nColumns:\n  region               varchar — 5 distinct values: EMEA (149), NA-East (74)\n  revenue_usd          number — range: 1000–149000, avg: 5513, total: 1341000\n  account_owner        varchar — top values: Yuki Tanabe (49)\n  close_date           date — range: 2026-01-02 to 2026-01-28\n\nANALYTICS.SALES.FALCATA_Q4_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: EMEA: 745000, LATAM: 253300"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.LARKSPUR_Q4_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.LARKSPUR_Q4_REVENUE (3710 rows)\nColumns:\n  region               varchar — 5 distinct values: LATAM (371), LATAM (185)\n  revenue_usd          number — range: 1000–371000, avg: 13727, total: 3339000\n  account_owner        varchar — top values: Clara Westbrook (123)\n  close_date           date — range: 2026-01-02 to 2026-01-28\n\nANALYTICS.SALES.LARKSPUR_Q4_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: LATAM: 1855000, NA-East: 630700"
     },
     {
       "id": "table-020",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.VERMILION_Q3_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.VERMILION_Q3_REVENUE (6500 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-East (650), EMEA (325)\n  revenue_usd          number — range: 1000–650000, avg: 24050, total: 5850000\n  account_owner        varchar — top values: Lena Kowalczyk (216)\n  close_date           date — range: 2026-01-02 to 2026-02-28\n\nANALYTICS.SALES.VERMILION_Q3_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-East: 3250000, APAC: 1105000"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.BASALT_Q3_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.BASALT_Q3_REVENUE (860 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-West (86), NA-East (43)\n  revenue_usd          number — range: 1000–86000, avg: 3182, total: 774000\n  account_owner        varchar — top values: Ravi Menon (28)\n  close_date           date — range: 2026-01-02 to 2026-02-28\n\nANALYTICS.SALES.BASALT_Q3_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-West: 430000, EMEA: 146200"
     },
     {
       "id": "table-021",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.PRADEL_Q2_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.PRADEL_Q2_REVENUE (5450 rows)\nColumns:\n  region               varchar — 5 distinct values: APAC (545), NA-West (272)\n  revenue_usd          number — range: 1000–545000, avg: 20165, total: 4905000\n  account_owner        varchar — top values: Marcus Lindqvist (181)\n  close_date           date — range: 2026-01-02 to 2026-03-28\n\nANALYTICS.SALES.PRADEL_Q2_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: APAC: 2725000, NA-West: 926500"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.VERMILION_Q3_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.VERMILION_Q3_REVENUE (1970 rows)\nColumns:\n  region               varchar — 5 distinct values: LATAM (197), NA-East (98)\n  revenue_usd          number — range: 1000–197000, avg: 7289, total: 1773000\n  account_owner        varchar — top values: Felix Duarte (65)\n  close_date           date — range: 2026-01-02 to 2026-03-28\n\nANALYTICS.SALES.VERMILION_Q3_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: LATAM: 985000, EMEA: 334900"
     },
     {
       "id": "table-022",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.COBBLE_Q3_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.COBBLE_Q3_REVENUE (9470 rows)\nColumns:\n  region               varchar — 5 distinct values: LATAM (947), NA-West (473)\n  revenue_usd          number — range: 1000–947000, avg: 35039, total: 8523000\n  account_owner        varchar — top values: Sofia Brandt (315)\n  close_date           date — range: 2026-01-02 to 2026-04-28\n\nANALYTICS.SALES.COBBLE_Q3_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: LATAM: 4735000, NA-West: 1609900"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.PRADEL_Q1_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.PRADEL_Q1_REVENUE (6700 rows)\nColumns:\n  region               varchar — 5 distinct values: LATAM (670), NA-West (335)\n  revenue_usd          number — range: 1000–670000, avg: 24790, total: 6030000\n  account_owner        varchar — top values: Sofia Brandt (223)\n  close_date           date — range: 2026-01-02 to 2026-04-28\n\nANALYTICS.SALES.PRADEL_Q1_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: LATAM: 3350000, EMEA: 1139000"
     },
     {
       "id": "table-023",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.FALCATA_Q1_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.FALCATA_Q1_REVENUE (6220 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-West (622), LATAM (311)\n  revenue_usd          number — range: 1000–622000, avg: 23014, total: 5598000\n  account_owner        varchar — top values: Marcus Lindqvist (207)\n  close_date           date — range: 2026-01-02 to 2026-05-28\n\nANALYTICS.SALES.FALCATA_Q1_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-West: 3110000, NA-East: 1057400"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.LARKSPUR_Q1_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.LARKSPUR_Q1_REVENUE (2560 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-East (256), LATAM (128)\n  revenue_usd          number — range: 1000–256000, avg: 9472, total: 2304000\n  account_owner        varchar — top values: Priya Raman (85)\n  close_date           date — range: 2026-01-02 to 2026-05-28\n\nANALYTICS.SALES.LARKSPUR_Q1_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-East: 1280000, APAC: 435200"
     },
     {
       "id": "table-024",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.NIMBUS_Q4_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.NIMBUS_Q4_REVENUE (8030 rows)\nColumns:\n  region               varchar — 5 distinct values: LATAM (803), APAC (401)\n  revenue_usd          number — range: 1000–803000, avg: 29711, total: 7227000\n  account_owner        varchar — top values: Marcus Lindqvist (267)\n  close_date           date — range: 2026-01-02 to 2026-06-28\n\nANALYTICS.SALES.NIMBUS_Q4_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: LATAM: 4015000, NA-East: 1365100"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.QUILLON_Q1_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.QUILLON_Q1_REVENUE (4960 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-West (496), EMEA (248)\n  revenue_usd          number — range: 1000–496000, avg: 18352, total: 4464000\n  account_owner        varchar — top values: Dana Okafor (165)\n  close_date           date — range: 2026-01-02 to 2026-06-28\n\nANALYTICS.SALES.QUILLON_Q1_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-West: 2480000, LATAM: 843200"
     },
     {
       "id": "table-025",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.PRADEL_Q4_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.PRADEL_Q4_REVENUE (1440 rows)\nColumns:\n  region               varchar — 5 distinct values: APAC (144), EMEA (72)\n  revenue_usd          number — range: 1000–144000, avg: 5328, total: 1296000\n  account_owner        varchar — top values: Sofia Brandt (48)\n  close_date           date — range: 2026-01-02 to 2026-07-28\n\nANALYTICS.SALES.PRADEL_Q4_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: APAC: 720000, APAC: 244800"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.BASALT_Q4_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.BASALT_Q4_REVENUE (9250 rows)\nColumns:\n  region               varchar — 5 distinct values: LATAM (925), APAC (462)\n  revenue_usd          number — range: 1000–925000, avg: 34225, total: 8325000\n  account_owner        varchar — top values: Felix Duarte (308)\n  close_date           date — range: 2026-01-02 to 2026-07-28\n\nANALYTICS.SALES.BASALT_Q4_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: LATAM: 4625000, NA-East: 1572500"
     },
     {
       "id": "table-026",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.TESSERA_Q3_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.TESSERA_Q3_REVENUE (1100 rows)\nColumns:\n  region               varchar — 5 distinct values: LATAM (110), NA-East (55)\n  revenue_usd          number — range: 1000–110000, avg: 4070, total: 990000\n  account_owner        varchar — top values: Mei-Ling Chau (36)\n  close_date           date — range: 2026-01-02 to 2026-08-28\n\nANALYTICS.SALES.TESSERA_Q3_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: LATAM: 550000, NA-East: 187000"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.HELIOTROPE_Q3_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.HELIOTROPE_Q3_REVENUE (1510 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-West (151), NA-West (75)\n  revenue_usd          number — range: 1000–151000, avg: 5587, total: 1359000\n  account_owner        varchar — top values: Sofia Brandt (50)\n  close_date           date — range: 2026-01-02 to 2026-08-28\n\nANALYTICS.SALES.HELIOTROPE_Q3_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-West: 755000, EMEA: 256700"
     },
     {
       "id": "table-027",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.OXBOW_Q2_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.OXBOW_Q2_REVENUE (2140 rows)\nColumns:\n  region               varchar — 5 distinct values: APAC (214), LATAM (107)\n  revenue_usd          number — range: 1000–214000, avg: 7918, total: 1926000\n  account_owner        varchar — top values: Lena Kowalczyk (71)\n  close_date           date — range: 2026-01-02 to 2026-09-28\n\nANALYTICS.SALES.OXBOW_Q2_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: APAC: 1070000, NA-East: 363800"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.COBBLE_Q3_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.COBBLE_Q3_REVENUE (6640 rows)\nColumns:\n  region               varchar — 5 distinct values: APAC (664), NA-East (332)\n  revenue_usd          number — range: 1000–664000, avg: 24568, total: 5976000\n  account_owner        varchar — top values: Dana Okafor (221)\n  close_date           date — range: 2026-01-02 to 2026-09-28\n\nANALYTICS.SALES.COBBLE_Q3_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: APAC: 3320000, APAC: 1128800"
     },
     {
       "id": "table-028",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.TESSERA_Q3_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.TESSERA_Q3_REVENUE (2780 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-East (278), NA-West (139)\n  revenue_usd          number — range: 1000–278000, avg: 10286, total: 2502000\n  account_owner        varchar — top values: Sofia Brandt (92)\n  close_date           date — range: 2026-01-02 to 2026-01-28\n\nANALYTICS.SALES.TESSERA_Q3_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-East: 1390000, NA-East: 472600"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.FALCATA_Q3_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.FALCATA_Q3_REVENUE (520 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-East (52), APAC (26)\n  revenue_usd          number — range: 1000–52000, avg: 1924, total: 468000\n  account_owner        varchar — top values: Clara Westbrook (17)\n  close_date           date — range: 2026-01-02 to 2026-01-28\n\nANALYTICS.SALES.FALCATA_Q3_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-East: 260000, LATAM: 88400"
     },
     {
       "id": "table-029",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.LARKSPUR_Q1_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.LARKSPUR_Q1_REVENUE (1220 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-West (122), NA-East (61)\n  revenue_usd          number — range: 1000–122000, avg: 4514, total: 1098000\n  account_owner        varchar — top values: Clara Westbrook (40)\n  close_date           date — range: 2026-01-02 to 2026-02-28\n\nANALYTICS.SALES.LARKSPUR_Q1_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-West: 610000, NA-East: 207400"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.VERMILION_Q1_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.VERMILION_Q1_REVENUE (900 rows)\nColumns:\n  region               varchar — 5 distinct values: EMEA (90), NA-East (45)\n  revenue_usd          number — range: 1000–90000, avg: 3330, total: 810000\n  account_owner        varchar — top values: Marcus Lindqvist (30)\n  close_date           date — range: 2026-01-02 to 2026-02-28\n\nANALYTICS.SALES.VERMILION_Q1_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: EMEA: 450000, APAC: 153000"
     },
     {
       "id": "table-030",
-      "title": "SNOWFLAKE: ANALYTICS.SALES.OXBOW_Q4_REVENUE — Schema & Statistics",
-      "content": "Table: ANALYTICS.SALES.OXBOW_Q4_REVENUE (8700 rows)\nColumns:\n  region               varchar — 5 distinct values: NA-West (870), APAC (435)\n  revenue_usd          number — range: 1000–870000, avg: 32190, total: 7830000\n  account_owner        varchar — top values: Dana Okafor (290)\n  close_date           date — range: 2026-01-02 to 2026-03-28\n\nANALYTICS.SALES.OXBOW_Q4_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: NA-West: 4350000, NA-West: 1479000"
+      "title": "SNOWFLAKE: ANALYTICS.SALES.TESSERA_Q4_REVENUE — Schema & Statistics",
+      "content": "Table: ANALYTICS.SALES.TESSERA_Q4_REVENUE (4030 rows)\nColumns:\n  region               varchar — 5 distinct values: APAC (403), LATAM (201)\n  revenue_usd          number — range: 1000–403000, avg: 14911, total: 3627000\n  account_owner        varchar — top values: Marcus Lindqvist (134)\n  close_date           date — range: 2026-01-02 to 2026-03-28\n\nANALYTICS.SALES.TESSERA_Q4_REVENUE — Pre-computed Aggregations\nsum(revenue_usd) by region: APAC: 2015000, LATAM: 685100"
     }
   ],
   "queries": [
     {
       "id": "tab-q-0a",
-      "query": "total revenue by region for Vermilion Q2",
+      "query": "total revenue by region for Nimbus Q2",
       "relevant_doc_ids": [
         "table-001"
       ]
     },
     {
       "id": "tab-q-0b",
-      "query": "which table tracks Vermilion Q2 revenue and who is the top account owner?",
+      "query": "which table tracks Nimbus Q2 revenue and who is the top account owner?",
       "relevant_doc_ids": [
         "table-001"
       ]
     },
     {
       "id": "tab-q-1a",
-      "query": "total revenue by region for Cobble Q2",
+      "query": "total revenue by region for Basalt Q1",
       "relevant_doc_ids": [
         "table-002"
       ]
     },
     {
       "id": "tab-q-1b",
-      "query": "which table tracks Cobble Q2 revenue and who is the top account owner?",
+      "query": "which table tracks Basalt Q1 revenue and who is the top account owner?",
       "relevant_doc_ids": [
         "table-002"
       ]
@@ -198,14 +198,14 @@
     },
     {
       "id": "tab-q-3a",
-      "query": "total revenue by region for Cobble Q2",
+      "query": "total revenue by region for Nimbus Q4",
       "relevant_doc_ids": [
         "table-004"
       ]
     },
     {
       "id": "tab-q-3b",
-      "query": "which table tracks Cobble Q2 revenue and who is the top account owner?",
+      "query": "which table tracks Nimbus Q4 revenue and who is the top account owner?",
       "relevant_doc_ids": [
         "table-004"
       ]
@@ -226,315 +226,315 @@
     },
     {
       "id": "tab-q-5a",
-      "query": "total revenue by region for Cobble Q2",
+      "query": "total revenue by region for Heliotrope Q1",
       "relevant_doc_ids": [
         "table-006"
       ]
     },
     {
       "id": "tab-q-5b",
-      "query": "which table tracks Cobble Q2 revenue and who is the top account owner?",
+      "query": "which table tracks Heliotrope Q1 revenue and who is the top account owner?",
       "relevant_doc_ids": [
         "table-006"
       ]
     },
     {
       "id": "tab-q-6a",
-      "query": "total revenue by region for Meridian Q4",
+      "query": "total revenue by region for Quillon Q4",
       "relevant_doc_ids": [
         "table-007"
       ]
     },
     {
       "id": "tab-q-6b",
-      "query": "which table tracks Meridian Q4 revenue and who is the top account owner?",
+      "query": "which table tracks Quillon Q4 revenue and who is the top account owner?",
       "relevant_doc_ids": [
         "table-007"
       ]
     },
     {
       "id": "tab-q-7a",
-      "query": "total revenue by region for Falcata Q3",
+      "query": "total revenue by region for Nimbus Q1",
       "relevant_doc_ids": [
         "table-008"
       ]
     },
     {
       "id": "tab-q-7b",
-      "query": "which table tracks Falcata Q3 revenue and who is the top account owner?",
+      "query": "which table tracks Nimbus Q1 revenue and who is the top account owner?",
       "relevant_doc_ids": [
         "table-008"
       ]
     },
     {
       "id": "tab-q-8a",
-      "query": "total revenue by region for Vermilion Q1",
+      "query": "total revenue by region for Falcata Q4",
       "relevant_doc_ids": [
         "table-009"
       ]
     },
     {
       "id": "tab-q-8b",
-      "query": "which table tracks Vermilion Q1 revenue and who is the top account owner?",
+      "query": "which table tracks Falcata Q4 revenue and who is the top account owner?",
       "relevant_doc_ids": [
         "table-009"
       ]
     },
     {
       "id": "tab-q-9a",
-      "query": "total revenue by region for Falcata Q2",
+      "query": "total revenue by region for Quillon Q2",
       "relevant_doc_ids": [
         "table-010"
       ]
     },
     {
       "id": "tab-q-9b",
-      "query": "which table tracks Falcata Q2 revenue and who is the top account owner?",
+      "query": "which table tracks Quillon Q2 revenue and who is the top account owner?",
       "relevant_doc_ids": [
         "table-010"
       ]
     },
     {
       "id": "tab-q-10a",
-      "query": "total revenue by region for Larkspur Q3",
+      "query": "total revenue by region for Pradel Q4",
       "relevant_doc_ids": [
         "table-011"
       ]
     },
     {
       "id": "tab-q-10b",
-      "query": "which table tracks Larkspur Q3 revenue and who is the top account owner?",
+      "query": "which table tracks Pradel Q4 revenue and who is the top account owner?",
       "relevant_doc_ids": [
         "table-011"
       ]
     },
     {
       "id": "tab-q-11a",
-      "query": "total revenue by region for Quillon Q2",
+      "query": "total revenue by region for Oxbow Q2",
       "relevant_doc_ids": [
         "table-012"
       ]
     },
     {
       "id": "tab-q-11b",
-      "query": "which table tracks Quillon Q2 revenue and who is the top account owner?",
+      "query": "which table tracks Oxbow Q2 revenue and who is the top account owner?",
       "relevant_doc_ids": [
         "table-012"
       ]
     },
     {
       "id": "tab-q-12a",
-      "query": "total revenue by region for Vermilion Q3",
+      "query": "total revenue by region for Vermilion Q2",
       "relevant_doc_ids": [
         "table-013"
       ]
     },
     {
       "id": "tab-q-12b",
-      "query": "which table tracks Vermilion Q3 revenue and who is the top account owner?",
+      "query": "which table tracks Vermilion Q2 revenue and who is the top account owner?",
       "relevant_doc_ids": [
         "table-013"
       ]
     },
     {
       "id": "tab-q-13a",
-      "query": "total revenue by region for Nimbus Q3",
+      "query": "total revenue by region for Larkspur Q3",
       "relevant_doc_ids": [
         "table-014"
       ]
     },
     {
       "id": "tab-q-13b",
-      "query": "which table tracks Nimbus Q3 revenue and who is the top account owner?",
+      "query": "which table tracks Larkspur Q3 revenue and who is the top account owner?",
       "relevant_doc_ids": [
         "table-014"
       ]
     },
     {
       "id": "tab-q-14a",
-      "query": "total revenue by region for Pradel Q4",
+      "query": "total revenue by region for Larkspur Q2",
       "relevant_doc_ids": [
         "table-015"
       ]
     },
     {
       "id": "tab-q-14b",
-      "query": "which table tracks Pradel Q4 revenue and who is the top account owner?",
+      "query": "which table tracks Larkspur Q2 revenue and who is the top account owner?",
       "relevant_doc_ids": [
         "table-015"
       ]
     },
     {
       "id": "tab-q-15a",
-      "query": "total revenue by region for Basalt Q1",
+      "query": "total revenue by region for Heliotrope Q2",
       "relevant_doc_ids": [
         "table-016"
       ]
     },
     {
       "id": "tab-q-15b",
-      "query": "which table tracks Basalt Q1 revenue and who is the top account owner?",
+      "query": "which table tracks Heliotrope Q2 revenue and who is the top account owner?",
       "relevant_doc_ids": [
         "table-016"
       ]
     },
     {
       "id": "tab-q-16a",
-      "query": "total revenue by region for Quillon Q4",
+      "query": "total revenue by region for Tessera Q3",
       "relevant_doc_ids": [
         "table-017"
       ]
     },
     {
       "id": "tab-q-16b",
-      "query": "which table tracks Quillon Q4 revenue and who is the top account owner?",
+      "query": "which table tracks Tessera Q3 revenue and who is the top account owner?",
       "relevant_doc_ids": [
         "table-017"
       ]
     },
     {
       "id": "tab-q-17a",
-      "query": "total revenue by region for Quillon Q3",
+      "query": "total revenue by region for Oxbow Q4",
       "relevant_doc_ids": [
         "table-018"
       ]
     },
     {
       "id": "tab-q-17b",
-      "query": "which table tracks Quillon Q3 revenue and who is the top account owner?",
+      "query": "which table tracks Oxbow Q4 revenue and who is the top account owner?",
       "relevant_doc_ids": [
         "table-018"
       ]
     },
     {
       "id": "tab-q-18a",
-      "query": "total revenue by region for Falcata Q4",
+      "query": "total revenue by region for Larkspur Q4",
       "relevant_doc_ids": [
         "table-019"
       ]
     },
     {
       "id": "tab-q-18b",
-      "query": "which table tracks Falcata Q4 revenue and who is the top account owner?",
+      "query": "which table tracks Larkspur Q4 revenue and who is the top account owner?",
       "relevant_doc_ids": [
         "table-019"
       ]
     },
     {
       "id": "tab-q-19a",
-      "query": "total revenue by region for Vermilion Q3",
+      "query": "total revenue by region for Basalt Q3",
       "relevant_doc_ids": [
         "table-020"
       ]
     },
     {
       "id": "tab-q-19b",
-      "query": "which table tracks Vermilion Q3 revenue and who is the top account owner?",
+      "query": "which table tracks Basalt Q3 revenue and who is the top account owner?",
       "relevant_doc_ids": [
         "table-020"
       ]
     },
     {
       "id": "tab-q-20a",
-      "query": "total revenue by region for Pradel Q2",
+      "query": "total revenue by region for Vermilion Q3",
       "relevant_doc_ids": [
         "table-021"
       ]
     },
     {
       "id": "tab-q-20b",
-      "query": "which table tracks Pradel Q2 revenue and who is the top account owner?",
+      "query": "which table tracks Vermilion Q3 revenue and who is the top account owner?",
       "relevant_doc_ids": [
         "table-021"
       ]
     },
     {
       "id": "tab-q-21a",
-      "query": "total revenue by region for Cobble Q3",
+      "query": "total revenue by region for Pradel Q1",
       "relevant_doc_ids": [
         "table-022"
       ]
     },
     {
       "id": "tab-q-21b",
-      "query": "which table tracks Cobble Q3 revenue and who is the top account owner?",
+      "query": "which table tracks Pradel Q1 revenue and who is the top account owner?",
       "relevant_doc_ids": [
         "table-022"
       ]
     },
     {
       "id": "tab-q-22a",
-      "query": "total revenue by region for Falcata Q1",
+      "query": "total revenue by region for Larkspur Q1",
       "relevant_doc_ids": [
         "table-023"
       ]
     },
     {
       "id": "tab-q-22b",
-      "query": "which table tracks Falcata Q1 revenue and who is the top account owner?",
+      "query": "which table tracks Larkspur Q1 revenue and who is the top account owner?",
       "relevant_doc_ids": [
         "table-023"
       ]
     },
     {
       "id": "tab-q-23a",
-      "query": "total revenue by region for Nimbus Q4",
+      "query": "total revenue by region for Quillon Q1",
       "relevant_doc_ids": [
         "table-024"
       ]
     },
     {
       "id": "tab-q-23b",
-      "query": "which table tracks Nimbus Q4 revenue and who is the top account owner?",
+      "query": "which table tracks Quillon Q1 revenue and who is the top account owner?",
       "relevant_doc_ids": [
         "table-024"
       ]
     },
     {
       "id": "tab-q-24a",
-      "query": "total revenue by region for Pradel Q4",
+      "query": "total revenue by region for Basalt Q4",
       "relevant_doc_ids": [
         "table-025"
       ]
     },
     {
       "id": "tab-q-24b",
-      "query": "which table tracks Pradel Q4 revenue and who is the top account owner?",
+      "query": "which table tracks Basalt Q4 revenue and who is the top account owner?",
       "relevant_doc_ids": [
         "table-025"
       ]
     },
     {
       "id": "tab-q-25a",
-      "query": "total revenue by region for Tessera Q3",
+      "query": "total revenue by region for Heliotrope Q3",
       "relevant_doc_ids": [
         "table-026"
       ]
     },
     {
       "id": "tab-q-25b",
-      "query": "which table tracks Tessera Q3 revenue and who is the top account owner?",
+      "query": "which table tracks Heliotrope Q3 revenue and who is the top account owner?",
       "relevant_doc_ids": [
         "table-026"
       ]
     },
     {
       "id": "tab-q-26a",
-      "query": "total revenue by region for Oxbow Q2",
+      "query": "total revenue by region for Cobble Q3",
       "relevant_doc_ids": [
         "table-027"
       ]
     },
     {
       "id": "tab-q-26b",
-      "query": "which table tracks Oxbow Q2 revenue and who is the top account owner?",
+      "query": "which table tracks Cobble Q3 revenue and who is the top account owner?",
       "relevant_doc_ids": [
         "table-027"
       ]
     },
     {
       "id": "tab-q-27a",
-      "query": "total revenue by region for Tessera Q3",
+      "query": "total revenue by region for Falcata Q3",
       "relevant_doc_ids": [
         "table-028"
       ]

@@ -60,9 +60,19 @@ interface Fact {
   quarter: string
 }
 
+// F-B fix: dedupe on every pair referenced by a query template so that
+// relevance labels remain correct by construction.  Three pair sets cover
+// all query key combinations:
+//   (project, service)  — prose-q-a/b, wi-q-b, thread-q-a/b
+//   (project, region)   — email-q-a/b
+//   (project, quarter)  — tab-q-a/b
+// (service, region) was also in wi-q-a; that query was changed to key on
+// (project, service) instead, which is covered by the first set.
 function makeFacts(n: number): Fact[] {
   const facts: Fact[] = []
-  const used = new Set<string>()
+  const usedPS = new Set<string>()   // (project, service)
+  const usedPR = new Set<string>()   // (project, region)
+  const usedPQ = new Set<string>()   // (project, quarter)
   while (facts.length < n) {
     const f: Fact = {
       project: pick(PROJECTS),
@@ -72,9 +82,11 @@ function makeFacts(n: number): Fact[] {
       region: pick(REGIONS),
       quarter: pick(QUARTERS),
     }
-    const key = `${f.project}:${f.person}:${f.service}`
-    if (used.has(key)) continue
-    used.add(key)
+    const ps = `${f.project}:${f.service}`
+    const pr = `${f.project}:${f.region}`
+    const pq = `${f.project}:${f.quarter}`
+    if (usedPS.has(ps) || usedPR.has(pr) || usedPQ.has(pq)) continue
+    usedPS.add(ps); usedPR.add(pr); usedPQ.add(pq)
     facts.push(f)
   }
   return facts
@@ -150,7 +162,7 @@ function buildEmail(): Fixture {
     const docId = documents[i].id
     queries.push(
       { id: `email-q-${i}a`, query: `what amount was the ${f.project} renewal for ${f.region} signed off at?`, relevant_doc_ids: [docId] },
-      { id: `email-q-${i}b`, query: `who owns the follow-up for the ${f.project} contract renewal?`, relevant_doc_ids: [docId] },
+      { id: `email-q-${i}b`, query: `who owns the follow-up for the ${f.project} renewal in ${f.region}?`, relevant_doc_ids: [docId] },
     )
   })
   return { shape: 'email', provider: 'google', documents, queries: queries.slice(0, 55) }
@@ -180,8 +192,8 @@ function buildWorkItem(): Fixture {
   facts.forEach((f, i) => {
     const docId = documents[i].id
     queries.push(
-      { id: `wi-q-${i}a`, query: `who is assigned to the ${f.service} latency regression in ${f.region}?`, relevant_doc_ids: [docId] },
-      { id: `wi-q-${i}b`, query: `what is blocking the ${f.project} rollout?`, relevant_doc_ids: [docId] },
+      { id: `wi-q-${i}a`, query: `who is assigned to the ${f.service} latency issue blocking ${f.project}?`, relevant_doc_ids: [docId] },
+      { id: `wi-q-${i}b`, query: `what is blocking the ${f.project} ${f.service} rollout?`, relevant_doc_ids: [docId] },
     )
   })
   return { shape: 'work_item', provider: 'jira', documents, queries: queries.slice(0, 55) }
@@ -209,7 +221,7 @@ function buildThread(): Fixture {
     const docId = documents[i].id
     queries.push(
       { id: `thread-q-${i}a`, query: `why is the ${f.service} change for ${f.project} not shipped yet?`, relevant_doc_ids: [docId] },
-      { id: `thread-q-${i}b`, query: `what is ${f.project} waiting on before deploying?`, relevant_doc_ids: [docId] },
+      { id: `thread-q-${i}b`, query: `what is ${f.project} waiting on before shipping ${f.service}?`, relevant_doc_ids: [docId] },
     )
   })
   return { shape: 'thread', provider: 'slack', documents, queries: queries.slice(0, 55) }
@@ -246,12 +258,89 @@ function buildTabular(): Fixture {
   return { shape: 'tabular', provider: 'snowflake', documents, queries: queries.slice(0, 55) }
 }
 
+// ── Long-document paragraphs (F-A: multi-chunk retrieval tier) ──────────────
+
+const LONG_PARAS = [
+  `The project governance framework requires weekly status updates from each workstream lead. These are compiled into a master dashboard reviewed by the executive sponsor every Monday. Key metrics tracked include velocity, budget burn rate, and risk exposure across all active streams.`,
+  `Resource allocation decisions have been documented and reviewed against headcount constraints across all participating departments. Contractors have been onboarded to support delivery timelines, with onboarding completed during the first week of the quarter. Their work is tracked under the same sprint cadence as permanent staff.`,
+  `The communications plan includes fortnightly updates to all stakeholders, a monthly board summary, and ad-hoc briefings triggered by significant changes to scope or schedule. All materials are archived in the project repository and versioned for audit purposes.`,
+  `Integration dependencies have been catalogued in the dependency register maintained by the technical programme manager. Upstream systems requiring changes have been identified and coordination meetings are scheduled bi-weekly with those owning teams.`,
+  `The change management approach emphasises early engagement with end users and a structured training programme aligned to each regional rollout phase. Pilot groups have been identified across the affected sites, and feedback from pilots will inform the final rollout sequencing.`,
+  `Procurement activities are progressing with vendor contracts finalised and one pending final legal review. Vendor performance is assessed quarterly against agreed service levels. No material risks have emerged from vendor relationships to date and the procurement register is current.`,
+  `Documentation standards require all design decisions to be recorded in the architecture decision register before sign-off. Peer reviews of technical documents are completed by a senior engineer not involved in authoring. The technical writing team is supporting knowledge transfer to the operations group ahead of go-live.`,
+  `Testing strategy covers unit, integration, system, and acceptance testing phases. Acceptance testing will involve end users from three regional sites to ensure the solution meets business requirements. Entry and exit criteria for each phase have been reviewed and approved by the quality assurance lead.`,
+]
+
+// F-A fix: long-document tier to make the eval sensitive to chunking changes.
+// Each document is ~5 000 chars (≈ 1 200 tokens for the notion / prose chunker
+// at chunkSize=512), producing 2–3 chunks.  The unique fact is buried at roughly
+// the 2 400-char mark so it lands in chunk 2 rather than chunk 1 — the harness
+// will fail if chunking drops or misaligns the middle chunk.
+function buildProseLong(): Fixture {
+  const facts = makeFacts(10)
+  const documents = facts.map((f, i) => ({
+    id: `prose-long-${String(i + 1).padStart(3, '0')}`,
+    title: `Project ${f.project} — ${f.quarter} Operations Report`,
+    content: [
+      `# Project ${f.project} — ${f.quarter} Operations Report`,
+      ``,
+      `## Executive Summary`,
+      LONG_PARAS[i % LONG_PARAS.length],
+      filler(f), filler(f),
+      ``,
+      `## Background and Objectives`,
+      LONG_PARAS[(i + 1) % LONG_PARAS.length],
+      LONG_PARAS[(i + 2) % LONG_PARAS.length],
+      filler(f),
+      `The ${pick(SERVICES)} team contributed to initial planning stages for this initiative.`,
+      ``,
+      `## Team Responsibilities`,
+      `${pick(PEOPLE)} manages the infrastructure workstream for this project.`,
+      `${pick(PEOPLE)} handles stakeholder coordination across ${pick(REGIONS)} and ${pick(REGIONS)}.`,
+      LONG_PARAS[(i + 3) % LONG_PARAS.length],
+      filler(f), filler(f),
+      ``,
+      `## Delivery Progress`,
+      LONG_PARAS[(i + 4) % LONG_PARAS.length],
+      LONG_PARAS[(i + 5) % LONG_PARAS.length],
+      filler(f), filler(f), filler(f),
+      `No escalations were required during the reporting period and all milestones remain on track.`,
+      ``,
+      `## Resource and Budget Decisions`,
+      `Following capacity review and workload assessment across ${f.region}, the ${pick(SERVICES)} and ${f.service} workstreams were re-prioritised.`,
+      `${f.person} will lead the ${f.service} migration for Project ${f.project}.`,
+      `The approved budget for this workstream is $${f.amountK}K, targeting ${f.quarter} delivery in ${f.region}.`,
+      `This decision was ratified by the programme board after reviewing all available vendor options.`,
+      ``,
+      `## Risk Register`,
+      LONG_PARAS[(i + 6) % LONG_PARAS.length],
+      filler(f),
+      `If the ${pick(SERVICES)} cutover slips, downstream reporting in ${pick(REGIONS)} may be affected.`,
+      filler(f),
+      ``,
+      `## Next Steps`,
+      LONG_PARAS[(i + 7) % LONG_PARAS.length],
+      filler(f), filler(f),
+      `All workstream leads to confirm capacity for the upcoming sprint before end of week.`,
+    ].join('\n'),
+  }))
+  const queries: Query[] = []
+  facts.forEach((f, i) => {
+    const docId = documents[i].id
+    queries.push(
+      { id: `prose-long-q-${i}a`, query: `who is leading the ${f.service} migration for project ${f.project}?`, relevant_doc_ids: [docId] },
+      { id: `prose-long-q-${i}b`, query: `what is the approved budget for ${f.project}'s ${f.service} workstream?`, relevant_doc_ids: [docId] },
+    )
+  })
+  return { shape: 'prose_long', provider: 'notion', documents, queries }
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────
 
 const OUT_DIR = join(import.meta.dirname ?? __dirname, 'fixtures')
 mkdirSync(OUT_DIR, { recursive: true })
 
-const fixtures = [buildProse(), buildEmail(), buildWorkItem(), buildThread(), buildTabular()]
+const fixtures = [buildProse(), buildEmail(), buildWorkItem(), buildThread(), buildTabular(), buildProseLong()]
 for (const f of fixtures) {
   const path = join(OUT_DIR, `${f.shape}.json`)
   writeFileSync(path, JSON.stringify(f, null, 2) + '\n')

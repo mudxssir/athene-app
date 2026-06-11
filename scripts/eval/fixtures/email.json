@@ -4,537 +4,537 @@
   "documents": [
     {
       "id": "email-001",
-      "title": "Re: Basalt Q3 sign-off",
-      "content": "From: Mei-Ling Chau <mei-ling@acme.test>\nSubject: Re: Basalt Q3 sign-off\nDate: 2026-01-10\n\nHi team,\n\nConfirming that the Basalt contract renewal for EMEA was signed off at $209K.\nMei-Ling Chau will own the follow-up with the notification-hub owners before Q3 close.\n\nNotes also touched on documentation cleanup across LATAM teams.\n\nThanks,\nMei-Ling"
+      "title": "Re: Heliotrope Q1 sign-off",
+      "content": "From: Omar Haddad <omar@acme.test>\nSubject: Re: Heliotrope Q1 sign-off\nDate: 2026-01-10\n\nHi team,\n\nConfirming that the Heliotrope contract renewal for NA-West was signed off at $103K.\nOmar Haddad will own the follow-up with the webhook-relay owners before Q1 close.\n\nNotes also touched on documentation cleanup across APAC teams.\n\nThanks,\nOmar"
     },
     {
       "id": "email-002",
-      "title": "Re: Tessera Q4 sign-off",
-      "content": "From: Priya Raman <priya@acme.test>\nSubject: Re: Tessera Q4 sign-off\nDate: 2026-02-11\n\nHi team,\n\nConfirming that the Tessera contract renewal for NA-West was signed off at $314K.\nPriya Raman will own the follow-up with the notification-hub owners before Q4 close.\n\nThe team reviewed open action items and agreed to follow up next week.\n\nThanks,\nPriya"
+      "title": "Re: Tessera Q1 sign-off",
+      "content": "From: Yuki Tanabe <yuki@acme.test>\nSubject: Re: Tessera Q1 sign-off\nDate: 2026-02-11\n\nHi team,\n\nConfirming that the Tessera contract renewal for NA-East was signed off at $422K.\nYuki Tanabe will own the follow-up with the ledger-core owners before Q1 close.\n\nRoutine status: deployments are green and the on-call week was quiet.\n\nThanks,\nYuki"
     },
     {
       "id": "email-003",
-      "title": "Re: Quillon Q2 sign-off",
-      "content": "From: Felix Duarte <felix@acme.test>\nSubject: Re: Quillon Q2 sign-off\nDate: 2026-03-12\n\nHi team,\n\nConfirming that the Quillon contract renewal for LATAM was signed off at $397K.\nFelix Duarte will own the follow-up with the billing-service owners before Q2 close.\n\nGeneral discussion covered hiring plans and the upcoming offsite agenda.\n\nThanks,\nFelix"
+      "title": "Re: Larkspur Q1 sign-off",
+      "content": "From: Priya Raman <priya@acme.test>\nSubject: Re: Larkspur Q1 sign-off\nDate: 2026-03-12\n\nHi team,\n\nConfirming that the Larkspur contract renewal for EMEA was signed off at $467K.\nPriya Raman will own the follow-up with the ledger-core owners before Q1 close.\n\nreport-engine dashboards were reviewed; no anomalies were flagged.\n\nThanks,\nPriya"
     },
     {
       "id": "email-004",
-      "title": "Re: Basalt Q4 sign-off",
-      "content": "From: Priya Raman <priya@acme.test>\nSubject: Re: Basalt Q4 sign-off\nDate: 2026-04-13\n\nHi team,\n\nConfirming that the Basalt contract renewal for APAC was signed off at $467K.\nPriya Raman will own the follow-up with the report-engine owners before Q4 close.\n\nRoutine status: deployments are green and the on-call week was quiet.\n\nThanks,\nPriya"
+      "title": "Re: Cobble Q4 sign-off",
+      "content": "From: Sofia Brandt <sofia@acme.test>\nSubject: Re: Cobble Q4 sign-off\nDate: 2026-04-13\n\nHi team,\n\nConfirming that the Cobble contract renewal for NA-West was signed off at $113K.\nSofia Brandt will own the follow-up with the webhook-relay owners before Q4 close.\n\nNotes also touched on documentation cleanup across APAC teams.\n\nThanks,\nSofia"
     },
     {
       "id": "email-005",
-      "title": "Re: Nimbus Q4 sign-off",
-      "content": "From: Priya Raman <priya@acme.test>\nSubject: Re: Nimbus Q4 sign-off\nDate: 2026-05-14\n\nHi team,\n\nConfirming that the Nimbus contract renewal for NA-East was signed off at $487K.\nPriya Raman will own the follow-up with the billing-service owners before Q4 close.\n\nGeneral discussion covered hiring plans and the upcoming offsite agenda.\n\nThanks,\nPriya"
+      "title": "Re: Cobble Q1 sign-off",
+      "content": "From: Dana Okafor <dana@acme.test>\nSubject: Re: Cobble Q1 sign-off\nDate: 2026-05-14\n\nHi team,\n\nConfirming that the Cobble contract renewal for NA-East was signed off at $565K.\nDana Okafor will own the follow-up with the ledger-core owners before Q1 close.\n\nThe team reviewed open action items and agreed to follow up next week.\n\nThanks,\nDana"
     },
     {
       "id": "email-006",
-      "title": "Re: Oxbow Q2 sign-off",
-      "content": "From: Jonas Pieterse <jonas@acme.test>\nSubject: Re: Oxbow Q2 sign-off\nDate: 2026-06-15\n\nHi team,\n\nConfirming that the Oxbow contract renewal for NA-West was signed off at $871K.\nJonas Pieterse will own the follow-up with the ledger-core owners before Q2 close.\n\nThe team reviewed open action items and agreed to follow up next week.\n\nThanks,\nJonas"
+      "title": "Re: Falcata Q2 sign-off",
+      "content": "From: Clara Westbrook <clara@acme.test>\nSubject: Re: Falcata Q2 sign-off\nDate: 2026-06-15\n\nHi team,\n\nConfirming that the Falcata contract renewal for APAC was signed off at $882K.\nClara Westbrook will own the follow-up with the ledger-core owners before Q2 close.\n\nNotes also touched on documentation cleanup across NA-East teams.\n\nThanks,\nClara"
     },
     {
       "id": "email-007",
-      "title": "Re: Pradel Q3 sign-off",
-      "content": "From: Clara Westbrook <clara@acme.test>\nSubject: Re: Pradel Q3 sign-off\nDate: 2026-07-16\n\nHi team,\n\nConfirming that the Pradel contract renewal for EMEA was signed off at $524K.\nClara Westbrook will own the follow-up with the ledger-core owners before Q3 close.\n\nNotes also touched on documentation cleanup across EMEA teams.\n\nThanks,\nClara"
+      "title": "Re: Basalt Q4 sign-off",
+      "content": "From: Marcus Lindqvist <marcus@acme.test>\nSubject: Re: Basalt Q4 sign-off\nDate: 2026-07-16\n\nHi team,\n\nConfirming that the Basalt contract renewal for LATAM was signed off at $420K.\nMarcus Lindqvist will own the follow-up with the notification-hub owners before Q4 close.\n\nRoutine status: deployments are green and the on-call week was quiet.\n\nThanks,\nMarcus"
     },
     {
       "id": "email-008",
-      "title": "Re: Meridian Q4 sign-off",
-      "content": "From: Dana Okafor <dana@acme.test>\nSubject: Re: Meridian Q4 sign-off\nDate: 2026-08-17\n\nHi team,\n\nConfirming that the Meridian contract renewal for NA-East was signed off at $449K.\nDana Okafor will own the follow-up with the notification-hub owners before Q4 close.\n\nThe team reviewed open action items and agreed to follow up next week.\n\nThanks,\nDana"
+      "title": "Re: Vermilion Q2 sign-off",
+      "content": "From: Omar Haddad <omar@acme.test>\nSubject: Re: Vermilion Q2 sign-off\nDate: 2026-08-17\n\nHi team,\n\nConfirming that the Vermilion contract renewal for NA-East was signed off at $63K.\nOmar Haddad will own the follow-up with the webhook-relay owners before Q2 close.\n\nRoutine status: deployments are green and the on-call week was quiet.\n\nThanks,\nOmar"
     },
     {
       "id": "email-009",
-      "title": "Re: Quillon Q1 sign-off",
-      "content": "From: Clara Westbrook <clara@acme.test>\nSubject: Re: Quillon Q1 sign-off\nDate: 2026-09-18\n\nHi team,\n\nConfirming that the Quillon contract renewal for APAC was signed off at $629K.\nClara Westbrook will own the follow-up with the ledger-core owners before Q1 close.\n\nRoutine status: deployments are green and the on-call week was quiet.\n\nThanks,\nClara"
+      "title": "Re: Pradel Q2 sign-off",
+      "content": "From: Clara Westbrook <clara@acme.test>\nSubject: Re: Pradel Q2 sign-off\nDate: 2026-09-18\n\nHi team,\n\nConfirming that the Pradel contract renewal for EMEA was signed off at $365K.\nClara Westbrook will own the follow-up with the billing-service owners before Q2 close.\n\nNotes also touched on documentation cleanup across NA-East teams.\n\nThanks,\nClara"
     },
     {
       "id": "email-010",
-      "title": "Re: Meridian Q3 sign-off",
-      "content": "From: Mei-Ling Chau <mei-ling@acme.test>\nSubject: Re: Meridian Q3 sign-off\nDate: 2026-01-10\n\nHi team,\n\nConfirming that the Meridian contract renewal for NA-East was signed off at $654K.\nMei-Ling Chau will own the follow-up with the report-engine owners before Q3 close.\n\nThe team reviewed open action items and agreed to follow up next week.\n\nThanks,\nMei-Ling"
+      "title": "Re: Tessera Q4 sign-off",
+      "content": "From: Priya Raman <priya@acme.test>\nSubject: Re: Tessera Q4 sign-off\nDate: 2026-01-10\n\nHi team,\n\nConfirming that the Tessera contract renewal for LATAM was signed off at $583K.\nPriya Raman will own the follow-up with the ingest-pipeline owners before Q4 close.\n\nRoutine status: deployments are green and the on-call week was quiet.\n\nThanks,\nPriya"
     },
     {
       "id": "email-011",
-      "title": "Re: Vermilion Q1 sign-off",
-      "content": "From: Priya Raman <priya@acme.test>\nSubject: Re: Vermilion Q1 sign-off\nDate: 2026-02-11\n\nHi team,\n\nConfirming that the Vermilion contract renewal for APAC was signed off at $224K.\nPriya Raman will own the follow-up with the auth-gateway owners before Q1 close.\n\nNotes also touched on documentation cleanup across NA-West teams.\n\nThanks,\nPriya"
+      "title": "Re: Larkspur Q4 sign-off",
+      "content": "From: Priya Raman <priya@acme.test>\nSubject: Re: Larkspur Q4 sign-off\nDate: 2026-02-11\n\nHi team,\n\nConfirming that the Larkspur contract renewal for APAC was signed off at $80K.\nPriya Raman will own the follow-up with the notification-hub owners before Q4 close.\n\nThe team reviewed open action items and agreed to follow up next week.\n\nThanks,\nPriya"
     },
     {
       "id": "email-012",
-      "title": "Re: Heliotrope Q4 sign-off",
-      "content": "From: Omar Haddad <omar@acme.test>\nSubject: Re: Heliotrope Q4 sign-off\nDate: 2026-03-12\n\nHi team,\n\nConfirming that the Heliotrope contract renewal for NA-West was signed off at $474K.\nOmar Haddad will own the follow-up with the auth-gateway owners before Q4 close.\n\nRoutine status: deployments are green and the on-call week was quiet.\n\nThanks,\nOmar"
+      "title": "Re: Nimbus Q4 sign-off",
+      "content": "From: Dana Okafor <dana@acme.test>\nSubject: Re: Nimbus Q4 sign-off\nDate: 2026-03-12\n\nHi team,\n\nConfirming that the Nimbus contract renewal for NA-West was signed off at $771K.\nDana Okafor will own the follow-up with the auth-gateway owners before Q4 close.\n\nGeneral discussion covered hiring plans and the upcoming offsite agenda.\n\nThanks,\nDana"
     },
     {
       "id": "email-013",
-      "title": "Re: Nimbus Q1 sign-off",
-      "content": "From: Sofia Brandt <sofia@acme.test>\nSubject: Re: Nimbus Q1 sign-off\nDate: 2026-04-13\n\nHi team,\n\nConfirming that the Nimbus contract renewal for APAC was signed off at $95K.\nSofia Brandt will own the follow-up with the report-engine owners before Q1 close.\n\nbilling-service dashboards were reviewed; no anomalies were flagged.\n\nThanks,\nSofia"
+      "title": "Re: Meridian Q3 sign-off",
+      "content": "From: Marcus Lindqvist <marcus@acme.test>\nSubject: Re: Meridian Q3 sign-off\nDate: 2026-04-13\n\nHi team,\n\nConfirming that the Meridian contract renewal for NA-East was signed off at $719K.\nMarcus Lindqvist will own the follow-up with the billing-service owners before Q3 close.\n\nThe team reviewed open action items and agreed to follow up next week.\n\nThanks,\nMarcus"
     },
     {
       "id": "email-014",
-      "title": "Re: Larkspur Q1 sign-off",
-      "content": "From: Dana Okafor <dana@acme.test>\nSubject: Re: Larkspur Q1 sign-off\nDate: 2026-05-14\n\nHi team,\n\nConfirming that the Larkspur contract renewal for EMEA was signed off at $851K.\nDana Okafor will own the follow-up with the notification-hub owners before Q1 close.\n\ningest-pipeline dashboards were reviewed; no anomalies were flagged.\n\nThanks,\nDana"
+      "title": "Re: Larkspur Q3 sign-off",
+      "content": "From: Felix Duarte <felix@acme.test>\nSubject: Re: Larkspur Q3 sign-off\nDate: 2026-05-14\n\nHi team,\n\nConfirming that the Larkspur contract renewal for NA-West was signed off at $576K.\nFelix Duarte will own the follow-up with the auth-gateway owners before Q3 close.\n\nNotes also touched on documentation cleanup across NA-East teams.\n\nThanks,\nFelix"
     },
     {
       "id": "email-015",
-      "title": "Re: Nimbus Q3 sign-off",
-      "content": "From: Ravi Menon <ravi@acme.test>\nSubject: Re: Nimbus Q3 sign-off\nDate: 2026-06-15\n\nHi team,\n\nConfirming that the Nimbus contract renewal for NA-West was signed off at $136K.\nRavi Menon will own the follow-up with the report-engine owners before Q3 close.\n\nRoutine status: deployments are green and the on-call week was quiet.\n\nThanks,\nRavi"
+      "title": "Re: Pradel Q4 sign-off",
+      "content": "From: Sofia Brandt <sofia@acme.test>\nSubject: Re: Pradel Q4 sign-off\nDate: 2026-06-15\n\nHi team,\n\nConfirming that the Pradel contract renewal for NA-West was signed off at $530K.\nSofia Brandt will own the follow-up with the ingest-pipeline owners before Q4 close.\n\nThe team reviewed open action items and agreed to follow up next week.\n\nThanks,\nSofia"
     },
     {
       "id": "email-016",
-      "title": "Re: Quillon Q4 sign-off",
-      "content": "From: Dana Okafor <dana@acme.test>\nSubject: Re: Quillon Q4 sign-off\nDate: 2026-07-16\n\nHi team,\n\nConfirming that the Quillon contract renewal for NA-East was signed off at $669K.\nDana Okafor will own the follow-up with the ledger-core owners before Q4 close.\n\nRoutine status: deployments are green and the on-call week was quiet.\n\nThanks,\nDana"
+      "title": "Re: Falcata Q4 sign-off",
+      "content": "From: Mei-Ling Chau <mei-ling@acme.test>\nSubject: Re: Falcata Q4 sign-off\nDate: 2026-07-16\n\nHi team,\n\nConfirming that the Falcata contract renewal for EMEA was signed off at $218K.\nMei-Ling Chau will own the follow-up with the webhook-relay owners before Q4 close.\n\nRoutine status: deployments are green and the on-call week was quiet.\n\nThanks,\nMei-Ling"
     },
     {
       "id": "email-017",
-      "title": "Re: Vermilion Q3 sign-off",
-      "content": "From: Dana Okafor <dana@acme.test>\nSubject: Re: Vermilion Q3 sign-off\nDate: 2026-08-17\n\nHi team,\n\nConfirming that the Vermilion contract renewal for NA-West was signed off at $255K.\nDana Okafor will own the follow-up with the billing-service owners before Q3 close.\n\nRoutine status: deployments are green and the on-call week was quiet.\n\nThanks,\nDana"
+      "title": "Re: Oxbow Q1 sign-off",
+      "content": "From: Mei-Ling Chau <mei-ling@acme.test>\nSubject: Re: Oxbow Q1 sign-off\nDate: 2026-08-17\n\nHi team,\n\nConfirming that the Oxbow contract renewal for LATAM was signed off at $683K.\nMei-Ling Chau will own the follow-up with the notification-hub owners before Q1 close.\n\nGeneral discussion covered hiring plans and the upcoming offsite agenda.\n\nThanks,\nMei-Ling"
     },
     {
       "id": "email-018",
-      "title": "Re: Quillon Q2 sign-off",
-      "content": "From: Jonas Pieterse <jonas@acme.test>\nSubject: Re: Quillon Q2 sign-off\nDate: 2026-09-18\n\nHi team,\n\nConfirming that the Quillon contract renewal for APAC was signed off at $286K.\nJonas Pieterse will own the follow-up with the billing-service owners before Q2 close.\n\nNotes also touched on documentation cleanup across EMEA teams.\n\nThanks,\nJonas"
+      "title": "Re: Quillon Q4 sign-off",
+      "content": "From: Omar Haddad <omar@acme.test>\nSubject: Re: Quillon Q4 sign-off\nDate: 2026-09-18\n\nHi team,\n\nConfirming that the Quillon contract renewal for EMEA was signed off at $779K.\nOmar Haddad will own the follow-up with the ingest-pipeline owners before Q4 close.\n\nwebhook-relay dashboards were reviewed; no anomalies were flagged.\n\nThanks,\nOmar"
     },
     {
       "id": "email-019",
-      "title": "Re: Quillon Q2 sign-off",
-      "content": "From: Priya Raman <priya@acme.test>\nSubject: Re: Quillon Q2 sign-off\nDate: 2026-01-10\n\nHi team,\n\nConfirming that the Quillon contract renewal for APAC was signed off at $428K.\nPriya Raman will own the follow-up with the search-indexer owners before Q2 close.\n\nNotes also touched on documentation cleanup across APAC teams.\n\nThanks,\nPriya"
+      "title": "Re: Quillon Q3 sign-off",
+      "content": "From: Jonas Pieterse <jonas@acme.test>\nSubject: Re: Quillon Q3 sign-off\nDate: 2026-01-10\n\nHi team,\n\nConfirming that the Quillon contract renewal for LATAM was signed off at $52K.\nJonas Pieterse will own the follow-up with the auth-gateway owners before Q3 close.\n\nnotification-hub dashboards were reviewed; no anomalies were flagged.\n\nThanks,\nJonas"
     },
     {
       "id": "email-020",
-      "title": "Re: Cobble Q1 sign-off",
-      "content": "From: Mei-Ling Chau <mei-ling@acme.test>\nSubject: Re: Cobble Q1 sign-off\nDate: 2026-02-11\n\nHi team,\n\nConfirming that the Cobble contract renewal for NA-West was signed off at $371K.\nMei-Ling Chau will own the follow-up with the auth-gateway owners before Q1 close.\n\nNotes also touched on documentation cleanup across NA-West teams.\n\nThanks,\nMei-Ling"
+      "title": "Re: Oxbow Q3 sign-off",
+      "content": "From: Mei-Ling Chau <mei-ling@acme.test>\nSubject: Re: Oxbow Q3 sign-off\nDate: 2026-02-11\n\nHi team,\n\nConfirming that the Oxbow contract renewal for APAC was signed off at $398K.\nMei-Ling Chau will own the follow-up with the auth-gateway owners before Q3 close.\n\nRoutine status: deployments are green and the on-call week was quiet.\n\nThanks,\nMei-Ling"
     },
     {
       "id": "email-021",
-      "title": "Re: Tessera Q2 sign-off",
-      "content": "From: Jonas Pieterse <jonas@acme.test>\nSubject: Re: Tessera Q2 sign-off\nDate: 2026-03-12\n\nHi team,\n\nConfirming that the Tessera contract renewal for EMEA was signed off at $840K.\nJonas Pieterse will own the follow-up with the billing-service owners before Q2 close.\n\nGeneral discussion covered hiring plans and the upcoming offsite agenda.\n\nThanks,\nJonas"
+      "title": "Re: Heliotrope Q4 sign-off",
+      "content": "From: Ravi Menon <ravi@acme.test>\nSubject: Re: Heliotrope Q4 sign-off\nDate: 2026-03-12\n\nHi team,\n\nConfirming that the Heliotrope contract renewal for NA-East was signed off at $364K.\nRavi Menon will own the follow-up with the notification-hub owners before Q4 close.\n\nnotification-hub dashboards were reviewed; no anomalies were flagged.\n\nThanks,\nRavi"
     },
     {
       "id": "email-022",
-      "title": "Re: Falcata Q4 sign-off",
-      "content": "From: Priya Raman <priya@acme.test>\nSubject: Re: Falcata Q4 sign-off\nDate: 2026-04-13\n\nHi team,\n\nConfirming that the Falcata contract renewal for NA-West was signed off at $797K.\nPriya Raman will own the follow-up with the report-engine owners before Q4 close.\n\nThe team reviewed open action items and agreed to follow up next week.\n\nThanks,\nPriya"
+      "title": "Re: Meridian Q2 sign-off",
+      "content": "From: Yuki Tanabe <yuki@acme.test>\nSubject: Re: Meridian Q2 sign-off\nDate: 2026-04-13\n\nHi team,\n\nConfirming that the Meridian contract renewal for LATAM was signed off at $450K.\nYuki Tanabe will own the follow-up with the webhook-relay owners before Q2 close.\n\nsearch-indexer dashboards were reviewed; no anomalies were flagged.\n\nThanks,\nYuki"
     },
     {
       "id": "email-023",
-      "title": "Re: Pradel Q4 sign-off",
-      "content": "From: Clara Westbrook <clara@acme.test>\nSubject: Re: Pradel Q4 sign-off\nDate: 2026-05-14\n\nHi team,\n\nConfirming that the Pradel contract renewal for EMEA was signed off at $504K.\nClara Westbrook will own the follow-up with the billing-service owners before Q4 close.\n\nRoutine status: deployments are green and the on-call week was quiet.\n\nThanks,\nClara"
+      "title": "Re: Basalt Q3 sign-off",
+      "content": "From: Yuki Tanabe <yuki@acme.test>\nSubject: Re: Basalt Q3 sign-off\nDate: 2026-05-14\n\nHi team,\n\nConfirming that the Basalt contract renewal for EMEA was signed off at $590K.\nYuki Tanabe will own the follow-up with the auth-gateway owners before Q3 close.\n\nNotes also touched on documentation cleanup across LATAM teams.\n\nThanks,\nYuki"
     },
     {
       "id": "email-024",
-      "title": "Re: Meridian Q4 sign-off",
-      "content": "From: Sofia Brandt <sofia@acme.test>\nSubject: Re: Meridian Q4 sign-off\nDate: 2026-06-15\n\nHi team,\n\nConfirming that the Meridian contract renewal for EMEA was signed off at $213K.\nSofia Brandt will own the follow-up with the search-indexer owners before Q4 close.\n\nThe team reviewed open action items and agreed to follow up next week.\n\nThanks,\nSofia"
+      "title": "Re: Vermilion Q3 sign-off",
+      "content": "From: Yuki Tanabe <yuki@acme.test>\nSubject: Re: Vermilion Q3 sign-off\nDate: 2026-06-15\n\nHi team,\n\nConfirming that the Vermilion contract renewal for LATAM was signed off at $849K.\nYuki Tanabe will own the follow-up with the report-engine owners before Q3 close.\n\nNotes also touched on documentation cleanup across NA-East teams.\n\nThanks,\nYuki"
     },
     {
       "id": "email-025",
-      "title": "Re: Nimbus Q1 sign-off",
-      "content": "From: Felix Duarte <felix@acme.test>\nSubject: Re: Nimbus Q1 sign-off\nDate: 2026-07-16\n\nHi team,\n\nConfirming that the Nimbus contract renewal for NA-East was signed off at $793K.\nFelix Duarte will own the follow-up with the webhook-relay owners before Q1 close.\n\nRoutine status: deployments are green and the on-call week was quiet.\n\nThanks,\nFelix"
+      "title": "Re: Basalt Q1 sign-off",
+      "content": "From: Omar Haddad <omar@acme.test>\nSubject: Re: Basalt Q1 sign-off\nDate: 2026-07-16\n\nHi team,\n\nConfirming that the Basalt contract renewal for NA-East was signed off at $902K.\nOmar Haddad will own the follow-up with the ledger-core owners before Q1 close.\n\nThe team reviewed open action items and agreed to follow up next week.\n\nThanks,\nOmar"
     },
     {
       "id": "email-026",
-      "title": "Re: Heliotrope Q3 sign-off",
-      "content": "From: Ravi Menon <ravi@acme.test>\nSubject: Re: Heliotrope Q3 sign-off\nDate: 2026-08-17\n\nHi team,\n\nConfirming that the Heliotrope contract renewal for APAC was signed off at $219K.\nRavi Menon will own the follow-up with the billing-service owners before Q3 close.\n\nRoutine status: deployments are green and the on-call week was quiet.\n\nThanks,\nRavi"
+      "title": "Re: Basalt Q2 sign-off",
+      "content": "From: Dana Okafor <dana@acme.test>\nSubject: Re: Basalt Q2 sign-off\nDate: 2026-08-17\n\nHi team,\n\nConfirming that the Basalt contract renewal for NA-West was signed off at $74K.\nDana Okafor will own the follow-up with the ingest-pipeline owners before Q2 close.\n\nauth-gateway dashboards were reviewed; no anomalies were flagged.\n\nThanks,\nDana"
     },
     {
       "id": "email-027",
-      "title": "Re: Tessera Q2 sign-off",
-      "content": "From: Sofia Brandt <sofia@acme.test>\nSubject: Re: Tessera Q2 sign-off\nDate: 2026-09-18\n\nHi team,\n\nConfirming that the Tessera contract renewal for NA-West was signed off at $332K.\nSofia Brandt will own the follow-up with the search-indexer owners before Q2 close.\n\nRoutine status: deployments are green and the on-call week was quiet.\n\nThanks,\nSofia"
+      "title": "Re: Falcata Q3 sign-off",
+      "content": "From: Yuki Tanabe <yuki@acme.test>\nSubject: Re: Falcata Q3 sign-off\nDate: 2026-09-18\n\nHi team,\n\nConfirming that the Falcata contract renewal for NA-West was signed off at $380K.\nYuki Tanabe will own the follow-up with the ingest-pipeline owners before Q3 close.\n\ningest-pipeline dashboards were reviewed; no anomalies were flagged.\n\nThanks,\nYuki"
     },
     {
       "id": "email-028",
       "title": "Re: Cobble Q2 sign-off",
-      "content": "From: Mei-Ling Chau <mei-ling@acme.test>\nSubject: Re: Cobble Q2 sign-off\nDate: 2026-01-10\n\nHi team,\n\nConfirming that the Cobble contract renewal for NA-West was signed off at $428K.\nMei-Ling Chau will own the follow-up with the notification-hub owners before Q2 close.\n\nGeneral discussion covered hiring plans and the upcoming offsite agenda.\n\nThanks,\nMei-Ling"
+      "content": "From: Priya Raman <priya@acme.test>\nSubject: Re: Cobble Q2 sign-off\nDate: 2026-01-10\n\nHi team,\n\nConfirming that the Cobble contract renewal for LATAM was signed off at $126K.\nPriya Raman will own the follow-up with the ingest-pipeline owners before Q2 close.\n\nNotes also touched on documentation cleanup across NA-West teams.\n\nThanks,\nPriya"
     },
     {
       "id": "email-029",
-      "title": "Re: Quillon Q2 sign-off",
-      "content": "From: Ravi Menon <ravi@acme.test>\nSubject: Re: Quillon Q2 sign-off\nDate: 2026-02-11\n\nHi team,\n\nConfirming that the Quillon contract renewal for APAC was signed off at $262K.\nRavi Menon will own the follow-up with the auth-gateway owners before Q2 close.\n\nGeneral discussion covered hiring plans and the upcoming offsite agenda.\n\nThanks,\nRavi"
+      "title": "Re: Vermilion Q1 sign-off",
+      "content": "From: Clara Westbrook <clara@acme.test>\nSubject: Re: Vermilion Q1 sign-off\nDate: 2026-02-11\n\nHi team,\n\nConfirming that the Vermilion contract renewal for NA-West was signed off at $320K.\nClara Westbrook will own the follow-up with the search-indexer owners before Q1 close.\n\nGeneral discussion covered hiring plans and the upcoming offsite agenda.\n\nThanks,\nClara"
     },
     {
       "id": "email-030",
-      "title": "Re: Pradel Q4 sign-off",
-      "content": "From: Lena Kowalczyk <lena@acme.test>\nSubject: Re: Pradel Q4 sign-off\nDate: 2026-03-12\n\nHi team,\n\nConfirming that the Pradel contract renewal for NA-East was signed off at $508K.\nLena Kowalczyk will own the follow-up with the webhook-relay owners before Q4 close.\n\nNotes also touched on documentation cleanup across EMEA teams.\n\nThanks,\nLena"
+      "title": "Re: Nimbus Q2 sign-off",
+      "content": "From: Yuki Tanabe <yuki@acme.test>\nSubject: Re: Nimbus Q2 sign-off\nDate: 2026-03-12\n\nHi team,\n\nConfirming that the Nimbus contract renewal for APAC was signed off at $170K.\nYuki Tanabe will own the follow-up with the report-engine owners before Q2 close.\n\nGeneral discussion covered hiring plans and the upcoming offsite agenda.\n\nThanks,\nYuki"
     }
   ],
   "queries": [
     {
       "id": "email-q-0a",
-      "query": "what amount was the Basalt renewal for EMEA signed off at?",
+      "query": "what amount was the Heliotrope renewal for NA-West signed off at?",
       "relevant_doc_ids": [
         "email-001"
       ]
     },
     {
       "id": "email-q-0b",
-      "query": "who owns the follow-up for the Basalt contract renewal?",
+      "query": "who owns the follow-up for the Heliotrope renewal in NA-West?",
       "relevant_doc_ids": [
         "email-001"
       ]
     },
     {
       "id": "email-q-1a",
-      "query": "what amount was the Tessera renewal for NA-West signed off at?",
+      "query": "what amount was the Tessera renewal for NA-East signed off at?",
       "relevant_doc_ids": [
         "email-002"
       ]
     },
     {
       "id": "email-q-1b",
-      "query": "who owns the follow-up for the Tessera contract renewal?",
+      "query": "who owns the follow-up for the Tessera renewal in NA-East?",
       "relevant_doc_ids": [
         "email-002"
       ]
     },
     {
       "id": "email-q-2a",
-      "query": "what amount was the Quillon renewal for LATAM signed off at?",
+      "query": "what amount was the Larkspur renewal for EMEA signed off at?",
       "relevant_doc_ids": [
         "email-003"
       ]
     },
     {
       "id": "email-q-2b",
-      "query": "who owns the follow-up for the Quillon contract renewal?",
+      "query": "who owns the follow-up for the Larkspur renewal in EMEA?",
       "relevant_doc_ids": [
         "email-003"
       ]
     },
     {
       "id": "email-q-3a",
-      "query": "what amount was the Basalt renewal for APAC signed off at?",
+      "query": "what amount was the Cobble renewal for NA-West signed off at?",
       "relevant_doc_ids": [
         "email-004"
       ]
     },
     {
       "id": "email-q-3b",
-      "query": "who owns the follow-up for the Basalt contract renewal?",
+      "query": "who owns the follow-up for the Cobble renewal in NA-West?",
       "relevant_doc_ids": [
         "email-004"
       ]
     },
     {
       "id": "email-q-4a",
-      "query": "what amount was the Nimbus renewal for NA-East signed off at?",
+      "query": "what amount was the Cobble renewal for NA-East signed off at?",
       "relevant_doc_ids": [
         "email-005"
       ]
     },
     {
       "id": "email-q-4b",
-      "query": "who owns the follow-up for the Nimbus contract renewal?",
+      "query": "who owns the follow-up for the Cobble renewal in NA-East?",
       "relevant_doc_ids": [
         "email-005"
       ]
     },
     {
       "id": "email-q-5a",
-      "query": "what amount was the Oxbow renewal for NA-West signed off at?",
+      "query": "what amount was the Falcata renewal for APAC signed off at?",
       "relevant_doc_ids": [
         "email-006"
       ]
     },
     {
       "id": "email-q-5b",
-      "query": "who owns the follow-up for the Oxbow contract renewal?",
+      "query": "who owns the follow-up for the Falcata renewal in APAC?",
       "relevant_doc_ids": [
         "email-006"
       ]
     },
     {
       "id": "email-q-6a",
-      "query": "what amount was the Pradel renewal for EMEA signed off at?",
+      "query": "what amount was the Basalt renewal for LATAM signed off at?",
       "relevant_doc_ids": [
         "email-007"
       ]
     },
     {
       "id": "email-q-6b",
-      "query": "who owns the follow-up for the Pradel contract renewal?",
+      "query": "who owns the follow-up for the Basalt renewal in LATAM?",
       "relevant_doc_ids": [
         "email-007"
       ]
     },
     {
       "id": "email-q-7a",
-      "query": "what amount was the Meridian renewal for NA-East signed off at?",
+      "query": "what amount was the Vermilion renewal for NA-East signed off at?",
       "relevant_doc_ids": [
         "email-008"
       ]
     },
     {
       "id": "email-q-7b",
-      "query": "who owns the follow-up for the Meridian contract renewal?",
+      "query": "who owns the follow-up for the Vermilion renewal in NA-East?",
       "relevant_doc_ids": [
         "email-008"
       ]
     },
     {
       "id": "email-q-8a",
-      "query": "what amount was the Quillon renewal for APAC signed off at?",
+      "query": "what amount was the Pradel renewal for EMEA signed off at?",
       "relevant_doc_ids": [
         "email-009"
       ]
     },
     {
       "id": "email-q-8b",
-      "query": "who owns the follow-up for the Quillon contract renewal?",
+      "query": "who owns the follow-up for the Pradel renewal in EMEA?",
       "relevant_doc_ids": [
         "email-009"
       ]
     },
     {
       "id": "email-q-9a",
-      "query": "what amount was the Meridian renewal for NA-East signed off at?",
+      "query": "what amount was the Tessera renewal for LATAM signed off at?",
       "relevant_doc_ids": [
         "email-010"
       ]
     },
     {
       "id": "email-q-9b",
-      "query": "who owns the follow-up for the Meridian contract renewal?",
+      "query": "who owns the follow-up for the Tessera renewal in LATAM?",
       "relevant_doc_ids": [
         "email-010"
       ]
     },
     {
       "id": "email-q-10a",
-      "query": "what amount was the Vermilion renewal for APAC signed off at?",
+      "query": "what amount was the Larkspur renewal for APAC signed off at?",
       "relevant_doc_ids": [
         "email-011"
       ]
     },
     {
       "id": "email-q-10b",
-      "query": "who owns the follow-up for the Vermilion contract renewal?",
+      "query": "who owns the follow-up for the Larkspur renewal in APAC?",
       "relevant_doc_ids": [
         "email-011"
       ]
     },
     {
       "id": "email-q-11a",
-      "query": "what amount was the Heliotrope renewal for NA-West signed off at?",
+      "query": "what amount was the Nimbus renewal for NA-West signed off at?",
       "relevant_doc_ids": [
         "email-012"
       ]
     },
     {
       "id": "email-q-11b",
-      "query": "who owns the follow-up for the Heliotrope contract renewal?",
+      "query": "who owns the follow-up for the Nimbus renewal in NA-West?",
       "relevant_doc_ids": [
         "email-012"
       ]
     },
     {
       "id": "email-q-12a",
-      "query": "what amount was the Nimbus renewal for APAC signed off at?",
+      "query": "what amount was the Meridian renewal for NA-East signed off at?",
       "relevant_doc_ids": [
         "email-013"
       ]
     },
     {
       "id": "email-q-12b",
-      "query": "who owns the follow-up for the Nimbus contract renewal?",
+      "query": "who owns the follow-up for the Meridian renewal in NA-East?",
       "relevant_doc_ids": [
         "email-013"
       ]
     },
     {
       "id": "email-q-13a",
-      "query": "what amount was the Larkspur renewal for EMEA signed off at?",
+      "query": "what amount was the Larkspur renewal for NA-West signed off at?",
       "relevant_doc_ids": [
         "email-014"
       ]
     },
     {
       "id": "email-q-13b",
-      "query": "who owns the follow-up for the Larkspur contract renewal?",
+      "query": "who owns the follow-up for the Larkspur renewal in NA-West?",
       "relevant_doc_ids": [
         "email-014"
       ]
     },
     {
       "id": "email-q-14a",
-      "query": "what amount was the Nimbus renewal for NA-West signed off at?",
+      "query": "what amount was the Pradel renewal for NA-West signed off at?",
       "relevant_doc_ids": [
         "email-015"
       ]
     },
     {
       "id": "email-q-14b",
-      "query": "who owns the follow-up for the Nimbus contract renewal?",
+      "query": "who owns the follow-up for the Pradel renewal in NA-West?",
       "relevant_doc_ids": [
         "email-015"
       ]
     },
     {
       "id": "email-q-15a",
-      "query": "what amount was the Quillon renewal for NA-East signed off at?",
+      "query": "what amount was the Falcata renewal for EMEA signed off at?",
       "relevant_doc_ids": [
         "email-016"
       ]
     },
     {
       "id": "email-q-15b",
-      "query": "who owns the follow-up for the Quillon contract renewal?",
+      "query": "who owns the follow-up for the Falcata renewal in EMEA?",
       "relevant_doc_ids": [
         "email-016"
       ]
     },
     {
       "id": "email-q-16a",
-      "query": "what amount was the Vermilion renewal for NA-West signed off at?",
+      "query": "what amount was the Oxbow renewal for LATAM signed off at?",
       "relevant_doc_ids": [
         "email-017"
       ]
     },
     {
       "id": "email-q-16b",
-      "query": "who owns the follow-up for the Vermilion contract renewal?",
+      "query": "who owns the follow-up for the Oxbow renewal in LATAM?",
       "relevant_doc_ids": [
         "email-017"
       ]
     },
     {
       "id": "email-q-17a",
-      "query": "what amount was the Quillon renewal for APAC signed off at?",
+      "query": "what amount was the Quillon renewal for EMEA signed off at?",
       "relevant_doc_ids": [
         "email-018"
       ]
     },
     {
       "id": "email-q-17b",
-      "query": "who owns the follow-up for the Quillon contract renewal?",
+      "query": "who owns the follow-up for the Quillon renewal in EMEA?",
       "relevant_doc_ids": [
         "email-018"
       ]
     },
     {
       "id": "email-q-18a",
-      "query": "what amount was the Quillon renewal for APAC signed off at?",
+      "query": "what amount was the Quillon renewal for LATAM signed off at?",
       "relevant_doc_ids": [
         "email-019"
       ]
     },
     {
       "id": "email-q-18b",
-      "query": "who owns the follow-up for the Quillon contract renewal?",
+      "query": "who owns the follow-up for the Quillon renewal in LATAM?",
       "relevant_doc_ids": [
         "email-019"
       ]
     },
     {
       "id": "email-q-19a",
-      "query": "what amount was the Cobble renewal for NA-West signed off at?",
+      "query": "what amount was the Oxbow renewal for APAC signed off at?",
       "relevant_doc_ids": [
         "email-020"
       ]
     },
     {
       "id": "email-q-19b",
-      "query": "who owns the follow-up for the Cobble contract renewal?",
+      "query": "who owns the follow-up for the Oxbow renewal in APAC?",
       "relevant_doc_ids": [
         "email-020"
       ]
     },
     {
       "id": "email-q-20a",
-      "query": "what amount was the Tessera renewal for EMEA signed off at?",
+      "query": "what amount was the Heliotrope renewal for NA-East signed off at?",
       "relevant_doc_ids": [
         "email-021"
       ]
     },
     {
       "id": "email-q-20b",
-      "query": "who owns the follow-up for the Tessera contract renewal?",
+      "query": "who owns the follow-up for the Heliotrope renewal in NA-East?",
       "relevant_doc_ids": [
         "email-021"
       ]
     },
     {
       "id": "email-q-21a",
-      "query": "what amount was the Falcata renewal for NA-West signed off at?",
+      "query": "what amount was the Meridian renewal for LATAM signed off at?",
       "relevant_doc_ids": [
         "email-022"
       ]
     },
     {
       "id": "email-q-21b",
-      "query": "who owns the follow-up for the Falcata contract renewal?",
+      "query": "who owns the follow-up for the Meridian renewal in LATAM?",
       "relevant_doc_ids": [
         "email-022"
       ]
     },
     {
       "id": "email-q-22a",
-      "query": "what amount was the Pradel renewal for EMEA signed off at?",
+      "query": "what amount was the Basalt renewal for EMEA signed off at?",
       "relevant_doc_ids": [
         "email-023"
       ]
     },
     {
       "id": "email-q-22b",
-      "query": "who owns the follow-up for the Pradel contract renewal?",
+      "query": "who owns the follow-up for the Basalt renewal in EMEA?",
       "relevant_doc_ids": [
         "email-023"
       ]
     },
     {
       "id": "email-q-23a",
-      "query": "what amount was the Meridian renewal for EMEA signed off at?",
+      "query": "what amount was the Vermilion renewal for LATAM signed off at?",
       "relevant_doc_ids": [
         "email-024"
       ]
     },
     {
       "id": "email-q-23b",
-      "query": "who owns the follow-up for the Meridian contract renewal?",
+      "query": "who owns the follow-up for the Vermilion renewal in LATAM?",
       "relevant_doc_ids": [
         "email-024"
       ]
     },
     {
       "id": "email-q-24a",
-      "query": "what amount was the Nimbus renewal for NA-East signed off at?",
+      "query": "what amount was the Basalt renewal for NA-East signed off at?",
       "relevant_doc_ids": [
         "email-025"
       ]
     },
     {
       "id": "email-q-24b",
-      "query": "who owns the follow-up for the Nimbus contract renewal?",
+      "query": "who owns the follow-up for the Basalt renewal in NA-East?",
       "relevant_doc_ids": [
         "email-025"
       ]
     },
     {
       "id": "email-q-25a",
-      "query": "what amount was the Heliotrope renewal for APAC signed off at?",
+      "query": "what amount was the Basalt renewal for NA-West signed off at?",
       "relevant_doc_ids": [
         "email-026"
       ]
     },
     {
       "id": "email-q-25b",
-      "query": "who owns the follow-up for the Heliotrope contract renewal?",
+      "query": "who owns the follow-up for the Basalt renewal in NA-West?",
       "relevant_doc_ids": [
         "email-026"
       ]
     },
     {
       "id": "email-q-26a",
-      "query": "what amount was the Tessera renewal for NA-West signed off at?",
+      "query": "what amount was the Falcata renewal for NA-West signed off at?",
       "relevant_doc_ids": [
         "email-027"
       ]
     },
     {
       "id": "email-q-26b",
-      "query": "who owns the follow-up for the Tessera contract renewal?",
+      "query": "who owns the follow-up for the Falcata renewal in NA-West?",
       "relevant_doc_ids": [
         "email-027"
       ]
     },
     {
       "id": "email-q-27a",
-      "query": "what amount was the Cobble renewal for NA-West signed off at?",
+      "query": "what amount was the Cobble renewal for LATAM signed off at?",
       "relevant_doc_ids": [
         "email-028"
       ]

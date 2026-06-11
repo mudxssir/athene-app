@@ -27,6 +27,11 @@ _Branch: `pipeline/p0-stop-the-bleeding` · Flag(s): none (P0 is patch-level) ·
 - `providers.test.ts` count tripwire updated 26→27 (`github-getting-started` had been added
   without updating it).
 
+**P0-8 post-review fixes (FA–FC):**
+- FA fixed: `prose_long` fixture shape added — 10 docs × ~4 200 chars (3 chunks each, fact in chunk 2). Harness is now sensitive to chunking changes; must be re-run before P1 gate is evaluated.
+- FB fixed: `makeFacts` dedup extended to cover every (project,service), (project,region), and (project,quarter) pair used in query templates. Five query templates updated to include the second field where they previously keyed on project alone. Fixtures regenerated (deterministic). Baseline `p0.json` marked stale — re-record before referencing as P1 gate.
+- FC fixed: `run-eval.ts` report imports `PIPELINE_VERSION` from the pipeline module; no longer hardcoded to `1`.
+
 **Post-gate code review (F1–F8, fixed in `d881418`):**
 - F1 fixed: entity-resolver back to passage hint (similarity thresholds calibrated
   passage↔passage). **P1 carry-over:** re-validate KG_CONFIG thresholds against labeled

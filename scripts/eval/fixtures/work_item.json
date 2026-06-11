@@ -4,537 +4,537 @@
   "documents": [
     {
       "id": "ticket-001",
-      "title": "[MERI-100] auth-gateway latency regression in NA-East",
-      "content": "Summary: auth-gateway latency regression in NA-East\nStatus: In Progress\nAssignee: Felix Duarte\nPriority: High\n\np99 latency on auth-gateway rose to 680ms after the Q2 deploy for Project Meridian.\nThis blocks the Meridian rollout until the regression is resolved.\n\nComments:\nFelix Duarte: bisected to the connection-pool change; preparing a fix.\n---\nFelix Duarte: The team reviewed open action items and agreed to follow up next week."
+      "title": "[NIMB-100] search-indexer latency regression in EMEA",
+      "content": "Summary: search-indexer latency regression in EMEA\nStatus: In Progress\nAssignee: Mei-Ling Chau\nPriority: High\n\np99 latency on search-indexer rose to 526ms after the Q3 deploy for Project Nimbus.\nThis blocks the Nimbus rollout until the regression is resolved.\n\nComments:\nMei-Ling Chau: bisected to the connection-pool change; preparing a fix.\n---\nYuki Tanabe: Notes also touched on documentation cleanup across APAC teams."
     },
     {
       "id": "ticket-002",
-      "title": "[HELI-101] webhook-relay latency regression in NA-West",
-      "content": "Summary: webhook-relay latency regression in NA-West\nStatus: In Progress\nAssignee: Omar Haddad\nPriority: High\n\np99 latency on webhook-relay rose to 103ms after the Q1 deploy for Project Heliotrope.\nThis blocks the Heliotrope rollout until the regression is resolved.\n\nComments:\nOmar Haddad: bisected to the connection-pool change; preparing a fix.\n---\nYuki Tanabe: notification-hub dashboards were reviewed; no anomalies were flagged."
+      "title": "[BASA-101] search-indexer latency regression in EMEA",
+      "content": "Summary: search-indexer latency regression in EMEA\nStatus: In Progress\nAssignee: Marcus Lindqvist\nPriority: High\n\np99 latency on search-indexer rose to 697ms after the Q4 deploy for Project Basalt.\nThis blocks the Basalt rollout until the regression is resolved.\n\nComments:\nMarcus Lindqvist: bisected to the connection-pool change; preparing a fix.\n---\nClara Westbrook: ledger-core dashboards were reviewed; no anomalies were flagged."
     },
     {
       "id": "ticket-003",
-      "title": "[TESS-102] ledger-core latency regression in NA-East",
-      "content": "Summary: ledger-core latency regression in NA-East\nStatus: In Progress\nAssignee: Yuki Tanabe\nPriority: High\n\np99 latency on ledger-core rose to 422ms after the Q1 deploy for Project Tessera.\nThis blocks the Tessera rollout until the regression is resolved.\n\nComments:\nYuki Tanabe: bisected to the connection-pool change; preparing a fix.\n---\nOmar Haddad: ingest-pipeline dashboards were reviewed; no anomalies were flagged."
+      "title": "[LARK-102] search-indexer latency regression in APAC",
+      "content": "Summary: search-indexer latency regression in APAC\nStatus: In Progress\nAssignee: Yuki Tanabe\nPriority: High\n\np99 latency on search-indexer rose to 680ms after the Q3 deploy for Project Larkspur.\nThis blocks the Larkspur rollout until the regression is resolved.\n\nComments:\nYuki Tanabe: bisected to the connection-pool change; preparing a fix.\n---\nRavi Menon: ingest-pipeline dashboards were reviewed; no anomalies were flagged."
     },
     {
       "id": "ticket-004",
-      "title": "[LARK-103] ledger-core latency regression in EMEA",
-      "content": "Summary: ledger-core latency regression in EMEA\nStatus: In Progress\nAssignee: Priya Raman\nPriority: High\n\np99 latency on ledger-core rose to 467ms after the Q1 deploy for Project Larkspur.\nThis blocks the Larkspur rollout until the regression is resolved.\n\nComments:\nPriya Raman: bisected to the connection-pool change; preparing a fix.\n---\nMarcus Lindqvist: General discussion covered hiring plans and the upcoming offsite agenda."
+      "title": "[FALC-103] webhook-relay latency regression in NA-West",
+      "content": "Summary: webhook-relay latency regression in NA-West\nStatus: In Progress\nAssignee: Priya Raman\nPriority: High\n\np99 latency on webhook-relay rose to 801ms after the Q4 deploy for Project Falcata.\nThis blocks the Falcata rollout until the regression is resolved.\n\nComments:\nPriya Raman: bisected to the connection-pool change; preparing a fix.\n---\nMarcus Lindqvist: General discussion covered hiring plans and the upcoming offsite agenda."
     },
     {
       "id": "ticket-005",
-      "title": "[COBB-104] webhook-relay latency regression in NA-West",
-      "content": "Summary: webhook-relay latency regression in NA-West\nStatus: In Progress\nAssignee: Sofia Brandt\nPriority: High\n\np99 latency on webhook-relay rose to 113ms after the Q4 deploy for Project Cobble.\nThis blocks the Cobble rollout until the regression is resolved.\n\nComments:\nSofia Brandt: bisected to the connection-pool change; preparing a fix.\n---\nMarcus Lindqvist: Notes also touched on documentation cleanup across NA-West teams."
+      "title": "[QUIL-104] search-indexer latency regression in EMEA",
+      "content": "Summary: search-indexer latency regression in EMEA\nStatus: In Progress\nAssignee: Felix Duarte\nPriority: High\n\np99 latency on search-indexer rose to 753ms after the Q1 deploy for Project Quillon.\nThis blocks the Quillon rollout until the regression is resolved.\n\nComments:\nFelix Duarte: bisected to the connection-pool change; preparing a fix.\n---\nJonas Pieterse: Notes also touched on documentation cleanup across APAC teams."
     },
     {
       "id": "ticket-006",
-      "title": "[COBB-105] ledger-core latency regression in NA-East",
-      "content": "Summary: ledger-core latency regression in NA-East\nStatus: In Progress\nAssignee: Dana Okafor\nPriority: High\n\np99 latency on ledger-core rose to 565ms after the Q1 deploy for Project Cobble.\nThis blocks the Cobble rollout until the regression is resolved.\n\nComments:\nDana Okafor: bisected to the connection-pool change; preparing a fix.\n---\nPriya Raman: billing-service dashboards were reviewed; no anomalies were flagged."
+      "title": "[TESS-105] notification-hub latency regression in EMEA",
+      "content": "Summary: notification-hub latency regression in EMEA\nStatus: In Progress\nAssignee: Lena Kowalczyk\nPriority: High\n\np99 latency on notification-hub rose to 711ms after the Q4 deploy for Project Tessera.\nThis blocks the Tessera rollout until the regression is resolved.\n\nComments:\nLena Kowalczyk: bisected to the connection-pool change; preparing a fix.\n---\nRavi Menon: The team reviewed open action items and agreed to follow up next week."
     },
     {
       "id": "ticket-007",
-      "title": "[FALC-106] ledger-core latency regression in APAC",
-      "content": "Summary: ledger-core latency regression in APAC\nStatus: In Progress\nAssignee: Clara Westbrook\nPriority: High\n\np99 latency on ledger-core rose to 882ms after the Q2 deploy for Project Falcata.\nThis blocks the Falcata rollout until the regression is resolved.\n\nComments:\nClara Westbrook: bisected to the connection-pool change; preparing a fix.\n---\nFelix Duarte: Routine status: deployments are green and the on-call week was quiet."
+      "title": "[PRAD-106] auth-gateway latency regression in EMEA",
+      "content": "Summary: auth-gateway latency regression in EMEA\nStatus: In Progress\nAssignee: Mei-Ling Chau\nPriority: High\n\np99 latency on auth-gateway rose to 510ms after the Q2 deploy for Project Pradel.\nThis blocks the Pradel rollout until the regression is resolved.\n\nComments:\nMei-Ling Chau: bisected to the connection-pool change; preparing a fix.\n---\nDana Okafor: auth-gateway dashboards were reviewed; no anomalies were flagged."
     },
     {
       "id": "ticket-008",
-      "title": "[BASA-107] notification-hub latency regression in LATAM",
-      "content": "Summary: notification-hub latency regression in LATAM\nStatus: In Progress\nAssignee: Marcus Lindqvist\nPriority: High\n\np99 latency on notification-hub rose to 420ms after the Q4 deploy for Project Basalt.\nThis blocks the Basalt rollout until the regression is resolved.\n\nComments:\nMarcus Lindqvist: bisected to the connection-pool change; preparing a fix.\n---\nSofia Brandt: ingest-pipeline dashboards were reviewed; no anomalies were flagged."
+      "title": "[MERI-107] webhook-relay latency regression in NA-East",
+      "content": "Summary: webhook-relay latency regression in NA-East\nStatus: In Progress\nAssignee: Ravi Menon\nPriority: High\n\np99 latency on webhook-relay rose to 838ms after the Q2 deploy for Project Meridian.\nThis blocks the Meridian rollout until the regression is resolved.\n\nComments:\nRavi Menon: bisected to the connection-pool change; preparing a fix.\n---\nYuki Tanabe: The team reviewed open action items and agreed to follow up next week."
     },
     {
       "id": "ticket-009",
-      "title": "[VERM-108] webhook-relay latency regression in NA-East",
-      "content": "Summary: webhook-relay latency regression in NA-East\nStatus: In Progress\nAssignee: Omar Haddad\nPriority: High\n\np99 latency on webhook-relay rose to 63ms after the Q2 deploy for Project Vermilion.\nThis blocks the Vermilion rollout until the regression is resolved.\n\nComments:\nOmar Haddad: bisected to the connection-pool change; preparing a fix.\n---\nSofia Brandt: Notes also touched on documentation cleanup across NA-West teams."
+      "title": "[VERM-108] notification-hub latency regression in EMEA",
+      "content": "Summary: notification-hub latency regression in EMEA\nStatus: In Progress\nAssignee: Mei-Ling Chau\nPriority: High\n\np99 latency on notification-hub rose to 258ms after the Q2 deploy for Project Vermilion.\nThis blocks the Vermilion rollout until the regression is resolved.\n\nComments:\nMei-Ling Chau: bisected to the connection-pool change; preparing a fix.\n---\nRavi Menon: General discussion covered hiring plans and the upcoming offsite agenda."
     },
     {
       "id": "ticket-010",
-      "title": "[PRAD-109] billing-service latency regression in EMEA",
-      "content": "Summary: billing-service latency regression in EMEA\nStatus: In Progress\nAssignee: Clara Westbrook\nPriority: High\n\np99 latency on billing-service rose to 365ms after the Q2 deploy for Project Pradel.\nThis blocks the Pradel rollout until the regression is resolved.\n\nComments:\nClara Westbrook: bisected to the connection-pool change; preparing a fix.\n---\nYuki Tanabe: General discussion covered hiring plans and the upcoming offsite agenda."
+      "title": "[COBB-109] notification-hub latency regression in APAC",
+      "content": "Summary: notification-hub latency regression in APAC\nStatus: In Progress\nAssignee: Omar Haddad\nPriority: High\n\np99 latency on notification-hub rose to 700ms after the Q2 deploy for Project Cobble.\nThis blocks the Cobble rollout until the regression is resolved.\n\nComments:\nOmar Haddad: bisected to the connection-pool change; preparing a fix.\n---\nMei-Ling Chau: notification-hub dashboards were reviewed; no anomalies were flagged."
     },
     {
       "id": "ticket-011",
-      "title": "[TESS-110] ingest-pipeline latency regression in LATAM",
-      "content": "Summary: ingest-pipeline latency regression in LATAM\nStatus: In Progress\nAssignee: Priya Raman\nPriority: High\n\np99 latency on ingest-pipeline rose to 583ms after the Q4 deploy for Project Tessera.\nThis blocks the Tessera rollout until the regression is resolved.\n\nComments:\nPriya Raman: bisected to the connection-pool change; preparing a fix.\n---\nMarcus Lindqvist: General discussion covered hiring plans and the upcoming offsite agenda."
+      "title": "[COBB-110] webhook-relay latency regression in NA-East",
+      "content": "Summary: webhook-relay latency regression in NA-East\nStatus: In Progress\nAssignee: Yuki Tanabe\nPriority: High\n\np99 latency on webhook-relay rose to 522ms after the Q1 deploy for Project Cobble.\nThis blocks the Cobble rollout until the regression is resolved.\n\nComments:\nYuki Tanabe: bisected to the connection-pool change; preparing a fix.\n---\nJonas Pieterse: Notes also touched on documentation cleanup across NA-East teams."
     },
     {
       "id": "ticket-012",
-      "title": "[LARK-111] notification-hub latency regression in APAC",
-      "content": "Summary: notification-hub latency regression in APAC\nStatus: In Progress\nAssignee: Priya Raman\nPriority: High\n\np99 latency on notification-hub rose to 80ms after the Q4 deploy for Project Larkspur.\nThis blocks the Larkspur rollout until the regression is resolved.\n\nComments:\nPriya Raman: bisected to the connection-pool change; preparing a fix.\n---\nJonas Pieterse: Notes also touched on documentation cleanup across APAC teams."
+      "title": "[VERM-111] ingest-pipeline latency regression in NA-East",
+      "content": "Summary: ingest-pipeline latency regression in NA-East\nStatus: In Progress\nAssignee: Felix Duarte\nPriority: High\n\np99 latency on ingest-pipeline rose to 822ms after the Q1 deploy for Project Vermilion.\nThis blocks the Vermilion rollout until the regression is resolved.\n\nComments:\nFelix Duarte: bisected to the connection-pool change; preparing a fix.\n---\nFelix Duarte: report-engine dashboards were reviewed; no anomalies were flagged."
     },
     {
       "id": "ticket-013",
-      "title": "[NIMB-112] auth-gateway latency regression in NA-West",
-      "content": "Summary: auth-gateway latency regression in NA-West\nStatus: In Progress\nAssignee: Dana Okafor\nPriority: High\n\np99 latency on auth-gateway rose to 771ms after the Q4 deploy for Project Nimbus.\nThis blocks the Nimbus rollout until the regression is resolved.\n\nComments:\nDana Okafor: bisected to the connection-pool change; preparing a fix.\n---\nMarcus Lindqvist: ingest-pipeline dashboards were reviewed; no anomalies were flagged."
+      "title": "[FALC-112] billing-service latency regression in LATAM",
+      "content": "Summary: billing-service latency regression in LATAM\nStatus: In Progress\nAssignee: Clara Westbrook\nPriority: High\n\np99 latency on billing-service rose to 690ms after the Q2 deploy for Project Falcata.\nThis blocks the Falcata rollout until the regression is resolved.\n\nComments:\nClara Westbrook: bisected to the connection-pool change; preparing a fix.\n---\nMarcus Lindqvist: search-indexer dashboards were reviewed; no anomalies were flagged."
     },
     {
       "id": "ticket-014",
-      "title": "[VERM-113] ingest-pipeline latency regression in LATAM",
-      "content": "Summary: ingest-pipeline latency regression in LATAM\nStatus: In Progress\nAssignee: Lena Kowalczyk\nPriority: High\n\np99 latency on ingest-pipeline rose to 53ms after the Q2 deploy for Project Vermilion.\nThis blocks the Vermilion rollout until the regression is resolved.\n\nComments:\nLena Kowalczyk: bisected to the connection-pool change; preparing a fix.\n---\nMarcus Lindqvist: The team reviewed open action items and agreed to follow up next week."
+      "title": "[QUIL-113] auth-gateway latency regression in NA-East",
+      "content": "Summary: auth-gateway latency regression in NA-East\nStatus: In Progress\nAssignee: Dana Okafor\nPriority: High\n\np99 latency on auth-gateway rose to 864ms after the Q2 deploy for Project Quillon.\nThis blocks the Quillon rollout until the regression is resolved.\n\nComments:\nDana Okafor: bisected to the connection-pool change; preparing a fix.\n---\nRavi Menon: Routine status: deployments are green and the on-call week was quiet."
     },
     {
       "id": "ticket-015",
-      "title": "[MERI-114] billing-service latency regression in NA-East",
-      "content": "Summary: billing-service latency regression in NA-East\nStatus: In Progress\nAssignee: Marcus Lindqvist\nPriority: High\n\np99 latency on billing-service rose to 719ms after the Q3 deploy for Project Meridian.\nThis blocks the Meridian rollout until the regression is resolved.\n\nComments:\nMarcus Lindqvist: bisected to the connection-pool change; preparing a fix.\n---\nPriya Raman: auth-gateway dashboards were reviewed; no anomalies were flagged."
+      "title": "[VERM-114] report-engine latency regression in APAC",
+      "content": "Summary: report-engine latency regression in APAC\nStatus: In Progress\nAssignee: Ravi Menon\nPriority: High\n\np99 latency on report-engine rose to 552ms after the Q3 deploy for Project Vermilion.\nThis blocks the Vermilion rollout until the regression is resolved.\n\nComments:\nRavi Menon: bisected to the connection-pool change; preparing a fix.\n---\nLena Kowalczyk: The team reviewed open action items and agreed to follow up next week."
     },
     {
       "id": "ticket-016",
-      "title": "[NIMB-115] auth-gateway latency regression in EMEA",
-      "content": "Summary: auth-gateway latency regression in EMEA\nStatus: In Progress\nAssignee: Felix Duarte\nPriority: High\n\np99 latency on auth-gateway rose to 139ms after the Q2 deploy for Project Nimbus.\nThis blocks the Nimbus rollout until the regression is resolved.\n\nComments:\nFelix Duarte: bisected to the connection-pool change; preparing a fix.\n---\nSofia Brandt: webhook-relay dashboards were reviewed; no anomalies were flagged."
+      "title": "[PRAD-115] billing-service latency regression in NA-West",
+      "content": "Summary: billing-service latency regression in NA-West\nStatus: In Progress\nAssignee: Priya Raman\nPriority: High\n\np99 latency on billing-service rose to 598ms after the Q4 deploy for Project Pradel.\nThis blocks the Pradel rollout until the regression is resolved.\n\nComments:\nPriya Raman: bisected to the connection-pool change; preparing a fix.\n---\nPriya Raman: Notes also touched on documentation cleanup across NA-East teams."
     },
     {
       "id": "ticket-017",
-      "title": "[FALC-116] notification-hub latency regression in NA-West",
-      "content": "Summary: notification-hub latency regression in NA-West\nStatus: In Progress\nAssignee: Lena Kowalczyk\nPriority: High\n\np99 latency on notification-hub rose to 524ms after the Q2 deploy for Project Falcata.\nThis blocks the Falcata rollout until the regression is resolved.\n\nComments:\nLena Kowalczyk: bisected to the connection-pool change; preparing a fix.\n---\nDana Okafor: ingest-pipeline dashboards were reviewed; no anomalies were flagged."
+      "title": "[BASA-116] report-engine latency regression in NA-West",
+      "content": "Summary: report-engine latency regression in NA-West\nStatus: In Progress\nAssignee: Sofia Brandt\nPriority: High\n\np99 latency on report-engine rose to 285ms after the Q1 deploy for Project Basalt.\nThis blocks the Basalt rollout until the regression is resolved.\n\nComments:\nSofia Brandt: bisected to the connection-pool change; preparing a fix.\n---\nSofia Brandt: General discussion covered hiring plans and the upcoming offsite agenda."
     },
     {
       "id": "ticket-018",
-      "title": "[LARK-117] auth-gateway latency regression in NA-West",
-      "content": "Summary: auth-gateway latency regression in NA-West\nStatus: In Progress\nAssignee: Felix Duarte\nPriority: High\n\np99 latency on auth-gateway rose to 576ms after the Q3 deploy for Project Larkspur.\nThis blocks the Larkspur rollout until the regression is resolved.\n\nComments:\nFelix Duarte: bisected to the connection-pool change; preparing a fix.\n---\nMarcus Lindqvist: The team reviewed open action items and agreed to follow up next week."
+      "title": "[QUIL-117] report-engine latency regression in NA-West",
+      "content": "Summary: report-engine latency regression in NA-West\nStatus: In Progress\nAssignee: Dana Okafor\nPriority: High\n\np99 latency on report-engine rose to 140ms after the Q3 deploy for Project Quillon.\nThis blocks the Quillon rollout until the regression is resolved.\n\nComments:\nDana Okafor: bisected to the connection-pool change; preparing a fix.\n---\nRavi Menon: General discussion covered hiring plans and the upcoming offsite agenda."
     },
     {
       "id": "ticket-019",
-      "title": "[PRAD-118] ingest-pipeline latency regression in NA-West",
-      "content": "Summary: ingest-pipeline latency regression in NA-West\nStatus: In Progress\nAssignee: Sofia Brandt\nPriority: High\n\np99 latency on ingest-pipeline rose to 530ms after the Q4 deploy for Project Pradel.\nThis blocks the Pradel rollout until the regression is resolved.\n\nComments:\nSofia Brandt: bisected to the connection-pool change; preparing a fix.\n---\nLena Kowalczyk: Routine status: deployments are green and the on-call week was quiet."
+      "title": "[COBB-118] auth-gateway latency regression in LATAM",
+      "content": "Summary: auth-gateway latency regression in LATAM\nStatus: In Progress\nAssignee: Sofia Brandt\nPriority: High\n\np99 latency on auth-gateway rose to 947ms after the Q3 deploy for Project Cobble.\nThis blocks the Cobble rollout until the regression is resolved.\n\nComments:\nSofia Brandt: bisected to the connection-pool change; preparing a fix.\n---\nLena Kowalczyk: Routine status: deployments are green and the on-call week was quiet."
     },
     {
       "id": "ticket-020",
-      "title": "[FALC-119] webhook-relay latency regression in EMEA",
-      "content": "Summary: webhook-relay latency regression in EMEA\nStatus: In Progress\nAssignee: Mei-Ling Chau\nPriority: High\n\np99 latency on webhook-relay rose to 218ms after the Q4 deploy for Project Falcata.\nThis blocks the Falcata rollout until the regression is resolved.\n\nComments:\nMei-Ling Chau: bisected to the connection-pool change; preparing a fix.\n---\nSofia Brandt: Routine status: deployments are green and the on-call week was quiet."
+      "title": "[NIMB-119] ledger-core latency regression in LATAM",
+      "content": "Summary: ledger-core latency regression in LATAM\nStatus: In Progress\nAssignee: Marcus Lindqvist\nPriority: High\n\np99 latency on ledger-core rose to 803ms after the Q4 deploy for Project Nimbus.\nThis blocks the Nimbus rollout until the regression is resolved.\n\nComments:\nMarcus Lindqvist: bisected to the connection-pool change; preparing a fix.\n---\nFelix Duarte: The team reviewed open action items and agreed to follow up next week."
     },
     {
       "id": "ticket-021",
-      "title": "[OXBO-120] notification-hub latency regression in LATAM",
-      "content": "Summary: notification-hub latency regression in LATAM\nStatus: In Progress\nAssignee: Mei-Ling Chau\nPriority: High\n\np99 latency on notification-hub rose to 683ms after the Q1 deploy for Project Oxbow.\nThis blocks the Oxbow rollout until the regression is resolved.\n\nComments:\nMei-Ling Chau: bisected to the connection-pool change; preparing a fix.\n---\nJonas Pieterse: report-engine dashboards were reviewed; no anomalies were flagged."
+      "title": "[OXBO-120] report-engine latency regression in APAC",
+      "content": "Summary: report-engine latency regression in APAC\nStatus: In Progress\nAssignee: Lena Kowalczyk\nPriority: High\n\np99 latency on report-engine rose to 214ms after the Q2 deploy for Project Oxbow.\nThis blocks the Oxbow rollout until the regression is resolved.\n\nComments:\nLena Kowalczyk: bisected to the connection-pool change; preparing a fix.\n---\nMei-Ling Chau: General discussion covered hiring plans and the upcoming offsite agenda."
     },
     {
       "id": "ticket-022",
-      "title": "[NIMB-121] search-indexer latency regression in NA-East",
-      "content": "Summary: search-indexer latency regression in NA-East\nStatus: In Progress\nAssignee: Jonas Pieterse\nPriority: High\n\np99 latency on search-indexer rose to 105ms after the Q4 deploy for Project Nimbus.\nThis blocks the Nimbus rollout until the regression is resolved.\n\nComments:\nJonas Pieterse: bisected to the connection-pool change; preparing a fix.\n---\nSofia Brandt: Notes also touched on documentation cleanup across APAC teams."
+      "title": "[TESS-121] report-engine latency regression in NA-East",
+      "content": "Summary: report-engine latency regression in NA-East\nStatus: In Progress\nAssignee: Sofia Brandt\nPriority: High\n\np99 latency on report-engine rose to 278ms after the Q3 deploy for Project Tessera.\nThis blocks the Tessera rollout until the regression is resolved.\n\nComments:\nSofia Brandt: bisected to the connection-pool change; preparing a fix.\n---\nSofia Brandt: The team reviewed open action items and agreed to follow up next week."
     },
     {
       "id": "ticket-023",
-      "title": "[QUIL-122] ingest-pipeline latency regression in EMEA",
-      "content": "Summary: ingest-pipeline latency regression in EMEA\nStatus: In Progress\nAssignee: Omar Haddad\nPriority: High\n\np99 latency on ingest-pipeline rose to 779ms after the Q4 deploy for Project Quillon.\nThis blocks the Quillon rollout until the regression is resolved.\n\nComments:\nOmar Haddad: bisected to the connection-pool change; preparing a fix.\n---\nOmar Haddad: notification-hub dashboards were reviewed; no anomalies were flagged."
+      "title": "[LARK-122] notification-hub latency regression in NA-West",
+      "content": "Summary: notification-hub latency regression in NA-West\nStatus: In Progress\nAssignee: Clara Westbrook\nPriority: High\n\np99 latency on notification-hub rose to 122ms after the Q1 deploy for Project Larkspur.\nThis blocks the Larkspur rollout until the regression is resolved.\n\nComments:\nClara Westbrook: bisected to the connection-pool change; preparing a fix.\n---\nLena Kowalczyk: Routine status: deployments are green and the on-call week was quiet."
     },
     {
       "id": "ticket-024",
-      "title": "[LARK-123] notification-hub latency regression in NA-East",
-      "content": "Summary: notification-hub latency regression in NA-East\nStatus: In Progress\nAssignee: Felix Duarte\nPriority: High\n\np99 latency on notification-hub rose to 817ms after the Q4 deploy for Project Larkspur.\nThis blocks the Larkspur rollout until the regression is resolved.\n\nComments:\nFelix Duarte: bisected to the connection-pool change; preparing a fix.\n---\nFelix Duarte: search-indexer dashboards were reviewed; no anomalies were flagged."
+      "title": "[OXBO-123] webhook-relay latency regression in NA-West",
+      "content": "Summary: webhook-relay latency regression in NA-West\nStatus: In Progress\nAssignee: Dana Okafor\nPriority: High\n\np99 latency on webhook-relay rose to 870ms after the Q4 deploy for Project Oxbow.\nThis blocks the Oxbow rollout until the regression is resolved.\n\nComments:\nDana Okafor: bisected to the connection-pool change; preparing a fix.\n---\nMarcus Lindqvist: Routine status: deployments are green and the on-call week was quiet."
     },
     {
       "id": "ticket-025",
-      "title": "[OXBO-124] ingest-pipeline latency regression in LATAM",
-      "content": "Summary: ingest-pipeline latency regression in LATAM\nStatus: In Progress\nAssignee: Jonas Pieterse\nPriority: High\n\np99 latency on ingest-pipeline rose to 275ms after the Q3 deploy for Project Oxbow.\nThis blocks the Oxbow rollout until the regression is resolved.\n\nComments:\nJonas Pieterse: bisected to the connection-pool change; preparing a fix.\n---\nClara Westbrook: The team reviewed open action items and agreed to follow up next week."
+      "title": "[HELI-124] search-indexer latency regression in NA-East",
+      "content": "Summary: search-indexer latency regression in NA-East\nStatus: In Progress\nAssignee: Mei-Ling Chau\nPriority: High\n\np99 latency on search-indexer rose to 259ms after the Q4 deploy for Project Heliotrope.\nThis blocks the Heliotrope rollout until the regression is resolved.\n\nComments:\nMei-Ling Chau: bisected to the connection-pool change; preparing a fix.\n---\nOmar Haddad: General discussion covered hiring plans and the upcoming offsite agenda."
     },
     {
       "id": "ticket-026",
-      "title": "[QUIL-125] auth-gateway latency regression in LATAM",
-      "content": "Summary: auth-gateway latency regression in LATAM\nStatus: In Progress\nAssignee: Jonas Pieterse\nPriority: High\n\np99 latency on auth-gateway rose to 52ms after the Q3 deploy for Project Quillon.\nThis blocks the Quillon rollout until the regression is resolved.\n\nComments:\nJonas Pieterse: bisected to the connection-pool change; preparing a fix.\n---\nFelix Duarte: Routine status: deployments are green and the on-call week was quiet."
+      "title": "[HELI-125] report-engine latency regression in LATAM",
+      "content": "Summary: report-engine latency regression in LATAM\nStatus: In Progress\nAssignee: Ravi Menon\nPriority: High\n\np99 latency on report-engine rose to 759ms after the Q2 deploy for Project Heliotrope.\nThis blocks the Heliotrope rollout until the regression is resolved.\n\nComments:\nRavi Menon: bisected to the connection-pool change; preparing a fix.\n---\nMarcus Lindqvist: Notes also touched on documentation cleanup across APAC teams."
     },
     {
       "id": "ticket-027",
-      "title": "[OXBO-126] billing-service latency regression in LATAM",
-      "content": "Summary: billing-service latency regression in LATAM\nStatus: In Progress\nAssignee: Yuki Tanabe\nPriority: High\n\np99 latency on billing-service rose to 255ms after the Q4 deploy for Project Oxbow.\nThis blocks the Oxbow rollout until the regression is resolved.\n\nComments:\nYuki Tanabe: bisected to the connection-pool change; preparing a fix.\n---\nPriya Raman: Notes also touched on documentation cleanup across APAC teams."
+      "title": "[HELI-126] ledger-core latency regression in APAC",
+      "content": "Summary: ledger-core latency regression in APAC\nStatus: In Progress\nAssignee: Yuki Tanabe\nPriority: High\n\np99 latency on ledger-core rose to 164ms after the Q3 deploy for Project Heliotrope.\nThis blocks the Heliotrope rollout until the regression is resolved.\n\nComments:\nYuki Tanabe: bisected to the connection-pool change; preparing a fix.\n---\nJonas Pieterse: Routine status: deployments are green and the on-call week was quiet."
     },
     {
       "id": "ticket-028",
-      "title": "[OXBO-127] auth-gateway latency regression in APAC",
-      "content": "Summary: auth-gateway latency regression in APAC\nStatus: In Progress\nAssignee: Mei-Ling Chau\nPriority: High\n\np99 latency on auth-gateway rose to 398ms after the Q3 deploy for Project Oxbow.\nThis blocks the Oxbow rollout until the regression is resolved.\n\nComments:\nMei-Ling Chau: bisected to the connection-pool change; preparing a fix.\n---\nMarcus Lindqvist: Notes also touched on documentation cleanup across NA-West teams."
+      "title": "[MERI-127] auth-gateway latency regression in NA-West",
+      "content": "Summary: auth-gateway latency regression in NA-West\nStatus: In Progress\nAssignee: Yuki Tanabe\nPriority: High\n\np99 latency on auth-gateway rose to 161ms after the Q4 deploy for Project Meridian.\nThis blocks the Meridian rollout until the regression is resolved.\n\nComments:\nYuki Tanabe: bisected to the connection-pool change; preparing a fix.\n---\nDana Okafor: auth-gateway dashboards were reviewed; no anomalies were flagged."
     },
     {
       "id": "ticket-029",
-      "title": "[LARK-128] report-engine latency regression in NA-East",
-      "content": "Summary: report-engine latency regression in NA-East\nStatus: In Progress\nAssignee: Ravi Menon\nPriority: High\n\np99 latency on report-engine rose to 701ms after the Q1 deploy for Project Larkspur.\nThis blocks the Larkspur rollout until the regression is resolved.\n\nComments:\nRavi Menon: bisected to the connection-pool change; preparing a fix.\n---\nLena Kowalczyk: General discussion covered hiring plans and the upcoming offsite agenda."
+      "title": "[PRAD-128] report-engine latency regression in LATAM",
+      "content": "Summary: report-engine latency regression in LATAM\nStatus: In Progress\nAssignee: Mei-Ling Chau\nPriority: High\n\np99 latency on report-engine rose to 118ms after the Q3 deploy for Project Pradel.\nThis blocks the Pradel rollout until the regression is resolved.\n\nComments:\nMei-Ling Chau: bisected to the connection-pool change; preparing a fix.\n---\nMei-Ling Chau: Notes also touched on documentation cleanup across NA-East teams."
     },
     {
       "id": "ticket-030",
-      "title": "[LARK-129] notification-hub latency regression in EMEA",
-      "content": "Summary: notification-hub latency regression in EMEA\nStatus: In Progress\nAssignee: Dana Okafor\nPriority: High\n\np99 latency on notification-hub rose to 865ms after the Q4 deploy for Project Larkspur.\nThis blocks the Larkspur rollout until the regression is resolved.\n\nComments:\nDana Okafor: bisected to the connection-pool change; preparing a fix.\n---\nMarcus Lindqvist: Notes also touched on documentation cleanup across LATAM teams."
+      "title": "[QUIL-129] notification-hub latency regression in LATAM",
+      "content": "Summary: notification-hub latency regression in LATAM\nStatus: In Progress\nAssignee: Yuki Tanabe\nPriority: High\n\np99 latency on notification-hub rose to 167ms after the Q4 deploy for Project Quillon.\nThis blocks the Quillon rollout until the regression is resolved.\n\nComments:\nYuki Tanabe: bisected to the connection-pool change; preparing a fix.\n---\nClara Westbrook: search-indexer dashboards were reviewed; no anomalies were flagged."
     }
   ],
   "queries": [
     {
       "id": "wi-q-0a",
-      "query": "who is assigned to the auth-gateway latency regression in NA-East?",
+      "query": "who is assigned to the search-indexer latency issue blocking Nimbus?",
       "relevant_doc_ids": [
         "ticket-001"
       ]
     },
     {
       "id": "wi-q-0b",
-      "query": "what is blocking the Meridian rollout?",
+      "query": "what is blocking the Nimbus search-indexer rollout?",
       "relevant_doc_ids": [
         "ticket-001"
       ]
     },
     {
       "id": "wi-q-1a",
-      "query": "who is assigned to the webhook-relay latency regression in NA-West?",
+      "query": "who is assigned to the search-indexer latency issue blocking Basalt?",
       "relevant_doc_ids": [
         "ticket-002"
       ]
     },
     {
       "id": "wi-q-1b",
-      "query": "what is blocking the Heliotrope rollout?",
+      "query": "what is blocking the Basalt search-indexer rollout?",
       "relevant_doc_ids": [
         "ticket-002"
       ]
     },
     {
       "id": "wi-q-2a",
-      "query": "who is assigned to the ledger-core latency regression in NA-East?",
+      "query": "who is assigned to the search-indexer latency issue blocking Larkspur?",
       "relevant_doc_ids": [
         "ticket-003"
       ]
     },
     {
       "id": "wi-q-2b",
-      "query": "what is blocking the Tessera rollout?",
+      "query": "what is blocking the Larkspur search-indexer rollout?",
       "relevant_doc_ids": [
         "ticket-003"
       ]
     },
     {
       "id": "wi-q-3a",
-      "query": "who is assigned to the ledger-core latency regression in EMEA?",
+      "query": "who is assigned to the webhook-relay latency issue blocking Falcata?",
       "relevant_doc_ids": [
         "ticket-004"
       ]
     },
     {
       "id": "wi-q-3b",
-      "query": "what is blocking the Larkspur rollout?",
+      "query": "what is blocking the Falcata webhook-relay rollout?",
       "relevant_doc_ids": [
         "ticket-004"
       ]
     },
     {
       "id": "wi-q-4a",
-      "query": "who is assigned to the webhook-relay latency regression in NA-West?",
+      "query": "who is assigned to the search-indexer latency issue blocking Quillon?",
       "relevant_doc_ids": [
         "ticket-005"
       ]
     },
     {
       "id": "wi-q-4b",
-      "query": "what is blocking the Cobble rollout?",
+      "query": "what is blocking the Quillon search-indexer rollout?",
       "relevant_doc_ids": [
         "ticket-005"
       ]
     },
     {
       "id": "wi-q-5a",
-      "query": "who is assigned to the ledger-core latency regression in NA-East?",
+      "query": "who is assigned to the notification-hub latency issue blocking Tessera?",
       "relevant_doc_ids": [
         "ticket-006"
       ]
     },
     {
       "id": "wi-q-5b",
-      "query": "what is blocking the Cobble rollout?",
+      "query": "what is blocking the Tessera notification-hub rollout?",
       "relevant_doc_ids": [
         "ticket-006"
       ]
     },
     {
       "id": "wi-q-6a",
-      "query": "who is assigned to the ledger-core latency regression in APAC?",
+      "query": "who is assigned to the auth-gateway latency issue blocking Pradel?",
       "relevant_doc_ids": [
         "ticket-007"
       ]
     },
     {
       "id": "wi-q-6b",
-      "query": "what is blocking the Falcata rollout?",
+      "query": "what is blocking the Pradel auth-gateway rollout?",
       "relevant_doc_ids": [
         "ticket-007"
       ]
     },
     {
       "id": "wi-q-7a",
-      "query": "who is assigned to the notification-hub latency regression in LATAM?",
+      "query": "who is assigned to the webhook-relay latency issue blocking Meridian?",
       "relevant_doc_ids": [
         "ticket-008"
       ]
     },
     {
       "id": "wi-q-7b",
-      "query": "what is blocking the Basalt rollout?",
+      "query": "what is blocking the Meridian webhook-relay rollout?",
       "relevant_doc_ids": [
         "ticket-008"
       ]
     },
     {
       "id": "wi-q-8a",
-      "query": "who is assigned to the webhook-relay latency regression in NA-East?",
+      "query": "who is assigned to the notification-hub latency issue blocking Vermilion?",
       "relevant_doc_ids": [
         "ticket-009"
       ]
     },
     {
       "id": "wi-q-8b",
-      "query": "what is blocking the Vermilion rollout?",
+      "query": "what is blocking the Vermilion notification-hub rollout?",
       "relevant_doc_ids": [
         "ticket-009"
       ]
     },
     {
       "id": "wi-q-9a",
-      "query": "who is assigned to the billing-service latency regression in EMEA?",
+      "query": "who is assigned to the notification-hub latency issue blocking Cobble?",
       "relevant_doc_ids": [
         "ticket-010"
       ]
     },
     {
       "id": "wi-q-9b",
-      "query": "what is blocking the Pradel rollout?",
+      "query": "what is blocking the Cobble notification-hub rollout?",
       "relevant_doc_ids": [
         "ticket-010"
       ]
     },
     {
       "id": "wi-q-10a",
-      "query": "who is assigned to the ingest-pipeline latency regression in LATAM?",
+      "query": "who is assigned to the webhook-relay latency issue blocking Cobble?",
       "relevant_doc_ids": [
         "ticket-011"
       ]
     },
     {
       "id": "wi-q-10b",
-      "query": "what is blocking the Tessera rollout?",
+      "query": "what is blocking the Cobble webhook-relay rollout?",
       "relevant_doc_ids": [
         "ticket-011"
       ]
     },
     {
       "id": "wi-q-11a",
-      "query": "who is assigned to the notification-hub latency regression in APAC?",
+      "query": "who is assigned to the ingest-pipeline latency issue blocking Vermilion?",
       "relevant_doc_ids": [
         "ticket-012"
       ]
     },
     {
       "id": "wi-q-11b",
-      "query": "what is blocking the Larkspur rollout?",
+      "query": "what is blocking the Vermilion ingest-pipeline rollout?",
       "relevant_doc_ids": [
         "ticket-012"
       ]
     },
     {
       "id": "wi-q-12a",
-      "query": "who is assigned to the auth-gateway latency regression in NA-West?",
+      "query": "who is assigned to the billing-service latency issue blocking Falcata?",
       "relevant_doc_ids": [
         "ticket-013"
       ]
     },
     {
       "id": "wi-q-12b",
-      "query": "what is blocking the Nimbus rollout?",
+      "query": "what is blocking the Falcata billing-service rollout?",
       "relevant_doc_ids": [
         "ticket-013"
       ]
     },
     {
       "id": "wi-q-13a",
-      "query": "who is assigned to the ingest-pipeline latency regression in LATAM?",
+      "query": "who is assigned to the auth-gateway latency issue blocking Quillon?",
       "relevant_doc_ids": [
         "ticket-014"
       ]
     },
     {
       "id": "wi-q-13b",
-      "query": "what is blocking the Vermilion rollout?",
+      "query": "what is blocking the Quillon auth-gateway rollout?",
       "relevant_doc_ids": [
         "ticket-014"
       ]
     },
     {
       "id": "wi-q-14a",
-      "query": "who is assigned to the billing-service latency regression in NA-East?",
+      "query": "who is assigned to the report-engine latency issue blocking Vermilion?",
       "relevant_doc_ids": [
         "ticket-015"
       ]
     },
     {
       "id": "wi-q-14b",
-      "query": "what is blocking the Meridian rollout?",
+      "query": "what is blocking the Vermilion report-engine rollout?",
       "relevant_doc_ids": [
         "ticket-015"
       ]
     },
     {
       "id": "wi-q-15a",
-      "query": "who is assigned to the auth-gateway latency regression in EMEA?",
+      "query": "who is assigned to the billing-service latency issue blocking Pradel?",
       "relevant_doc_ids": [
         "ticket-016"
       ]
     },
     {
       "id": "wi-q-15b",
-      "query": "what is blocking the Nimbus rollout?",
+      "query": "what is blocking the Pradel billing-service rollout?",
       "relevant_doc_ids": [
         "ticket-016"
       ]
     },
     {
       "id": "wi-q-16a",
-      "query": "who is assigned to the notification-hub latency regression in NA-West?",
+      "query": "who is assigned to the report-engine latency issue blocking Basalt?",
       "relevant_doc_ids": [
         "ticket-017"
       ]
     },
     {
       "id": "wi-q-16b",
-      "query": "what is blocking the Falcata rollout?",
+      "query": "what is blocking the Basalt report-engine rollout?",
       "relevant_doc_ids": [
         "ticket-017"
       ]
     },
     {
       "id": "wi-q-17a",
-      "query": "who is assigned to the auth-gateway latency regression in NA-West?",
+      "query": "who is assigned to the report-engine latency issue blocking Quillon?",
       "relevant_doc_ids": [
         "ticket-018"
       ]
     },
     {
       "id": "wi-q-17b",
-      "query": "what is blocking the Larkspur rollout?",
+      "query": "what is blocking the Quillon report-engine rollout?",
       "relevant_doc_ids": [
         "ticket-018"
       ]
     },
     {
       "id": "wi-q-18a",
-      "query": "who is assigned to the ingest-pipeline latency regression in NA-West?",
+      "query": "who is assigned to the auth-gateway latency issue blocking Cobble?",
       "relevant_doc_ids": [
         "ticket-019"
       ]
     },
     {
       "id": "wi-q-18b",
-      "query": "what is blocking the Pradel rollout?",
+      "query": "what is blocking the Cobble auth-gateway rollout?",
       "relevant_doc_ids": [
         "ticket-019"
       ]
     },
     {
       "id": "wi-q-19a",
-      "query": "who is assigned to the webhook-relay latency regression in EMEA?",
+      "query": "who is assigned to the ledger-core latency issue blocking Nimbus?",
       "relevant_doc_ids": [
         "ticket-020"
       ]
     },
     {
       "id": "wi-q-19b",
-      "query": "what is blocking the Falcata rollout?",
+      "query": "what is blocking the Nimbus ledger-core rollout?",
       "relevant_doc_ids": [
         "ticket-020"
       ]
     },
     {
       "id": "wi-q-20a",
-      "query": "who is assigned to the notification-hub latency regression in LATAM?",
+      "query": "who is assigned to the report-engine latency issue blocking Oxbow?",
       "relevant_doc_ids": [
         "ticket-021"
       ]
     },
     {
       "id": "wi-q-20b",
-      "query": "what is blocking the Oxbow rollout?",
+      "query": "what is blocking the Oxbow report-engine rollout?",
       "relevant_doc_ids": [
         "ticket-021"
       ]
     },
     {
       "id": "wi-q-21a",
-      "query": "who is assigned to the search-indexer latency regression in NA-East?",
+      "query": "who is assigned to the report-engine latency issue blocking Tessera?",
       "relevant_doc_ids": [
         "ticket-022"
       ]
     },
     {
       "id": "wi-q-21b",
-      "query": "what is blocking the Nimbus rollout?",
+      "query": "what is blocking the Tessera report-engine rollout?",
       "relevant_doc_ids": [
         "ticket-022"
       ]
     },
     {
       "id": "wi-q-22a",
-      "query": "who is assigned to the ingest-pipeline latency regression in EMEA?",
+      "query": "who is assigned to the notification-hub latency issue blocking Larkspur?",
       "relevant_doc_ids": [
         "ticket-023"
       ]
     },
     {
       "id": "wi-q-22b",
-      "query": "what is blocking the Quillon rollout?",
+      "query": "what is blocking the Larkspur notification-hub rollout?",
       "relevant_doc_ids": [
         "ticket-023"
       ]
     },
     {
       "id": "wi-q-23a",
-      "query": "who is assigned to the notification-hub latency regression in NA-East?",
+      "query": "who is assigned to the webhook-relay latency issue blocking Oxbow?",
       "relevant_doc_ids": [
         "ticket-024"
       ]
     },
     {
       "id": "wi-q-23b",
-      "query": "what is blocking the Larkspur rollout?",
+      "query": "what is blocking the Oxbow webhook-relay rollout?",
       "relevant_doc_ids": [
         "ticket-024"
       ]
     },
     {
       "id": "wi-q-24a",
-      "query": "who is assigned to the ingest-pipeline latency regression in LATAM?",
+      "query": "who is assigned to the search-indexer latency issue blocking Heliotrope?",
       "relevant_doc_ids": [
         "ticket-025"
       ]
     },
     {
       "id": "wi-q-24b",
-      "query": "what is blocking the Oxbow rollout?",
+      "query": "what is blocking the Heliotrope search-indexer rollout?",
       "relevant_doc_ids": [
         "ticket-025"
       ]
     },
     {
       "id": "wi-q-25a",
-      "query": "who is assigned to the auth-gateway latency regression in LATAM?",
+      "query": "who is assigned to the report-engine latency issue blocking Heliotrope?",
       "relevant_doc_ids": [
         "ticket-026"
       ]
     },
     {
       "id": "wi-q-25b",
-      "query": "what is blocking the Quillon rollout?",
+      "query": "what is blocking the Heliotrope report-engine rollout?",
       "relevant_doc_ids": [
         "ticket-026"
       ]
     },
     {
       "id": "wi-q-26a",
-      "query": "who is assigned to the billing-service latency regression in LATAM?",
+      "query": "who is assigned to the ledger-core latency issue blocking Heliotrope?",
       "relevant_doc_ids": [
         "ticket-027"
       ]
     },
     {
       "id": "wi-q-26b",
-      "query": "what is blocking the Oxbow rollout?",
+      "query": "what is blocking the Heliotrope ledger-core rollout?",
       "relevant_doc_ids": [
         "ticket-027"
       ]
     },
     {
       "id": "wi-q-27a",
-      "query": "who is assigned to the auth-gateway latency regression in APAC?",
+      "query": "who is assigned to the auth-gateway latency issue blocking Meridian?",
       "relevant_doc_ids": [
         "ticket-028"
       ]

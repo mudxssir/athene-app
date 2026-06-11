@@ -34,6 +34,7 @@ type Pipeline = {
   embedBatchDetailed: (
     texts: string[], orgId?: string, hint?: 'document' | 'structured' | 'query'
   ) => Promise<{ embeddings: number[][]; model: string; provider: string }>
+  PIPELINE_VERSION: number
 }
 let pipe: Pipeline
 async function loadPipeline(): Promise<void> {
@@ -44,6 +45,7 @@ async function loadPipeline(): Promise<void> {
     chunkContent: indexing.chunkContent,
     resolveEmbeddingHint: indexing.resolveEmbeddingHint as Pipeline['resolveEmbeddingHint'],
     embedBatchDetailed: factory.embedBatchDetailed,
+    PIPELINE_VERSION: indexing.PIPELINE_VERSION,
   }
 }
 
@@ -180,7 +182,7 @@ async function main() {
     generated_at: new Date().toISOString(),
     git_sha: gitSha,
     embedding_model: runModel,
-    pipeline_version: 1,
+    pipeline_version: pipe.PIPELINE_VERSION,
     top_k: TOP_K,
     macro: { recall_at_5: macro('recall_at_5'), mrr: macro('mrr') },
     shapes: results,

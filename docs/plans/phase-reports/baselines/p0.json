@@ -1,4 +1,5 @@
 {
+  "_note": "STALE: fixtures were regenerated (F-B dedup fix + F-A prose_long shape). Re-record with: npx tsx scripts/eval/run-eval.ts --out docs/plans/phase-reports/baselines/p0.json",
   "generated_at": "2026-06-11T12:25:48.302Z",
   "git_sha": "40e9c9a",
   "embedding_model": "jina-embeddings-v3",

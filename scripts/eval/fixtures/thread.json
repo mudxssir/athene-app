@@ -4,278 +4,278 @@
   "documents": [
     {
       "id": "thread-001",
-      "title": "#proj-larkspur: deploy question",
-      "content": "can we ship the report-engine change for Larkspur this week?\n\nThread replies:\n → Jonas Pieterse said we're waiting on the NA-West compliance review before shipping.\n → the review is expected to clear by Q2, budget impact is around $284K.\n → Ravi Menon: The team reviewed open action items and agreed to follow up next week."
+      "title": "#proj-cobble: deploy question",
+      "content": "can we ship the report-engine change for Cobble this week?\n\nThread replies:\n → Felix Duarte said we're waiting on the NA-East compliance review before shipping.\n → the review is expected to clear by Q3, budget impact is around $727K.\n → Priya Raman: auth-gateway dashboards were reviewed; no anomalies were flagged."
     },
     {
       "id": "thread-002",
-      "title": "#proj-quillon: deploy question",
-      "content": "can we ship the ingest-pipeline change for Quillon this week?\n\nThread replies:\n → Omar Haddad said we're waiting on the APAC compliance review before shipping.\n → the review is expected to clear by Q2, budget impact is around $431K.\n → Clara Westbrook: report-engine dashboards were reviewed; no anomalies were flagged."
+      "title": "#proj-basalt: deploy question",
+      "content": "can we ship the ledger-core change for Basalt this week?\n\nThread replies:\n → Dana Okafor said we're waiting on the NA-West compliance review before shipping.\n → the review is expected to clear by Q2, budget impact is around $486K.\n → Mei-Ling Chau: Notes also touched on documentation cleanup across NA-West teams."
     },
     {
       "id": "thread-003",
-      "title": "#proj-vermilion: deploy question",
-      "content": "can we ship the ledger-core change for Vermilion this week?\n\nThread replies:\n → Felix Duarte said we're waiting on the APAC compliance review before shipping.\n → the review is expected to clear by Q3, budget impact is around $256K.\n → Dana Okafor: General discussion covered hiring plans and the upcoming offsite agenda."
+      "title": "#proj-pradel: deploy question",
+      "content": "can we ship the ledger-core change for Pradel this week?\n\nThread replies:\n → Felix Duarte said we're waiting on the APAC compliance review before shipping.\n → the review is expected to clear by Q2, budget impact is around $519K.\n → Omar Haddad: ingest-pipeline dashboards were reviewed; no anomalies were flagged."
     },
     {
       "id": "thread-004",
-      "title": "#proj-basalt: deploy question",
-      "content": "can we ship the notification-hub change for Basalt this week?\n\nThread replies:\n → Sofia Brandt said we're waiting on the NA-East compliance review before shipping.\n → the review is expected to clear by Q2, budget impact is around $316K.\n → Priya Raman: General discussion covered hiring plans and the upcoming offsite agenda."
+      "title": "#proj-larkspur: deploy question",
+      "content": "can we ship the auth-gateway change for Larkspur this week?\n\nThread replies:\n → Sofia Brandt said we're waiting on the NA-West compliance review before shipping.\n → the review is expected to clear by Q3, budget impact is around $641K.\n → Yuki Tanabe: The team reviewed open action items and agreed to follow up next week."
     },
     {
       "id": "thread-005",
-      "title": "#proj-basalt: deploy question",
-      "content": "can we ship the ingest-pipeline change for Basalt this week?\n\nThread replies:\n → Dana Okafor said we're waiting on the NA-West compliance review before shipping.\n → the review is expected to clear by Q2, budget impact is around $74K.\n → Lena Kowalczyk: Routine status: deployments are green and the on-call week was quiet."
+      "title": "#proj-quillon: deploy question",
+      "content": "can we ship the ledger-core change for Quillon this week?\n\nThread replies:\n → Mei-Ling Chau said we're waiting on the EMEA compliance review before shipping.\n → the review is expected to clear by Q1, budget impact is around $557K.\n → Dana Okafor: Notes also touched on documentation cleanup across EMEA teams."
     },
     {
       "id": "thread-006",
-      "title": "#proj-larkspur: deploy question",
-      "content": "can we ship the billing-service change for Larkspur this week?\n\nThread replies:\n → Felix Duarte said we're waiting on the APAC compliance review before shipping.\n → the review is expected to clear by Q2, budget impact is around $508K.\n → Dana Okafor: Routine status: deployments are green and the on-call week was quiet."
+      "title": "#proj-heliotrope: deploy question",
+      "content": "can we ship the auth-gateway change for Heliotrope this week?\n\nThread replies:\n → Clara Westbrook said we're waiting on the NA-East compliance review before shipping.\n → the review is expected to clear by Q4, budget impact is around $594K.\n → Priya Raman: The team reviewed open action items and agreed to follow up next week."
     },
     {
       "id": "thread-007",
-      "title": "#proj-heliotrope: deploy question",
-      "content": "can we ship the ledger-core change for Heliotrope this week?\n\nThread replies:\n → Marcus Lindqvist said we're waiting on the NA-East compliance review before shipping.\n → the review is expected to clear by Q2, budget impact is around $156K.\n → Jonas Pieterse: Notes also touched on documentation cleanup across APAC teams."
+      "title": "#proj-nimbus: deploy question",
+      "content": "can we ship the webhook-relay change for Nimbus this week?\n\nThread replies:\n → Clara Westbrook said we're waiting on the APAC compliance review before shipping.\n → the review is expected to clear by Q4, budget impact is around $838K.\n → Dana Okafor: General discussion covered hiring plans and the upcoming offsite agenda."
     },
     {
       "id": "thread-008",
-      "title": "#proj-falcata: deploy question",
-      "content": "can we ship the billing-service change for Falcata this week?\n\nThread replies:\n → Mei-Ling Chau said we're waiting on the NA-West compliance review before shipping.\n → the review is expected to clear by Q4, budget impact is around $747K.\n → Clara Westbrook: The team reviewed open action items and agreed to follow up next week."
+      "title": "#proj-heliotrope: deploy question",
+      "content": "can we ship the billing-service change for Heliotrope this week?\n\nThread replies:\n → Priya Raman said we're waiting on the NA-West compliance review before shipping.\n → the review is expected to clear by Q3, budget impact is around $794K.\n → Marcus Lindqvist: Notes also touched on documentation cleanup across APAC teams."
     },
     {
       "id": "thread-009",
-      "title": "#proj-heliotrope: deploy question",
-      "content": "can we ship the ingest-pipeline change for Heliotrope this week?\n\nThread replies:\n → Priya Raman said we're waiting on the NA-East compliance review before shipping.\n → the review is expected to clear by Q2, budget impact is around $672K.\n → Ravi Menon: Routine status: deployments are green and the on-call week was quiet."
+      "title": "#proj-quillon: deploy question",
+      "content": "can we ship the notification-hub change for Quillon this week?\n\nThread replies:\n → Dana Okafor said we're waiting on the APAC compliance review before shipping.\n → the review is expected to clear by Q3, budget impact is around $267K.\n → Yuki Tanabe: Notes also touched on documentation cleanup across APAC teams."
     },
     {
       "id": "thread-010",
       "title": "#proj-meridian: deploy question",
-      "content": "can we ship the billing-service change for Meridian this week?\n\nThread replies:\n → Clara Westbrook said we're waiting on the NA-East compliance review before shipping.\n → the review is expected to clear by Q1, budget impact is around $894K.\n → Omar Haddad: webhook-relay dashboards were reviewed; no anomalies were flagged."
+      "content": "can we ship the billing-service change for Meridian this week?\n\nThread replies:\n → Marcus Lindqvist said we're waiting on the EMEA compliance review before shipping.\n → the review is expected to clear by Q1, budget impact is around $64K.\n → Ravi Menon: Routine status: deployments are green and the on-call week was quiet."
     },
     {
       "id": "thread-011",
-      "title": "#proj-meridian: deploy question",
-      "content": "can we ship the webhook-relay change for Meridian this week?\n\nThread replies:\n → Clara Westbrook said we're waiting on the APAC compliance review before shipping.\n → the review is expected to clear by Q1, budget impact is around $298K.\n → Jonas Pieterse: Routine status: deployments are green and the on-call week was quiet."
+      "title": "#proj-basalt: deploy question",
+      "content": "can we ship the report-engine change for Basalt this week?\n\nThread replies:\n → Yuki Tanabe said we're waiting on the LATAM compliance review before shipping.\n → the review is expected to clear by Q1, budget impact is around $949K.\n → Marcus Lindqvist: Routine status: deployments are green and the on-call week was quiet."
     },
     {
       "id": "thread-012",
-      "title": "#proj-vermilion: deploy question",
-      "content": "can we ship the auth-gateway change for Vermilion this week?\n\nThread replies:\n → Priya Raman said we're waiting on the NA-East compliance review before shipping.\n → the review is expected to clear by Q1, budget impact is around $574K.\n → Jonas Pieterse: Notes also touched on documentation cleanup across NA-East teams."
+      "title": "#proj-tessera: deploy question",
+      "content": "can we ship the auth-gateway change for Tessera this week?\n\nThread replies:\n → Clara Westbrook said we're waiting on the APAC compliance review before shipping.\n → the review is expected to clear by Q2, budget impact is around $872K.\n → Priya Raman: General discussion covered hiring plans and the upcoming offsite agenda."
     },
     {
       "id": "thread-013",
-      "title": "#proj-vermilion: deploy question",
-      "content": "can we ship the auth-gateway change for Vermilion this week?\n\nThread replies:\n → Yuki Tanabe said we're waiting on the NA-West compliance review before shipping.\n → the review is expected to clear by Q3, budget impact is around $95K.\n → Priya Raman: The team reviewed open action items and agreed to follow up next week."
+      "title": "#proj-oxbow: deploy question",
+      "content": "can we ship the auth-gateway change for Oxbow this week?\n\nThread replies:\n → Lena Kowalczyk said we're waiting on the NA-West compliance review before shipping.\n → the review is expected to clear by Q4, budget impact is around $456K.\n → Marcus Lindqvist: ingest-pipeline dashboards were reviewed; no anomalies were flagged."
     },
     {
       "id": "thread-014",
-      "title": "#proj-falcata: deploy question",
-      "content": "can we ship the ingest-pipeline change for Falcata this week?\n\nThread replies:\n → Yuki Tanabe said we're waiting on the NA-West compliance review before shipping.\n → the review is expected to clear by Q3, budget impact is around $380K.\n → Yuki Tanabe: Routine status: deployments are green and the on-call week was quiet."
+      "title": "#proj-nimbus: deploy question",
+      "content": "can we ship the ingest-pipeline change for Nimbus this week?\n\nThread replies:\n → Lena Kowalczyk said we're waiting on the EMEA compliance review before shipping.\n → the review is expected to clear by Q1, budget impact is around $225K.\n → Marcus Lindqvist: Notes also touched on documentation cleanup across LATAM teams."
     },
     {
       "id": "thread-015",
-      "title": "#proj-vermilion: deploy question",
-      "content": "can we ship the billing-service change for Vermilion this week?\n\nThread replies:\n → Omar Haddad said we're waiting on the LATAM compliance review before shipping.\n → the review is expected to clear by Q2, budget impact is around $396K.\n → Ravi Menon: Notes also touched on documentation cleanup across NA-West teams."
+      "title": "#proj-falcata: deploy question",
+      "content": "can we ship the ledger-core change for Falcata this week?\n\nThread replies:\n → Priya Raman said we're waiting on the EMEA compliance review before shipping.\n → the review is expected to clear by Q1, budget impact is around $881K.\n → Mei-Ling Chau: General discussion covered hiring plans and the upcoming offsite agenda."
     },
     {
       "id": "thread-016",
-      "title": "#proj-falcata: deploy question",
-      "content": "can we ship the search-indexer change for Falcata this week?\n\nThread replies:\n → Felix Duarte said we're waiting on the NA-East compliance review before shipping.\n → the review is expected to clear by Q3, budget impact is around $615K.\n → Clara Westbrook: auth-gateway dashboards were reviewed; no anomalies were flagged."
+      "title": "#proj-tessera: deploy question",
+      "content": "can we ship the search-indexer change for Tessera this week?\n\nThread replies:\n → Lena Kowalczyk said we're waiting on the LATAM compliance review before shipping.\n → the review is expected to clear by Q1, budget impact is around $869K.\n → Priya Raman: webhook-relay dashboards were reviewed; no anomalies were flagged."
     },
     {
       "id": "thread-017",
       "title": "#proj-vermilion: deploy question",
-      "content": "can we ship the webhook-relay change for Vermilion this week?\n\nThread replies:\n → Omar Haddad said we're waiting on the LATAM compliance review before shipping.\n → the review is expected to clear by Q2, budget impact is around $593K.\n → Felix Duarte: Notes also touched on documentation cleanup across LATAM teams."
+      "content": "can we ship the report-engine change for Vermilion this week?\n\nThread replies:\n → Clara Westbrook said we're waiting on the NA-West compliance review before shipping.\n → the review is expected to clear by Q3, budget impact is around $114K.\n → Yuki Tanabe: Notes also touched on documentation cleanup across LATAM teams."
     },
     {
       "id": "thread-018",
-      "title": "#proj-falcata: deploy question",
-      "content": "can we ship the ingest-pipeline change for Falcata this week?\n\nThread replies:\n → Marcus Lindqvist said we're waiting on the NA-West compliance review before shipping.\n → the review is expected to clear by Q1, budget impact is around $800K.\n → Ravi Menon: notification-hub dashboards were reviewed; no anomalies were flagged."
+      "title": "#proj-larkspur: deploy question",
+      "content": "can we ship the ingest-pipeline change for Larkspur this week?\n\nThread replies:\n → Ravi Menon said we're waiting on the APAC compliance review before shipping.\n → the review is expected to clear by Q1, budget impact is around $861K.\n → Mei-Ling Chau: search-indexer dashboards were reviewed; no anomalies were flagged."
     },
     {
       "id": "thread-019",
-      "title": "#proj-cobble: deploy question",
-      "content": "can we ship the ingest-pipeline change for Cobble this week?\n\nThread replies:\n → Priya Raman said we're waiting on the LATAM compliance review before shipping.\n → the review is expected to clear by Q2, budget impact is around $126K.\n → Marcus Lindqvist: auth-gateway dashboards were reviewed; no anomalies were flagged."
+      "title": "#proj-tessera: deploy question",
+      "content": "can we ship the report-engine change for Tessera this week?\n\nThread replies:\n → Marcus Lindqvist said we're waiting on the EMEA compliance review before shipping.\n → the review is expected to clear by Q4, budget impact is around $499K.\n → Felix Duarte: Routine status: deployments are green and the on-call week was quiet."
     },
     {
       "id": "thread-020",
       "title": "#proj-cobble: deploy question",
-      "content": "can we ship the report-engine change for Cobble this week?\n\nThread replies:\n → Clara Westbrook said we're waiting on the LATAM compliance review before shipping.\n → the review is expected to clear by Q2, budget impact is around $596K.\n → Dana Okafor: General discussion covered hiring plans and the upcoming offsite agenda."
+      "content": "can we ship the webhook-relay change for Cobble this week?\n\nThread replies:\n → Felix Duarte said we're waiting on the LATAM compliance review before shipping.\n → the review is expected to clear by Q1, budget impact is around $600K.\n → Clara Westbrook: Routine status: deployments are green and the on-call week was quiet."
     },
     {
       "id": "thread-021",
-      "title": "#proj-basalt: deploy question",
-      "content": "can we ship the ledger-core change for Basalt this week?\n\nThread replies:\n → Priya Raman said we're waiting on the LATAM compliance review before shipping.\n → the review is expected to clear by Q4, budget impact is around $640K.\n → Ravi Menon: search-indexer dashboards were reviewed; no anomalies were flagged."
+      "title": "#proj-oxbow: deploy question",
+      "content": "can we ship the webhook-relay change for Oxbow this week?\n\nThread replies:\n → Ravi Menon said we're waiting on the APAC compliance review before shipping.\n → the review is expected to clear by Q3, budget impact is around $122K.\n → Yuki Tanabe: General discussion covered hiring plans and the upcoming offsite agenda."
     },
     {
       "id": "thread-022",
-      "title": "#proj-nimbus: deploy question",
-      "content": "can we ship the auth-gateway change for Nimbus this week?\n\nThread replies:\n → Mei-Ling Chau said we're waiting on the EMEA compliance review before shipping.\n → the review is expected to clear by Q4, budget impact is around $199K.\n → Clara Westbrook: Notes also touched on documentation cleanup across NA-West teams."
+      "title": "#proj-pradel: deploy question",
+      "content": "can we ship the report-engine change for Pradel this week?\n\nThread replies:\n → Yuki Tanabe said we're waiting on the EMEA compliance review before shipping.\n → the review is expected to clear by Q1, budget impact is around $919K.\n → Marcus Lindqvist: report-engine dashboards were reviewed; no anomalies were flagged."
     },
     {
       "id": "thread-023",
-      "title": "#proj-falcata: deploy question",
-      "content": "can we ship the ledger-core change for Falcata this week?\n\nThread replies:\n → Mei-Ling Chau said we're waiting on the NA-West compliance review before shipping.\n → the review is expected to clear by Q2, budget impact is around $919K.\n → Jonas Pieterse: General discussion covered hiring plans and the upcoming offsite agenda."
+      "title": "#proj-vermilion: deploy question",
+      "content": "can we ship the auth-gateway change for Vermilion this week?\n\nThread replies:\n → Felix Duarte said we're waiting on the NA-East compliance review before shipping.\n → the review is expected to clear by Q2, budget impact is around $674K.\n → Lena Kowalczyk: The team reviewed open action items and agreed to follow up next week."
     },
     {
       "id": "thread-024",
-      "title": "#proj-falcata: deploy question",
-      "content": "can we ship the webhook-relay change for Falcata this week?\n\nThread replies:\n → Felix Duarte said we're waiting on the APAC compliance review before shipping.\n → the review is expected to clear by Q2, budget impact is around $671K.\n → Ravi Menon: The team reviewed open action items and agreed to follow up next week."
+      "title": "#proj-nimbus: deploy question",
+      "content": "can we ship the ledger-core change for Nimbus this week?\n\nThread replies:\n → Mei-Ling Chau said we're waiting on the NA-West compliance review before shipping.\n → the review is expected to clear by Q2, budget impact is around $487K.\n → Dana Okafor: General discussion covered hiring plans and the upcoming offsite agenda."
     },
     {
       "id": "thread-025",
       "title": "#proj-vermilion: deploy question",
-      "content": "can we ship the search-indexer change for Vermilion this week?\n\nThread replies:\n → Clara Westbrook said we're waiting on the NA-West compliance review before shipping.\n → the review is expected to clear by Q1, budget impact is around $320K.\n → Ravi Menon: search-indexer dashboards were reviewed; no anomalies were flagged."
+      "content": "can we ship the webhook-relay change for Vermilion this week?\n\nThread replies:\n → Ravi Menon said we're waiting on the APAC compliance review before shipping.\n → the review is expected to clear by Q1, budget impact is around $672K.\n → Dana Okafor: The team reviewed open action items and agreed to follow up next week."
     },
     {
       "id": "thread-026",
-      "title": "#proj-cobble: deploy question",
-      "content": "can we ship the webhook-relay change for Cobble this week?\n\nThread replies:\n → Felix Duarte said we're waiting on the APAC compliance review before shipping.\n → the review is expected to clear by Q3, budget impact is around $228K.\n → Dana Okafor: The team reviewed open action items and agreed to follow up next week."
+      "title": "#proj-larkspur: deploy question",
+      "content": "can we ship the search-indexer change for Larkspur this week?\n\nThread replies:\n → Ravi Menon said we're waiting on the NA-East compliance review before shipping.\n → the review is expected to clear by Q2, budget impact is around $691K.\n → Priya Raman: Notes also touched on documentation cleanup across EMEA teams."
     },
     {
       "id": "thread-027",
-      "title": "#proj-nimbus: deploy question",
-      "content": "can we ship the report-engine change for Nimbus this week?\n\nThread replies:\n → Yuki Tanabe said we're waiting on the APAC compliance review before shipping.\n → the review is expected to clear by Q2, budget impact is around $170K.\n → Clara Westbrook: Notes also touched on documentation cleanup across NA-East teams."
+      "title": "#proj-meridian: deploy question",
+      "content": "can we ship the webhook-relay change for Meridian this week?\n\nThread replies:\n → Omar Haddad said we're waiting on the LATAM compliance review before shipping.\n → the review is expected to clear by Q4, budget impact is around $916K.\n → Jonas Pieterse: Notes also touched on documentation cleanup across APAC teams."
     },
     {
       "id": "thread-028",
-      "title": "#proj-meridian: deploy question",
-      "content": "can we ship the ledger-core change for Meridian this week?\n\nThread replies:\n → Yuki Tanabe said we're waiting on the APAC compliance review before shipping.\n → the review is expected to clear by Q2, budget impact is around $58K.\n → Mei-Ling Chau: Routine status: deployments are green and the on-call week was quiet."
+      "title": "#proj-cobble: deploy question",
+      "content": "can we ship the ledger-core change for Cobble this week?\n\nThread replies:\n → Omar Haddad said we're waiting on the APAC compliance review before shipping.\n → the review is expected to clear by Q2, budget impact is around $732K.\n → Sofia Brandt: The team reviewed open action items and agreed to follow up next week."
     },
     {
       "id": "thread-029",
-      "title": "#proj-oxbow: deploy question",
-      "content": "can we ship the billing-service change for Oxbow this week?\n\nThread replies:\n → Sofia Brandt said we're waiting on the NA-East compliance review before shipping.\n → the review is expected to clear by Q4, budget impact is around $756K.\n → Dana Okafor: report-engine dashboards were reviewed; no anomalies were flagged."
+      "title": "#proj-meridian: deploy question",
+      "content": "can we ship the report-engine change for Meridian this week?\n\nThread replies:\n → Lena Kowalczyk said we're waiting on the NA-East compliance review before shipping.\n → the review is expected to clear by Q3, budget impact is around $293K.\n → Yuki Tanabe: Notes also touched on documentation cleanup across NA-West teams."
     },
     {
       "id": "thread-030",
-      "title": "#proj-nimbus: deploy question",
-      "content": "can we ship the report-engine change for Nimbus this week?\n\nThread replies:\n → Sofia Brandt said we're waiting on the APAC compliance review before shipping.\n → the review is expected to clear by Q2, budget impact is around $481K.\n → Mei-Ling Chau: General discussion covered hiring plans and the upcoming offsite agenda."
+      "title": "#proj-quillon: deploy question",
+      "content": "can we ship the search-indexer change for Quillon this week?\n\nThread replies:\n → Felix Duarte said we're waiting on the NA-West compliance review before shipping.\n → the review is expected to clear by Q2, budget impact is around $557K.\n → Marcus Lindqvist: report-engine dashboards were reviewed; no anomalies were flagged."
     }
   ],
   "queries": [
     {
       "id": "thread-q-0a",
-      "query": "why is the report-engine change for Larkspur not shipped yet?",
+      "query": "why is the report-engine change for Cobble not shipped yet?",
       "relevant_doc_ids": [
         "thread-001"
       ]
     },
     {
       "id": "thread-q-0b",
-      "query": "what is Larkspur waiting on before deploying?",
+      "query": "what is Cobble waiting on before shipping report-engine?",
       "relevant_doc_ids": [
         "thread-001"
       ]
     },
     {
       "id": "thread-q-1a",
-      "query": "why is the ingest-pipeline change for Quillon not shipped yet?",
+      "query": "why is the ledger-core change for Basalt not shipped yet?",
       "relevant_doc_ids": [
         "thread-002"
       ]
     },
     {
       "id": "thread-q-1b",
-      "query": "what is Quillon waiting on before deploying?",
+      "query": "what is Basalt waiting on before shipping ledger-core?",
       "relevant_doc_ids": [
         "thread-002"
       ]
     },
     {
       "id": "thread-q-2a",
-      "query": "why is the ledger-core change for Vermilion not shipped yet?",
+      "query": "why is the ledger-core change for Pradel not shipped yet?",
       "relevant_doc_ids": [
         "thread-003"
       ]
     },
     {
       "id": "thread-q-2b",
-      "query": "what is Vermilion waiting on before deploying?",
+      "query": "what is Pradel waiting on before shipping ledger-core?",
       "relevant_doc_ids": [
         "thread-003"
       ]
     },
     {
       "id": "thread-q-3a",
-      "query": "why is the notification-hub change for Basalt not shipped yet?",
+      "query": "why is the auth-gateway change for Larkspur not shipped yet?",
       "relevant_doc_ids": [
         "thread-004"
       ]
     },
     {
       "id": "thread-q-3b",
-      "query": "what is Basalt waiting on before deploying?",
+      "query": "what is Larkspur waiting on before shipping auth-gateway?",
       "relevant_doc_ids": [
         "thread-004"
       ]
     },
     {
       "id": "thread-q-4a",
-      "query": "why is the ingest-pipeline change for Basalt not shipped yet?",
+      "query": "why is the ledger-core change for Quillon not shipped yet?",
       "relevant_doc_ids": [
         "thread-005"
       ]
     },
     {
       "id": "thread-q-4b",
-      "query": "what is Basalt waiting on before deploying?",
+      "query": "what is Quillon waiting on before shipping ledger-core?",
       "relevant_doc_ids": [
         "thread-005"
       ]
     },
     {
       "id": "thread-q-5a",
-      "query": "why is the billing-service change for Larkspur not shipped yet?",
+      "query": "why is the auth-gateway change for Heliotrope not shipped yet?",
       "relevant_doc_ids": [
         "thread-006"
       ]
     },
     {
       "id": "thread-q-5b",
-      "query": "what is Larkspur waiting on before deploying?",
+      "query": "what is Heliotrope waiting on before shipping auth-gateway?",
       "relevant_doc_ids": [
         "thread-006"
       ]
     },
     {
       "id": "thread-q-6a",
-      "query": "why is the ledger-core change for Heliotrope not shipped yet?",
+      "query": "why is the webhook-relay change for Nimbus not shipped yet?",
       "relevant_doc_ids": [
         "thread-007"
       ]
     },
     {
       "id": "thread-q-6b",
-      "query": "what is Heliotrope waiting on before deploying?",
+      "query": "what is Nimbus waiting on before shipping webhook-relay?",
       "relevant_doc_ids": [
         "thread-007"
       ]
     },
     {
       "id": "thread-q-7a",
-      "query": "why is the billing-service change for Falcata not shipped yet?",
+      "query": "why is the billing-service change for Heliotrope not shipped yet?",
       "relevant_doc_ids": [
         "thread-008"
       ]
     },
     {
       "id": "thread-q-7b",
-      "query": "what is Falcata waiting on before deploying?",
+      "query": "what is Heliotrope waiting on before shipping billing-service?",
       "relevant_doc_ids": [
         "thread-008"
       ]
     },
     {
       "id": "thread-q-8a",
-      "query": "why is the ingest-pipeline change for Heliotrope not shipped yet?",
+      "query": "why is the notification-hub change for Quillon not shipped yet?",
       "relevant_doc_ids": [
         "thread-009"
       ]
     },
     {
       "id": "thread-q-8b",
-      "query": "what is Heliotrope waiting on before deploying?",
+      "query": "what is Quillon waiting on before shipping notification-hub?",
       "relevant_doc_ids": [
         "thread-009"
       ]
@@ -289,252 +289,252 @@
     },
     {
       "id": "thread-q-9b",
-      "query": "what is Meridian waiting on before deploying?",
+      "query": "what is Meridian waiting on before shipping billing-service?",
       "relevant_doc_ids": [
         "thread-010"
       ]
     },
     {
       "id": "thread-q-10a",
-      "query": "why is the webhook-relay change for Meridian not shipped yet?",
+      "query": "why is the report-engine change for Basalt not shipped yet?",
       "relevant_doc_ids": [
         "thread-011"
       ]
     },
     {
       "id": "thread-q-10b",
-      "query": "what is Meridian waiting on before deploying?",
+      "query": "what is Basalt waiting on before shipping report-engine?",
       "relevant_doc_ids": [
         "thread-011"
       ]
     },
     {
       "id": "thread-q-11a",
-      "query": "why is the auth-gateway change for Vermilion not shipped yet?",
+      "query": "why is the auth-gateway change for Tessera not shipped yet?",
       "relevant_doc_ids": [
         "thread-012"
       ]
     },
     {
       "id": "thread-q-11b",
-      "query": "what is Vermilion waiting on before deploying?",
+      "query": "what is Tessera waiting on before shipping auth-gateway?",
       "relevant_doc_ids": [
         "thread-012"
       ]
     },
     {
       "id": "thread-q-12a",
-      "query": "why is the auth-gateway change for Vermilion not shipped yet?",
+      "query": "why is the auth-gateway change for Oxbow not shipped yet?",
       "relevant_doc_ids": [
         "thread-013"
       ]
     },
     {
       "id": "thread-q-12b",
-      "query": "what is Vermilion waiting on before deploying?",
+      "query": "what is Oxbow waiting on before shipping auth-gateway?",
       "relevant_doc_ids": [
         "thread-013"
       ]
     },
     {
       "id": "thread-q-13a",
-      "query": "why is the ingest-pipeline change for Falcata not shipped yet?",
+      "query": "why is the ingest-pipeline change for Nimbus not shipped yet?",
       "relevant_doc_ids": [
         "thread-014"
       ]
     },
     {
       "id": "thread-q-13b",
-      "query": "what is Falcata waiting on before deploying?",
+      "query": "what is Nimbus waiting on before shipping ingest-pipeline?",
       "relevant_doc_ids": [
         "thread-014"
       ]
     },
     {
       "id": "thread-q-14a",
-      "query": "why is the billing-service change for Vermilion not shipped yet?",
+      "query": "why is the ledger-core change for Falcata not shipped yet?",
       "relevant_doc_ids": [
         "thread-015"
       ]
     },
     {
       "id": "thread-q-14b",
-      "query": "what is Vermilion waiting on before deploying?",
+      "query": "what is Falcata waiting on before shipping ledger-core?",
       "relevant_doc_ids": [
         "thread-015"
       ]
     },
     {
       "id": "thread-q-15a",
-      "query": "why is the search-indexer change for Falcata not shipped yet?",
+      "query": "why is the search-indexer change for Tessera not shipped yet?",
       "relevant_doc_ids": [
         "thread-016"
       ]
     },
     {
       "id": "thread-q-15b",
-      "query": "what is Falcata waiting on before deploying?",
+      "query": "what is Tessera waiting on before shipping search-indexer?",
       "relevant_doc_ids": [
         "thread-016"
       ]
     },
     {
       "id": "thread-q-16a",
-      "query": "why is the webhook-relay change for Vermilion not shipped yet?",
+      "query": "why is the report-engine change for Vermilion not shipped yet?",
       "relevant_doc_ids": [
         "thread-017"
       ]
     },
     {
       "id": "thread-q-16b",
-      "query": "what is Vermilion waiting on before deploying?",
+      "query": "what is Vermilion waiting on before shipping report-engine?",
       "relevant_doc_ids": [
         "thread-017"
       ]
     },
     {
       "id": "thread-q-17a",
-      "query": "why is the ingest-pipeline change for Falcata not shipped yet?",
+      "query": "why is the ingest-pipeline change for Larkspur not shipped yet?",
       "relevant_doc_ids": [
         "thread-018"
       ]
     },
     {
       "id": "thread-q-17b",
-      "query": "what is Falcata waiting on before deploying?",
+      "query": "what is Larkspur waiting on before shipping ingest-pipeline?",
       "relevant_doc_ids": [
         "thread-018"
       ]
     },
     {
       "id": "thread-q-18a",
-      "query": "why is the ingest-pipeline change for Cobble not shipped yet?",
+      "query": "why is the report-engine change for Tessera not shipped yet?",
       "relevant_doc_ids": [
         "thread-019"
       ]
     },
     {
       "id": "thread-q-18b",
-      "query": "what is Cobble waiting on before deploying?",
+      "query": "what is Tessera waiting on before shipping report-engine?",
       "relevant_doc_ids": [
         "thread-019"
       ]
     },
     {
       "id": "thread-q-19a",
-      "query": "why is the report-engine change for Cobble not shipped yet?",
+      "query": "why is the webhook-relay change for Cobble not shipped yet?",
       "relevant_doc_ids": [
         "thread-020"
       ]
     },
     {
       "id": "thread-q-19b",
-      "query": "what is Cobble waiting on before deploying?",
+      "query": "what is Cobble waiting on before shipping webhook-relay?",
       "relevant_doc_ids": [
         "thread-020"
       ]
     },
     {
       "id": "thread-q-20a",
-      "query": "why is the ledger-core change for Basalt not shipped yet?",
+      "query": "why is the webhook-relay change for Oxbow not shipped yet?",
       "relevant_doc_ids": [
         "thread-021"
       ]
     },
     {
       "id": "thread-q-20b",
-      "query": "what is Basalt waiting on before deploying?",
+      "query": "what is Oxbow waiting on before shipping webhook-relay?",
       "relevant_doc_ids": [
         "thread-021"
       ]
     },
     {
       "id": "thread-q-21a",
-      "query": "why is the auth-gateway change for Nimbus not shipped yet?",
+      "query": "why is the report-engine change for Pradel not shipped yet?",
       "relevant_doc_ids": [
         "thread-022"
       ]
     },
     {
       "id": "thread-q-21b",
-      "query": "what is Nimbus waiting on before deploying?",
+      "query": "what is Pradel waiting on before shipping report-engine?",
       "relevant_doc_ids": [
         "thread-022"
       ]
     },
     {
       "id": "thread-q-22a",
-      "query": "why is the ledger-core change for Falcata not shipped yet?",
+      "query": "why is the auth-gateway change for Vermilion not shipped yet?",
       "relevant_doc_ids": [
         "thread-023"
       ]
     },
     {
       "id": "thread-q-22b",
-      "query": "what is Falcata waiting on before deploying?",
+      "query": "what is Vermilion waiting on before shipping auth-gateway?",
       "relevant_doc_ids": [
         "thread-023"
       ]
     },
     {
       "id": "thread-q-23a",
-      "query": "why is the webhook-relay change for Falcata not shipped yet?",
+      "query": "why is the ledger-core change for Nimbus not shipped yet?",
       "relevant_doc_ids": [
         "thread-024"
       ]
     },
     {
       "id": "thread-q-23b",
-      "query": "what is Falcata waiting on before deploying?",
+      "query": "what is Nimbus waiting on before shipping ledger-core?",
       "relevant_doc_ids": [
         "thread-024"
       ]
     },
     {
       "id": "thread-q-24a",
-      "query": "why is the search-indexer change for Vermilion not shipped yet?",
+      "query": "why is the webhook-relay change for Vermilion not shipped yet?",
       "relevant_doc_ids": [
         "thread-025"
       ]
     },
     {
       "id": "thread-q-24b",
-      "query": "what is Vermilion waiting on before deploying?",
+      "query": "what is Vermilion waiting on before shipping webhook-relay?",
       "relevant_doc_ids": [
         "thread-025"
       ]
     },
     {
       "id": "thread-q-25a",
-      "query": "why is the webhook-relay change for Cobble not shipped yet?",
+      "query": "why is the search-indexer change for Larkspur not shipped yet?",
       "relevant_doc_ids": [
         "thread-026"
       ]
     },
     {
       "id": "thread-q-25b",
-      "query": "what is Cobble waiting on before deploying?",
+      "query": "what is Larkspur waiting on before shipping search-indexer?",
       "relevant_doc_ids": [
         "thread-026"
       ]
     },
     {
       "id": "thread-q-26a",
-      "query": "why is the report-engine change for Nimbus not shipped yet?",
+      "query": "why is the webhook-relay change for Meridian not shipped yet?",
       "relevant_doc_ids": [
         "thread-027"
       ]
     },
     {
       "id": "thread-q-26b",
-      "query": "what is Nimbus waiting on before deploying?",
+      "query": "what is Meridian waiting on before shipping webhook-relay?",
       "relevant_doc_ids": [
         "thread-027"
       ]
     },
     {
       "id": "thread-q-27a",
-      "query": "why is the ledger-core change for Meridian not shipped yet?",
+      "query": "why is the ledger-core change for Cobble not shipped yet?",
       "relevant_doc_ids": [
         "thread-028"
       ]
