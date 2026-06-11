@@ -68,7 +68,7 @@ describe("vectorSearch", () => {
 
     const results = await vectorSearch({ ...BASE_PARAMS, user_role: "member" });
 
-    expect(embedMock).toHaveBeenCalledWith(BASE_PARAMS.query, BASE_PARAMS.orgId);
+    expect(embedMock).toHaveBeenCalledWith(BASE_PARAMS.query, BASE_PARAMS.orgId, "query"); // P0-2: query-task hint
     expect(mockRpc).toHaveBeenCalledWith("vector_search", expect.objectContaining({ p_limit: 5 }));
     expect(results).toEqual(mockData);
   });
