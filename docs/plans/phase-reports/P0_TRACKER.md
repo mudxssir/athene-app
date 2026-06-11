@@ -6,14 +6,26 @@ _Branch: `pipeline/p0-stop-the-bleeding` · Flag(s): none (P0 is patch-level) ·
 
 | ID | Title | Status | Size | Depends on |
 |----|-------|--------|------|------------|
-| P0-1 | Decision extraction: add missing source keys | todo | XS | — |
-| P0-2 | Query-time embedding hint (`'query'`) end to end | todo | S | — |
-| P0-3 | Migration: `embedding_model`, `pipeline_version`, `shape` columns | todo | S | — |
-| P0-4 | Group embedding batches by hint | todo | S | P0-3 |
-| P0-5 | Stop indexing skip-sentinels + `sync_skips` telemetry | todo | M | — |
-| P0-6 | `chunk-text-store.ts` encrypt-capable helper + refactor readers/writers | todo | M | — |
-| P0-7 | Fallback-activation + normalize-strip telemetry | todo | S | P0-3 |
+| P0-1 | Decision extraction: add missing source keys | done (`bfb9d1a`) | XS | — |
+| P0-2 | Query-time embedding hint (`'query'`) end to end | done (`bfb9d1a`) | S | — |
+| P0-3 | Migration: `embedding_model`, `pipeline_version`, `shape` columns | done (`58b26e6`) | S | — |
+| P0-4 | Group embedding batches by hint | done (`58b26e6`) | S | P0-3 |
+| P0-5 | Stop indexing skip-sentinels + `sync_skips` telemetry | done (`84b0db2`) | M | — |
+| P0-5b | Admin sync-health UI row for skip counts (endpoint shipped; UI pending) | todo | XS | P0-5 |
+| P0-6 | `chunk-text-store.ts` encrypt-capable helper + refactor readers/writers | done (`9ba3b18`) | M | — |
+| P0-7 | Fallback-activation + normalize-strip telemetry | done (`58b26e6`, `5fc9fda`) | S | P0-3 |
 | P0-8 | Eval harness + per-shape golden sets + recorded baselines | todo | L | P0-1..P0-5 |
+
+**Session notes (2026-06-11):**
+- Migration version collision found and fixed: `20260611000001` was already taken by
+  `vector_search_robustness` — provenance migration renamed to `20260611000002` (`18f1f15`).
+- Latent test-infra bug fixed: the `openai` module mock was not constructible (arrow-fn
+  `mockImplementation` under `new`) — never exercised before P0-7's test (`5fc9fda`).
+- Pre-existing test failures confirmed on `main` (NOT P0 regressions): action-executor (13),
+  sharepoint (3), onedrive (1), looker (2), tableau (2), redshift (1), rbac (1),
+  calendar-agent (1). Tracked outside P0.
+- `providers.test.ts` count tripwire updated 26→27 (`github-getting-started` had been added
+  without updating it).
 
 ---
 
