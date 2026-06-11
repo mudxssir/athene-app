@@ -100,7 +100,7 @@ Additional relation types:
     extraction_prompt_addendum: `
 ## Engineering Intelligence domain extensions
 
-Additional entity types (use these when reading GitHub, Jira, Linear, or PagerDuty content):
+Additional entity types (use these when reading GitHub, Jira, or Linear content):
 
 - \`incident\` — A production issue, outage, on-call page, or failure event
 - \`runbook\` — A documented response or operational procedure
