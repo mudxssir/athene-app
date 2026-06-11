@@ -293,3 +293,15 @@ describe("DECISION_SOURCE_TYPES coverage (P0-1)", () => {
     expect(mockCallCount).toBe(1);
   });
 });
+
+  // Review F3: umbrella providers cover calendars too — decision prompt must not fire there
+  it("skips the decision prompt for calendar events under umbrella providers", async () => {
+    const empty = JSON.stringify({ entities: [], relationships: [] });
+    mockResponses = [empty, empty];
+    const mockSupabase = { rpc: vi.fn().mockResolvedValue({ data: "test-key", error: null }) } as any;
+    await extractEntitiesAndRelations(
+      [baseChunk({ metadata: { source_type: "google", resource_type: "calendar_event" } })],
+      mockSupabase
+    );
+    expect(mockCallCount).toBe(1);
+  });

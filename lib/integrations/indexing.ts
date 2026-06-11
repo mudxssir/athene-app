@@ -579,6 +579,18 @@ export async function indexDocuments(
     }
   }
 
+  // Review F5: per-hint groups embed independently, so a transient provider
+  // failure can put two groups of ONE dispatch on different models. Rows carry
+  // the model (P0-3) and search-side filtering lands with P1 pinning — until
+  // then, make the mixed-space event loud at dispatch level too.
+  const modelsUsed = new Set(allModels.filter((m): m is string => m !== null))
+  if (modelsUsed.size > 1) {
+    logger.warn(
+      { orgId, models: [...modelsUsed], texts: allTexts.length },
+      '[indexing] MIXED MODELS in one dispatch — affected docs are split across vector spaces until re-embedded'
+    )
+  }
+
   // ---- Phase 4: upsert all records in one call -------------------
   const records = allTemplates
     .map((tmpl, idx) => ({

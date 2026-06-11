@@ -126,9 +126,12 @@ async function _resolve(
   let embedding: number[] | null = null;
   if (!opts?.exactOnly) {
     try {
-      // 'query' hint (P0-2): label lookups search against passage-embedded node labels —
-      // query/passage is the intended asymmetric pairing on Google/Jina providers.
-      embedding = await embed(q, orgId, "query");
+      // Deliberately NO 'query' hint here (review F1): KG_CONFIG similarity
+      // thresholds (merge 0.92 / alias 0.80) were calibrated on passage↔passage
+      // cosine scores. Switching the lookup side to the asymmetric query task
+      // shifts the similarity distribution and can flip borderline merges.
+      // Revisit in P1 with threshold re-validation against labeled pairs.
+      embedding = await embed(q, orgId);
     } catch (err) {
       logger.warn(
         { orgId, query: q, err: err instanceof Error ? err.message : String(err) },

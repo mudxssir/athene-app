@@ -315,6 +315,7 @@ async function fetchDocumentChunks(
   buffer: Buffer,
   folderPath: string,
   departmentId?: string,
+  skips?: Map<string, SkipRecord>,
 ): Promise<FetchedChunk[]> {
   const ext = (file.name.split('.').pop() ?? '').toLowerCase()
   const sourceUrl = file.webViewLink || `https://drive.google.com/file/d/${file.id}`
@@ -356,19 +357,12 @@ async function fetchDocumentChunks(
   // Fallback: single flat-text chunk (LlamaParse not configured or non-LlamaParse type)
   const content = await fetchDriveFileContent(connectionId, orgId, file.id, file.mimeType)
   if (content.startsWith('[Unsupported binary format:')) {
-    // P0-5 (audit D11/D12): dropped content must be visible, not silent
-    await supabaseAdmin.from('sync_skips').upsert(
-      {
-        org_id: orgId,
-        connection_id: connectionId,
-        external_id: `drive:${file.id}`,
-        title: file.name,
-        reason: content.slice(0, 200),
-        last_seen: new Date().toISOString(),
-      },
-      { onConflict: 'org_id,connection_id,external_id,reason' }
-    ).then(({ error }) => {
-      if (error) logger.warn({ fileId: file.id, err: error.message }, '[drive-fetcher] Failed to record sync skip (non-fatal)')
+    // P0-5 (audit D11/D12): dropped content must be visible, not silent.
+    // Buffered per run (review F4); flushed in batches by fetchDriveChunks.
+    skips?.set(`drive:${file.id}:${content.slice(0, 60)}`, {
+      external_id: `drive:${file.id}`,
+      title: file.name,
+      reason: content,
     })
     return []
   }
@@ -445,6 +439,42 @@ async function fetchSheetChunks(
   return tabularChunks
 }
 
+// ─── Skip telemetry buffer (P0-5, review F4) ─────────────────────────────────
+
+/**
+ * Per-sync-run buffer for skipped-content telemetry. Media-heavy Drives can
+ * skip thousands of files per sync; buffering dedupes within the run and
+ * flushes in batches instead of one upsert per file.
+ */
+type SkipRecord = { external_id: string; title: string; reason: string }
+
+async function flushSyncSkips(
+  orgId: string,
+  connectionId: string,
+  skips: Map<string, SkipRecord>,
+): Promise<void> {
+  if (skips.size === 0) return
+  const now = new Date().toISOString()
+  const rows = Array.from(skips.values()).map((r) => ({
+    org_id: orgId,
+    connection_id: connectionId,
+    external_id: r.external_id,
+    title: r.title,
+    reason: r.reason.slice(0, 200),
+    last_seen: now,
+  }))
+  const BATCH = 200
+  for (let i = 0; i < rows.length; i += BATCH) {
+    const { error } = await supabaseAdmin
+      .from('sync_skips')
+      .upsert(rows.slice(i, i + BATCH), { onConflict: 'org_id,connection_id,external_id,reason' })
+    if (error) {
+      logger.warn({ count: rows.length, err: error.message }, '[drive-fetcher] Failed to flush sync skips (non-fatal)')
+      return
+    }
+  }
+}
+
 // ─── Abort signal ────────────────────────────────────────────────────────────
 
 /** Thrown when the caller signals mid-sync abort. Caught by the worker to set status=paused. */
@@ -482,6 +512,7 @@ export async function fetchDriveChunks(
   const excludedIds = syncConfig ? getExcludedResourceIds(syncConfig) : new Set<string>()
 
   const visited = new Set<string>()
+  const skips = new Map<string, SkipRecord>()
 
   if (selectedIds && selectedIds.size > 0) {
     const chunks: FetchedChunk[] = []
@@ -505,7 +536,7 @@ export async function fetchDriveChunks(
           const fileMeta = await googleFetch<DriveFile>(connectionId, orgId, metaUrl)
           if (fileMeta.mimeType === GOOGLE_FOLDER_MIME) {
             // Misclassified as file — treat as folder
-            const folderChunks = await fetchDriveFolder(connectionId, orgId, resourceId, excludedIds, excludedMimeTypes, '/', undefined, departmentId, visited, shouldAbort)
+            const folderChunks = await fetchDriveFolder(connectionId, orgId, resourceId, excludedIds, excludedMimeTypes, '/', undefined, departmentId, visited, shouldAbort, skips)
             chunks.push(...folderChunks)
           } else if (fileMeta.mimeType === GOOGLE_SHEET_MIME) {
             const sheetChunks = await fetchSheetChunks(connectionId, orgId, fileMeta, '/', departmentId ?? undefined)
@@ -515,7 +546,7 @@ export async function fetchDriveChunks(
             const url = `https://www.googleapis.com/drive/v3/files/${fileMeta.id}?alt=media&supportsAllDrives=true`
             const res = await googleFetchRaw(connectionId, orgId, url)
             const buffer = Buffer.from(await withTimeout(res.arrayBuffer(), 60_000, 'arrayBuffer'))
-            const docChunks = await fetchDocumentChunks(connectionId, orgId, fileMeta, buffer, '/', departmentId ?? undefined)
+            const docChunks = await fetchDocumentChunks(connectionId, orgId, fileMeta, buffer, '/', departmentId ?? undefined, skips)
             chunks.push(...docChunks)
           }
         } catch (err) {
@@ -535,14 +566,16 @@ export async function fetchDriveChunks(
           departmentId,
           visited,
           shouldAbort,
+          skips,
         )
         chunks.push(...folderChunks)
       }
     }
+    await flushSyncSkips(orgId, connectionId, skips)
     return chunks
   }
 
-  return fetchDriveFolder(
+  const folderChunks = await fetchDriveFolder(
     connectionId,
     orgId,
     undefined,
@@ -553,7 +586,10 @@ export async function fetchDriveChunks(
     departmentId,
     visited,
     shouldAbort,
+    skips,
   )
+  await flushSyncSkips(orgId, connectionId, skips)
+  return folderChunks
 }
 
 /**
@@ -570,6 +606,7 @@ async function fetchDriveFolder(
   departmentId?: string,
   visited: Set<string> = new Set<string>(),
   shouldAbort?: () => Promise<boolean>,
+  skips?: Map<string, SkipRecord>,
 ): Promise<FetchedChunk[]> {
   const chunks: FetchedChunk[] = []
   let pageToken: string | undefined
@@ -615,6 +652,7 @@ async function fetchDriveFolder(
           departmentId,
           visited,
           shouldAbort,
+          skips,
         )
         chunks.push(...sub)
         continue
@@ -627,7 +665,7 @@ async function fetchDriveFolder(
           const url = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media&supportsAllDrives=true`
           const res = await googleFetchRaw(connectionId, orgId, url)
           const buffer = Buffer.from(await withTimeout(res.arrayBuffer(), 60_000, 'arrayBuffer'))
-          const docChunks = await fetchDocumentChunks(connectionId, orgId, file, buffer, folderPath, departmentId)
+          const docChunks = await fetchDocumentChunks(connectionId, orgId, file, buffer, folderPath, departmentId, skips)
           chunks.push(...docChunks)
         }
       } catch (err) {

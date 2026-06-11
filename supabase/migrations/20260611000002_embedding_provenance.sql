@@ -10,6 +10,13 @@
 --
 -- Columns are additive; no RLS change required (existing policies are
 -- row-scoped, not column-scoped).
+--
+-- DEPLOY ORDER (review F2): this migration MUST be applied before the code
+-- that stamps these columns ships — indexing.ts includes embedding_model /
+-- pipeline_version in every document_embeddings upsert, and PostgREST
+-- rejects payloads with unknown columns, which would fail ALL embedding
+-- writes (not a graceful degradation). Same applies to 20260611000003
+-- (sync_skips) for the skip-telemetry writes.
 -- ============================================================
 
 ALTER TABLE document_embeddings

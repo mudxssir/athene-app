@@ -11,6 +11,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { resolveUserAccess } from "@/lib/auth/rbac";
 import { withRLS, type RLSContext } from "@/lib/supabase/rls-client";
+import { rateLimit } from "@/lib/redis/client";
 import { logger } from "@/lib/logger";
 
 export async function GET(request: Request) {
@@ -23,6 +24,12 @@ export async function GET(request: Request) {
     const access = await resolveUserAccess(userId, orgId, orgRole);
     if (access.role !== "admin" || !access.internal_org_id || !access.internal_user_id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Rate limit (review F6): 300 reads per org per hour, matching sibling admin routes
+    const { allowed } = await rateLimit(`admin:sync-skips:${orgId}`, 300, 3600);
+    if (!allowed) {
+      return NextResponse.json({ error: "Rate limit exceeded — try again later" }, { status: 429 });
     }
 
     const url = new URL(request.url);

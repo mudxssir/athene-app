@@ -299,7 +299,15 @@ async function extractFromChunk(
   const sourceKey = (
     (chunk.metadata?.source_type ?? chunk.metadata?.provider) as string | undefined ?? ""
   ).toLowerCase();
-  const runDecision = sourceKey !== "" && DECISION_SOURCE_TYPES.has(sourceKey);
+  // Review F3: the umbrella providers (google/microsoft) added in P0-1 also cover
+  // calendar events, which essentially never contain decision records — exclude
+  // them by resource_type so the dual prompt doesn't double LLM cost on calendars.
+  const resourceType = ((chunk.metadata?.resource_type as string | undefined) ?? "").toLowerCase();
+  const NON_DECISION_RESOURCE_TYPES = new Set(["calendar_event", "event"]);
+  const runDecision =
+    sourceKey !== "" &&
+    DECISION_SOURCE_TYPES.has(sourceKey) &&
+    !NON_DECISION_RESOURCE_TYPES.has(resourceType);
 
   // Run general extraction; optionally run decision extraction in parallel
   const [generalParsed, decisionParsed] = await Promise.all([
