@@ -27,6 +27,18 @@ _Branch: `pipeline/p0-stop-the-bleeding` · Flag(s): none (P0 is patch-level) ·
 - `providers.test.ts` count tripwire updated 26→27 (`github-getting-started` had been added
   without updating it).
 
+**Post-gate code review (F1–F8, fixed in `d881418`):**
+- F1 fixed: entity-resolver back to passage hint (similarity thresholds calibrated
+  passage↔passage). **P1 carry-over:** re-validate KG_CONFIG thresholds against labeled
+  pairs before applying the query hint to the resolver.
+- F2 fixed: deploy-order warning in provenance migration (migrations before code).
+- F3 fixed: calendar events excluded from decision prompt + regression test.
+- F4 fixed: Drive skip telemetry buffered/deduped per run, flushed in batches of 200.
+- F5 fixed (partial by design): dispatch-level MIXED MODELS warn; full fix is P1 pinning.
+- F6 fixed: rate limit on admin sync-skips route (300/org/hr).
+- F7/F8 accepted as nits: title-in-logs tension (pre-existing pattern), sentinel string
+  duplication between base.ts and parsers (defer to P3 converter rewrite).
+
 ---
 
 ## P0-1 — Decision extraction: add missing source keys
