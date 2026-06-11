@@ -33,8 +33,9 @@ export async function vectorSearch({
   minSimilarity = 0.0,
 }: Params) {
   return withVectorSearchSpan(query, orgId, topK, async (span) => {
-    // Pass orgId so BYOK embedding key is used — keeps index/query embedding spaces in sync
-    const embedding = await embed(query, orgId);
+    // Pass orgId so BYOK embedding key is used — keeps index/query embedding spaces in sync.
+    // 'query' hint (P0-2, audit D5): asymmetric-retrieval task type on Google/Jina providers.
+    const embedding = await embed(query, orgId, "query");
 
     const ctx: RLSContext = {
       org_id: orgId,
@@ -105,8 +106,9 @@ export async function crossDeptVectorSearch(params: Params) {
 
   return withVectorSearchSpan(params.query, params.orgId, topK, async (span) => {
     span.setAttribute("vector.cross_dept", true);
-    // Pass orgId so BYOK embedding key is used — keeps index/query embedding spaces in sync
-    const embedding = await embed(params.query, params.orgId);
+    // Pass orgId so BYOK embedding key is used — keeps index/query embedding spaces in sync.
+    // 'query' hint (P0-2, audit D5): asymmetric-retrieval task type on Google/Jina providers.
+    const embedding = await embed(params.query, params.orgId, "query");
 
     const ctx: RLSContext = {
       org_id: params.orgId,

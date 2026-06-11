@@ -126,7 +126,9 @@ async function _resolve(
   let embedding: number[] | null = null;
   if (!opts?.exactOnly) {
     try {
-      embedding = await embed(q, orgId);
+      // 'query' hint (P0-2): label lookups search against passage-embedded node labels —
+      // query/passage is the intended asymmetric pairing on Google/Jina providers.
+      embedding = await embed(q, orgId, "query");
     } catch (err) {
       logger.warn(
         { orgId, query: q, err: err instanceof Error ? err.message : String(err) },

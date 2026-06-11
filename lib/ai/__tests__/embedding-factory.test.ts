@@ -290,3 +290,41 @@ describe("Local model fallback", () => {
     expect(result).toHaveLength(EMBEDDING_DIMS);
   });
 });
+
+// ─── P0-2 (audit D5): Jina task type follows the embedding hint ──────────────
+
+describe("Jina task type per hint (P0-2)", () => {
+  const ENV_KEYS = ["JINA_API_KEY", "TOGETHER_API_KEY", "NOMIC_API_KEY", "GOOGLE_API_KEY"];
+  const savedEnv: Record<string, string | undefined> = {};
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    ENV_KEYS.forEach((k) => { savedEnv[k] = process.env[k]; delete process.env[k]; });
+    process.env.JINA_API_KEY = "jina-system-test-key";
+    rpcMock.mockResolvedValue({ data: [], error: null }); // no BYOK
+  });
+
+  afterEach(() => {
+    ENV_KEYS.forEach((k) => {
+      if (savedEnv[k] !== undefined) process.env[k] = savedEnv[k];
+      else delete process.env[k];
+    });
+  });
+
+  function lastJinaBody(): Record<string, unknown> {
+    const call = fetchMock.mock.calls.at(-1);
+    return JSON.parse((call?.[1] as RequestInit).body as string);
+  }
+
+  it("sends retrieval.query when hint is 'query'", async () => {
+    mockJinaResponse([ZERO_VEC]);
+    await embed("who owns the billing service", undefined, "query");
+    expect(lastJinaBody().task).toBe("retrieval.query");
+  });
+
+  it("sends retrieval.passage by default (document/index path)", async () => {
+    mockJinaResponse([ZERO_VEC]);
+    await embed("indexed chunk text", undefined, "document");
+    expect(lastJinaBody().task).toBe("retrieval.passage");
+  });
+});

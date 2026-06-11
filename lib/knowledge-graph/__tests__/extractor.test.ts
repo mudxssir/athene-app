@@ -260,3 +260,36 @@ describe("merge helpers", () => {
     expect(maxVisibility("org_wide", "private")).toBe("org_wide");
   });
 });
+
+// ── P0-1 (audit D1): decision extraction must fire for umbrella provider strings ──
+import { DECISION_SOURCE_TYPES } from "@/lib/knowledge-graph/extractor-prompt";
+
+describe("DECISION_SOURCE_TYPES coverage (P0-1)", () => {
+  it("includes the umbrella provider strings fetchers actually emit", () => {
+    for (const key of ["google", "microsoft", "direct_upload"]) {
+      expect(DECISION_SOURCE_TYPES.has(key)).toBe(true);
+    }
+  });
+
+  it("runs the dual prompt (2 LLM calls) for a Drive-sourced chunk", async () => {
+    const empty = JSON.stringify({ entities: [], relationships: [] });
+    mockResponses = [empty, empty];
+    const mockSupabase = { rpc: vi.fn().mockResolvedValue({ data: "test-key", error: null }) } as any;
+    await extractEntitiesAndRelations(
+      [baseChunk({ metadata: { source_type: "google" } })],
+      mockSupabase
+    );
+    expect(mockCallCount).toBe(2);
+  });
+
+  it("runs a single prompt for non-decision sources", async () => {
+    const empty = JSON.stringify({ entities: [], relationships: [] });
+    mockResponses = [empty, empty];
+    const mockSupabase = { rpc: vi.fn().mockResolvedValue({ data: "test-key", error: null }) } as any;
+    await extractEntitiesAndRelations(
+      [baseChunk({ metadata: { source_type: "snowflake" } })],
+      mockSupabase
+    );
+    expect(mockCallCount).toBe(1);
+  });
+});

@@ -219,7 +219,8 @@ async function embedWithGoogle(
 
 async function embedWithJina(
   texts: string[],
-  config: EmbeddingConfig
+  config: EmbeddingConfig,
+  hint?: EmbeddingHint
 ): Promise<number[][]> {
   const response = await fetch("https://api.jina.ai/v1/embeddings", {
     method: "POST",
@@ -231,7 +232,8 @@ async function embedWithJina(
       model: config.model,
       input: texts,
       dimensions: config.dims,
-      task: "retrieval.passage",
+      // P0-2 (audit D5): queries must use the asymmetric query task, not passage
+      task: hint === "query" ? "retrieval.query" : "retrieval.passage",
     }),
   })
 
@@ -262,7 +264,7 @@ async function callProviderWithRetry(
         case "openai":
           return await embedWithOpenAI(texts, config)
         case "jina":
-          return await embedWithJina(texts, config)
+          return await embedWithJina(texts, config, hint)
         case "together":
         case "nomic":
           return await embedWithOpenAICompat(texts, config)

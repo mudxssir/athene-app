@@ -179,4 +179,11 @@ export const DECISION_SOURCE_TYPES = new Set([
   "gmail",
   "slack",
   "file_upload",
+  // P0-1 (audit D1): fetchers emit umbrella provider strings, not the per-surface keys
+  // above — without these, decision extraction never fires for Drive/Gmail (google),
+  // Outlook/OneDrive/SharePoint (microsoft), or uploads (direct_upload).
+  // Interim until shape routing replaces this set (playbook P1).
+  "google",
+  "microsoft",
+  "direct_upload",
 ]);
