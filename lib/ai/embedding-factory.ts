@@ -281,12 +281,22 @@ async function callProviderWithRetry(
 
 // ---- Core embed function -----------------------------------------------
 
+/** Embedding output plus provenance of the model that produced it (P0-3). */
+export interface EmbedDetailedResult {
+  embeddings: number[][]
+  /** Model id actually used (e.g. "jina-embeddings-v3", "bge-base-en-v1.5-local"). */
+  model: string
+  provider: string
+}
+
+const LOCAL_MODEL_ID = "bge-base-en-v1.5-local"
+
 async function embedTexts(
   texts: string[],
   orgId?: string,
   hint?: EmbeddingHint
-): Promise<number[][]> {
-  if (texts.length === 0) return []
+): Promise<EmbedDetailedResult> {
+  if (texts.length === 0) return { embeddings: [], model: "none", provider: "none" }
 
   // 1. Try per-org BYOK first
   const byokConfig = orgId
@@ -319,7 +329,24 @@ async function embedTexts(
   let lastErr: unknown
   for (const config of candidates) {
     try {
-      return await callProviderWithRetry(texts, config, hint)
+      const embeddings = await callProviderWithRetry(texts, config, hint)
+      // P0-7 (audit D6 exposure): fallback activation means this batch was embedded by a
+      // different model than the org's primary — a mixed-vector-space event. Loud until
+      // P1 replaces silent fallback with a same-model retry queue.
+      if (config !== candidates[0]) {
+        logger.warn(
+          {
+            usedProvider: config.provider,
+            usedModel: config.model,
+            primaryProvider: candidates[0].provider,
+            primaryModel: candidates[0].model,
+            orgId: orgId ?? null,
+            batchSize: texts.length,
+          },
+          "[EmbeddingFactory] FALLBACK ACTIVATED — batch embedded by non-primary model (mixed vector space risk)"
+        )
+      }
+      return { embeddings, model: config.model, provider: config.provider }
     } catch (err) {
       lastErr = err
       logger.warn(
@@ -330,9 +357,13 @@ async function embedTexts(
   }
 
   // 4. Final fallback: local Xenova/BGE inference (no API key needed, ~68 MB model)
-  logger.warn({}, "[EmbeddingFactory] All API providers failed — falling back to local Xenova/bge-base-en-v1.5 model")
+  logger.warn(
+    { orgId: orgId ?? null, batchSize: texts.length },
+    "[EmbeddingFactory] All API providers failed — falling back to local Xenova/bge-base-en-v1.5 model (mixed vector space risk)"
+  )
   try {
-    return await embedWithLocal(texts)
+    const embeddings = await embedWithLocal(texts)
+    return { embeddings, model: LOCAL_MODEL_ID, provider: "local" }
   } catch (localErr) {
     lastErr = localErr
   }
@@ -388,9 +419,9 @@ export async function logEmbeddingProviderInfo(orgId?: string): Promise<void> {
 export async function embed(text: string, orgId?: string, hint?: EmbeddingHint): Promise<number[]> {
   // Log provider once on first real call so cold-start logs show active config.
   logEmbeddingProviderInfo(orgId).catch(() => undefined)
-  const results = await embedTexts([text], orgId, hint)
-  assertDims(results[0])
-  return results[0]
+  const { embeddings } = await embedTexts([text], orgId, hint)
+  assertDims(embeddings[0])
+  return embeddings[0]
 }
 
 /** Embed multiple texts in one API call. Uses org BYOK if orgId provided. */
@@ -399,7 +430,21 @@ export async function embedBatch(
   orgId?: string,
   hint?: EmbeddingHint
 ): Promise<number[][]> {
-  const results = await embedTexts(texts, orgId, hint)
-  if (results.length > 0) assertDims(results[0])
-  return results
+  const { embeddings } = await embedTexts(texts, orgId, hint)
+  if (embeddings.length > 0) assertDims(embeddings[0])
+  return embeddings
+}
+
+/**
+ * Like embedBatch, but also reports which model produced the vectors so callers
+ * can persist embedding provenance (P0-3: document_embeddings.embedding_model).
+ */
+export async function embedBatchDetailed(
+  texts: string[],
+  orgId?: string,
+  hint?: EmbeddingHint
+): Promise<EmbedDetailedResult> {
+  const result = await embedTexts(texts, orgId, hint)
+  if (result.embeddings.length > 0) assertDims(result.embeddings[0])
+  return result
 }

@@ -53,9 +53,16 @@ const { embedBatchMock, supabaseState } = vi.hoisted(() => {
 });
 
 // ─── Mock: embedding factory ─────────────────────────────────────────────────
+// embedBatchMock keeps its number[][] contract; the P0-3 detailed wrapper adapts
+// it to the { embeddings, model, provider } shape indexing.ts now consumes.
 
 vi.mock("@/lib/ai/embedding-factory", () => ({
   embedBatch: embedBatchMock,
+  embedBatchDetailed: async (texts: string[], orgId?: string, hint?: string) => ({
+    embeddings: await embedBatchMock(texts, orgId, hint),
+    model: "test-embedding-model",
+    provider: "test",
+  }),
   EMBEDDING_DIMS: 768,
 }));
 
@@ -394,5 +401,71 @@ describe("3B.5 — embedBatch is never called with more than EMBED_BATCH_SIZE te
 
     // With 97 texts and a cap of 96 we need at least 2 calls
     expect(embedBatchMock.mock.calls.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+// ─── P0-3/P0-4: embedding provenance + per-hint batch grouping ───────────────
+
+describe("P0-3/P0-4 — provenance stamping and hint grouping", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    supabaseState.existingDoc = null;
+    supabaseState.upsertDocReturn = { id: DOC_ID };
+    supabaseState.upsertEmbeddingsError = null;
+    supabaseState.deleteCalls = [];
+    supabaseState.upsertCalls = [];
+    embedBatchMock.mockImplementation(async (texts: string[]) =>
+      texts.map(() => Array(768).fill(0.1))
+    );
+  });
+
+  it("stamps embedding_model and pipeline_version on rows (P0-3)", async () => {
+    await indexDocument(makeChunk(), ORG_ID, CONN_ID, null, "org_wide");
+
+    const embRows = supabaseState.upsertCalls
+      .filter((c) => c.table === "document_embeddings")
+      .flatMap((c) => (Array.isArray(c.records) ? c.records : [c.records])) as Array<
+      Record<string, unknown>
+    >;
+    expect(embRows.length).toBeGreaterThan(0);
+    for (const row of embRows) {
+      expect(row.embedding_model).toBe("test-embedding-model");
+      expect(row.pipeline_version).toBe(1);
+    }
+  });
+
+  it("embeds a mixed salesforce+notion batch in two per-hint groups with alignment intact (P0-4)", async () => {
+    const sfChunk = makeChunk({
+      chunk_id: "sf-1",
+      content: "Opportunity: Acme Renewal. Stage: Negotiation.",
+      metadata: { provider: "salesforce", resource_type: "opportunities" },
+    });
+    const notionChunk = makeChunk({
+      chunk_id: "notion-1",
+      content: "Meeting notes: we will evaluate vendors next week.",
+      metadata: { provider: "notion", resource_type: "page" },
+    });
+
+    const result = await indexDocuments(
+      [sfChunk, notionChunk], ORG_ID, CONN_ID, null, "org_wide"
+    );
+    expect(result.errors).toBe(0);
+
+    // Two calls — one per hint group (structured for salesforce, document for notion)
+    expect(embedBatchMock).toHaveBeenCalledTimes(2);
+    const hints = embedBatchMock.mock.calls.map((c) => c[2]).sort();
+    expect(hints).toEqual(["document", "structured"]);
+
+    // Alignment: each upserted row's metadata.chunk_text hashes to its content_hash
+    const embRows = supabaseState.upsertCalls
+      .filter((c) => c.table === "document_embeddings")
+      .flatMap((c) => (Array.isArray(c.records) ? c.records : [c.records])) as Array<{
+      content_hash: string;
+      metadata: { chunk_text: string };
+    }>;
+    expect(embRows.length).toBeGreaterThanOrEqual(2);
+    for (const row of embRows) {
+      expect(row.content_hash).toBe(sha256(row.metadata.chunk_text));
+    }
   });
 });

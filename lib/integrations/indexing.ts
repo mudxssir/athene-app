@@ -16,10 +16,17 @@ import { createHash } from 'node:crypto'
 import { supabaseAdmin } from '@/lib/supabase/server'
 import type { FetchedChunk } from './base'
 import { logger } from '@/lib/logger'
-import { embedBatch, type EmbeddingHint } from '@/lib/ai/embedding-factory'
+import { embedBatchDetailed, type EmbeddingHint } from '@/lib/ai/embedding-factory'
 import { chunk as tokenChunk } from '@/lib/langgraph/tools/chunker'
 
 // ---- Constants --------------------------------------------------
+
+/**
+ * Pipeline version stamped on every embedding row (P0-3). Bump whenever a
+ * shape's chunking policy changes — the reindex worker finds rows below the
+ * current version and re-chunks/re-embeds them.
+ */
+export const PIPELINE_VERSION = 1
 
 /** Email sources use character-based chunking (body text is short, no tokenizer needed) */
 const EMAIL_CHUNK_SIZE_CHARS = 2000
@@ -181,10 +188,37 @@ function chunkContent(content: string, sourceType?: string): string[] {
 /**
  * Generates embeddings for the given texts via the EmbeddingFactory.
  * Provider resolved from: org BYOK → system env.
- * Hint lets the Google provider select the optimal task type.
+ * Hint lets the Google/Jina providers select the optimal task type.
+ * Returns the model id alongside the vectors so rows carry provenance (P0-3).
  */
-async function generateEmbeddings(texts: string[], orgId?: string, hint?: EmbeddingHint): Promise<number[][]> {
-  return embedBatch(texts, orgId, hint)
+async function generateEmbeddings(
+  texts: string[],
+  orgId?: string,
+  hint?: EmbeddingHint
+): Promise<{ embeddings: number[][]; model: string }> {
+  const { embeddings, model } = await embedBatchDetailed(texts, orgId, hint)
+  return { embeddings, model }
+}
+
+/**
+ * normalizeContent wrapper that measures how much was stripped (P0-7 / audit D8
+ * exposure metric): a high strip ratio on code-bearing docs signals corruption
+ * by the HTML-strip regex — informs the P3 per-shape sanitization fix.
+ */
+function normalizeContentTracked(content: string, title?: string): string {
+  const normalized = normalizeContent(content)
+  if (content.length > 500 && normalized.length < content.length * 0.95) {
+    logger.warn(
+      {
+        title: title ?? null,
+        originalBytes: content.length,
+        normalizedBytes: normalized.length,
+        strippedRatio: Number((1 - normalized.length / content.length).toFixed(3)),
+      },
+      '[indexing] normalizeContent stripped >5% of document bytes'
+    )
+  }
+  return normalized
 }
 
 /** Resolve the embedding hint from source type (only relevant for Google provider). */
@@ -287,13 +321,15 @@ export async function indexDocument(
   if (!contentChanged) return documentId
 
   // 1. Normalize then split content into type-appropriate chunks
-  const normalizedContent = normalizeContent(chunk.content)
+  const normalizedContent = normalizeContentTracked(chunk.content, chunk.title)
   const contentChunks = chunkContent(normalizedContent, chunk.metadata.provider)
 
   if (contentChunks.length === 0) return documentId
 
   // 2. Generate embeddings for all chunks in a single batch (org-BYOK aware)
-  const embeddings = await generateEmbeddings(contentChunks, orgId, resolveEmbeddingHint(chunk.metadata.provider as string))
+  const { embeddings, model: embeddingModel } = await generateEmbeddings(
+    contentChunks, orgId, resolveEmbeddingHint(chunk.metadata.provider as string)
+  )
 
   // 3. Build the records to upsert — must match document_embeddings schema exactly
   const structuredFields = RECORD_SOURCE_TYPES.has(chunk.metadata.provider as string)
@@ -312,6 +348,8 @@ export async function indexDocument(
       visibility,
       chunk_index: index,
       embedding: embeddings[index],
+      embedding_model: embeddingModel,
+      pipeline_version: PIPELINE_VERSION,
       content_hash: createHash('sha256').update(text).digest('hex'),
       content_preview: text.slice(0, 200),
       metadata: meta,
@@ -385,7 +423,7 @@ export async function indexDocuments(
         prepared.push({ chunk, documentId, subChunks: [] })
         continue
       }
-      const subChunks = chunkContent(normalizeContent(chunk.content), chunk.metadata.provider)
+      const subChunks = chunkContent(normalizeContentTracked(chunk.content, chunk.title), chunk.metadata.provider)
       if (subChunks.length > 0) {
         prepared.push({ chunk, documentId, subChunks })
       }
@@ -425,28 +463,53 @@ export async function indexDocuments(
   })
 
   // ---- Phase 3: generate embeddings in batches (org-BYOK aware) ---
-  // Derive hint from the first changed item's source type (batch is homogeneous per dispatch)
-  const batchHint = resolveEmbeddingHint(changedItems[0]?.chunk.metadata.provider as string)
-  const allEmbeddings: number[][] = []
-  for (let i = 0; i < allTexts.length; i += EMBED_BATCH_SIZE) {
-    const batchTexts = allTexts.slice(i, i + EMBED_BATCH_SIZE)
-    try {
-      const batchEmbeddings = await generateEmbeddings(batchTexts, orgId, batchHint)
-      allEmbeddings.push(...batchEmbeddings)
-    } catch (err) {
-      logger.error(
-        { batchStart: i, batchEnd: i + batchTexts.length, err: err instanceof Error ? err.message : String(err) },
-        '[indexing] Embedding batch failed'
-      )
-      // Fill with empty placeholders so index alignment is preserved; filtered out before upsert
-      allEmbeddings.push(...batchTexts.map(() => []))
-      errors += batchTexts.length
+  // P0-4 (audit D9): one dispatch can mix shapes (e.g. Microsoft = email + calendar
+  // + drive + tabular in a single array), so the hint is resolved per item and texts
+  // are embedded in per-hint groups. Row alignment is preserved by flat index.
+  const flatHints: EmbeddingHint[] = changedItems.flatMap(item => {
+    const hint = resolveEmbeddingHint(item.chunk.metadata.provider as string)
+    return item.subChunks.map(() => hint)
+  })
+
+  const allEmbeddings: (number[] | null)[] = new Array(allTexts.length).fill(null)
+  const allModels: (string | null)[] = new Array(allTexts.length).fill(null)
+
+  const hintGroups = new Map<EmbeddingHint, number[]>()
+  flatHints.forEach((hint, idx) => {
+    const group = hintGroups.get(hint)
+    if (group) group.push(idx)
+    else hintGroups.set(hint, [idx])
+  })
+
+  for (const [hint, indices] of hintGroups) {
+    for (let i = 0; i < indices.length; i += EMBED_BATCH_SIZE) {
+      const batchIndices = indices.slice(i, i + EMBED_BATCH_SIZE)
+      const batchTexts = batchIndices.map((idx) => allTexts[idx])
+      try {
+        const { embeddings, model } = await generateEmbeddings(batchTexts, orgId, hint)
+        batchIndices.forEach((flatIdx, j) => {
+          allEmbeddings[flatIdx] = embeddings[j]
+          allModels[flatIdx] = model
+        })
+      } catch (err) {
+        logger.error(
+          { hint, batchStart: i, batchEnd: i + batchTexts.length, err: err instanceof Error ? err.message : String(err) },
+          '[indexing] Embedding batch failed'
+        )
+        // Leave nulls so alignment is preserved; filtered out before upsert
+        errors += batchTexts.length
+      }
     }
   }
 
   // ---- Phase 4: upsert all records in one call -------------------
   const records = allTemplates
-    .map((tmpl, idx) => ({ ...tmpl, embedding: allEmbeddings[idx] }))
+    .map((tmpl, idx) => ({
+      ...tmpl,
+      embedding: allEmbeddings[idx] ?? [],
+      embedding_model: allModels[idx],
+      pipeline_version: PIPELINE_VERSION,
+    }))
     .filter((r) => r.embedding.length > 0)
 
   if (records.length > 0) {
