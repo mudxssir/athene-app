@@ -15,6 +15,7 @@
 import { createHash } from 'node:crypto'
 import { supabaseAdmin } from '@/lib/supabase/server'
 import type { FetchedChunk } from './base'
+import { isSkipSentinel } from './base'
 import { logger } from '@/lib/logger'
 import { embedBatchDetailed, type EmbeddingHint } from '@/lib/ai/embedding-factory'
 import { chunk as tokenChunk } from '@/lib/langgraph/tools/chunker'
@@ -289,6 +290,69 @@ async function upsertDocumentRecord(
   return { documentId: data.id as string, contentChanged: true }
 }
 
+// ---- Skip-sentinel handling (P0-5, audit D11) --------------------
+
+/**
+ * Records a skipped-content event. Idempotent on
+ * (org_id, connection_id, external_id, reason) — re-running a sync
+ * refreshes last_seen instead of duplicating rows. Failures are
+ * logged and swallowed: telemetry must never break indexing.
+ */
+async function recordSyncSkip(
+  chunk: FetchedChunk,
+  orgId: string,
+  connectionId: string,
+  reason: string
+): Promise<void> {
+  const { error } = await supabaseAdmin.from('sync_skips').upsert(
+    {
+      org_id: orgId,
+      connection_id: connectionId,
+      external_id: chunk.chunk_id,
+      title: chunk.title,
+      reason: reason.slice(0, 200),
+      last_seen: new Date().toISOString(),
+    },
+    { onConflict: 'org_id,connection_id,external_id,reason' }
+  )
+  if (error) {
+    logger.warn({ externalId: chunk.chunk_id, err: error.message }, '[indexing] Failed to record sync skip (non-fatal)')
+  }
+}
+
+/**
+ * Sentinel chunks keep their documents row (so delta-sync content-hash dedup
+ * still works and the doc is flagged) but produce NO embeddings; any stale
+ * embeddings from a previous real version are pruned.
+ */
+async function dropSentinelChunk(
+  chunk: FetchedChunk,
+  orgId: string,
+  connectionId: string,
+  documentId: string
+): Promise<void> {
+  await recordSyncSkip(chunk, orgId, connectionId, chunk.content.trim())
+
+  // Flag the documents row so admin/debug surfaces can tell why it has no chunks
+  const { error: flagErr } = await supabaseAdmin
+    .from('documents')
+    .update({ metadata: { ...chunk.metadata, skipped_reason: chunk.content.trim().slice(0, 200) } })
+    .eq('id', documentId)
+    .eq('org_id', orgId)
+  if (flagErr) {
+    logger.warn({ documentId, err: flagErr.message }, '[indexing] Failed to flag sentinel doc (non-fatal)')
+  }
+
+  const { error } = await supabaseAdmin
+    .from('document_embeddings')
+    .delete()
+    .eq('document_id', documentId)
+    .gte('chunk_index', 0)
+  if (error) {
+    logger.warn({ documentId, err: error.message }, '[indexing] Failed to prune sentinel doc embeddings (non-fatal)')
+  }
+}
+
 // ---- Main Indexing Function -------------------------------------
 
 /**
@@ -320,6 +384,12 @@ export async function indexDocument(
     chunk, orgId, connectionId, departmentId, visibility, ownerUserId
   )
   if (!contentChanged) return documentId
+
+  // 0b. Skip-sentinels: keep the doc row (flagged), write no embeddings (P0-5)
+  if (isSkipSentinel(chunk.content)) {
+    await dropSentinelChunk(chunk, orgId, connectionId, documentId)
+    return documentId
+  }
 
   // 1. Normalize then split content into type-appropriate chunks
   const normalizedContent = normalizeContentTracked(chunk.content, chunk.title)
@@ -419,6 +489,12 @@ export async function indexDocuments(
   for (const chunk of chunks) {
     try {
       const { documentId, contentChanged } = await upsertDocumentRecord(chunk, orgId, connectionId, departmentId, visibility, ownerUserId)
+      if (contentChanged && isSkipSentinel(chunk.content)) {
+        // Skip-sentinel: doc row kept, no embeddings, telemetry written (P0-5)
+        await dropSentinelChunk(chunk, orgId, connectionId, documentId)
+        prepared.push({ chunk, documentId, subChunks: [] })
+        continue
+      }
       if (!contentChanged) {
         // Content hash unchanged — embeddings are still valid, skip re-embedding
         prepared.push({ chunk, documentId, subChunks: [] })

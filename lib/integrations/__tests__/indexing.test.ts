@@ -128,12 +128,26 @@ vi.mock("@/lib/supabase/server", () => {
     }),
   });
 
+  // `.update(payload)` → `.eq().eq()` chain — used by sentinel doc flagging (P0-5)
+  const updateFn = (table: string) => (payload: unknown) => {
+    supabaseState.upsertCalls.push({ table: `${table}:update`, records: payload });
+    const chain = { eq: (_k: string, _v: unknown) => chain, then: undefined } as any;
+    // Make it awaitable at any chain depth
+    const promiseLike = {
+      eq: (_k: string, _v: unknown) => promiseLike,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      then: (resolve: any) => resolve({ data: null, error: null }),
+    };
+    return promiseLike;
+  };
+
   return {
     supabaseAdmin: {
       from: (table: string) => ({
         select: selectFn(table),
         upsert: upsertFn(table),
         delete: deleteFn(table),
+        update: updateFn(table),
       }),
     },
   };
@@ -467,5 +481,71 @@ describe("P0-3/P0-4 — provenance stamping and hint grouping", () => {
     for (const row of embRows) {
       expect(row.content_hash).toBe(sha256(row.metadata.chunk_text));
     }
+  });
+});
+
+// ─── P0-5: skip-sentinel drop + sync_skips telemetry ─────────────────────────
+
+describe("P0-5 — skip-sentinel handling", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    supabaseState.existingDoc = null;
+    supabaseState.upsertDocReturn = { id: DOC_ID };
+    supabaseState.upsertEmbeddingsError = null;
+    supabaseState.deleteCalls = [];
+    supabaseState.upsertCalls = [];
+    embedBatchMock.mockImplementation(async (texts: string[]) =>
+      texts.map(() => Array(768).fill(0.1))
+    );
+  });
+
+  const sentinelChunk = () =>
+    makeChunk({
+      chunk_id: "upload-pptx-1",
+      content: "[Unsupported file type: .pptx — skipped]",
+      metadata: { provider: "direct_upload", resource_type: "file" },
+    });
+
+  it("writes no embeddings, keeps the doc row, records sync_skips (batch path)", async () => {
+    const result = await indexDocuments([sentinelChunk()], ORG_ID, CONN_ID, null, "org_wide");
+    expect(result.errors).toBe(0);
+
+    expect(embedBatchMock).not.toHaveBeenCalled();
+    // documents row upserted
+    expect(supabaseState.upsertCalls.some((c) => c.table === "documents")).toBe(true);
+    // no embedding rows
+    expect(supabaseState.upsertCalls.some((c) => c.table === "document_embeddings")).toBe(false);
+    // telemetry written
+    const skip = supabaseState.upsertCalls.find((c) => c.table === "sync_skips");
+    expect(skip).toBeTruthy();
+    expect((skip!.records as Record<string, unknown>).reason).toContain("Unsupported file type");
+    // doc flagged with skipped_reason
+    const flag = supabaseState.upsertCalls.find((c) => c.table === "documents:update");
+    expect((flag?.records as Record<string, unknown>)?.skipped_reason ?? (flag?.records as any)?.metadata?.skipped_reason).toContain("Unsupported");
+  });
+
+  it("re-running the same sync does not re-record (content hash unchanged)", async () => {
+    const chunk = sentinelChunk();
+    supabaseState.existingDoc = { id: DOC_ID, content_hash: sha256(chunk.content) };
+
+    await indexDocuments([chunk], ORG_ID, CONN_ID, null, "org_wide");
+    expect(supabaseState.upsertCalls.some((c) => c.table === "sync_skips")).toBe(false);
+    expect(embedBatchMock).not.toHaveBeenCalled();
+  });
+
+  it("drops sentinel in the single-doc path too", async () => {
+    const { indexDocument: idx } = await import("@/lib/integrations/indexing");
+    await idx(sentinelChunk(), ORG_ID, CONN_ID, null, "org_wide");
+    expect(embedBatchMock).not.toHaveBeenCalled();
+    expect(supabaseState.upsertCalls.some((c) => c.table === "sync_skips")).toBe(true);
+  });
+
+  it("does not treat real content starting with brackets as sentinel", async () => {
+    const real = makeChunk({
+      content: "[DRAFT] Quarterly planning notes — we decided to ship the new pricing page. ".repeat(3),
+    });
+    await indexDocuments([real], ORG_ID, CONN_ID, null, "org_wide");
+    expect(embedBatchMock).toHaveBeenCalled();
+    expect(supabaseState.upsertCalls.some((c) => c.table === "sync_skips")).toBe(false);
   });
 });

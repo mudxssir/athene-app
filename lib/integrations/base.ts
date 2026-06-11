@@ -267,3 +267,34 @@ export function assertSafeMetadata(
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
+
+// ─── Skip-sentinel detection (P0-5, audit D11) ───────────────────────────────
+
+/**
+ * Placeholder strings emitted by parsers when content could not be extracted.
+ * These must never be embedded — they pollute retrieval with meaningless hits
+ * (e.g. "[Unsupported file type: .pptx — skipped]" matching "pptx" queries).
+ */
+const SKIP_SENTINEL_PREFIXES = [
+  '[Unsupported binary format:',
+  '[Unsupported file type:',
+  '[PDF skipped:',
+  '[PDF contains no extractable text',
+  '[PDF text extraction failed]',
+  '[DOCX contains no extractable text]',
+  '[DOCX text extraction failed]',
+  '[XLSX contains no extractable text]',
+  '[XLSX text extraction failed]',
+  '[Google Drive Folder',
+  '[Google Sheet — no content]',
+]
+
+/**
+ * True when content is a parser skip-sentinel rather than real document text.
+ * The length guard prevents false positives on real documents that merely
+ * begin with bracketed text — sentinels are short, single-line placeholders.
+ */
+export function isSkipSentinel(content: string): boolean {
+  const t = content.trim()
+  return t.length > 0 && t.length < 200 && SKIP_SENTINEL_PREFIXES.some((p) => t.startsWith(p))
+}

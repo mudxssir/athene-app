@@ -355,7 +355,23 @@ async function fetchDocumentChunks(
 
   // Fallback: single flat-text chunk (LlamaParse not configured or non-LlamaParse type)
   const content = await fetchDriveFileContent(connectionId, orgId, file.id, file.mimeType)
-  if (content.startsWith('[Unsupported binary format:')) return []
+  if (content.startsWith('[Unsupported binary format:')) {
+    // P0-5 (audit D11/D12): dropped content must be visible, not silent
+    await supabaseAdmin.from('sync_skips').upsert(
+      {
+        org_id: orgId,
+        connection_id: connectionId,
+        external_id: `drive:${file.id}`,
+        title: file.name,
+        reason: content.slice(0, 200),
+        last_seen: new Date().toISOString(),
+      },
+      { onConflict: 'org_id,connection_id,external_id,reason' }
+    ).then(({ error }) => {
+      if (error) logger.warn({ fileId: file.id, err: error.message }, '[drive-fetcher] Failed to record sync skip (non-fatal)')
+    })
+    return []
+  }
   const fallbackChunk = driveFileToChunk(file, content, folderPath)
   if (departmentId) fallbackChunk.metadata.department_id = departmentId
   return [fallbackChunk]
