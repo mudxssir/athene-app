@@ -100,6 +100,7 @@ export async function microsoftFetcher(
                 title: `Email: ${email.subject ?? '(no subject)'}`,
                 content: slice,
                 source_url: email.webLink,
+                shape: 'email' as const,
                 metadata: {
                   provider: 'microsoft',
                   resource_type: 'email',
@@ -118,6 +119,7 @@ export async function microsoftFetcher(
               title: `Email: ${email.subject ?? '(no subject)'}`,
               content: `From: ${email.from?.emailAddress?.name ?? 'Unknown'}\n\n${email.bodyPreview ?? ''}`,
               source_url: email.webLink,
+              shape: 'email' as const,
               metadata: { provider: 'microsoft', resource_type: 'email', id: email.id },
             })
           }
@@ -174,6 +176,7 @@ export async function microsoftFetcher(
           title: `Event: ${event.subject}`,
           content: lines.join('\n'),
           source_url: event.webLink,
+          shape: 'record' as const,
           metadata: {
             provider: 'microsoft',
             resource_type: 'event',
@@ -210,6 +213,7 @@ export async function microsoftFetcher(
           title: `OneDrive: ${doc.name}`,
           content: text,
           source_url: sourceUrl,
+          shape: 'prose' as const,
           metadata: { provider: 'microsoft', resource_type: 'onedrive_doc', id: doc.id },
         } satisfies FetchedChunk)
       }
@@ -283,6 +287,7 @@ export async function microsoftFetcher(
                       title: `SharePoint: ${doc.name}`,
                       content: text,
                       source_url: sourceUrl,
+                      shape: 'prose' as const,
                       metadata: { provider: 'microsoft', resource_type: 'sharepoint_doc', id: doc.id },
                     } satisfies FetchedChunk)
                   }

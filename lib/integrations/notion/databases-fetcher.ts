@@ -36,6 +36,7 @@ export async function fetchAllDatabases(connectionId: string, orgId: string, syn
         title: `Database Schema: ${title}`,
         content: schemaHeader,
         source_url: db.url,
+        shape: 'prose' as const,
         metadata: {
           provider: 'notion',
           resource_type: 'database_schema',
@@ -51,6 +52,7 @@ export async function fetchAllDatabases(connectionId: string, orgId: string, syn
           title: `Database: ${title}`,
           content,
           source_url: db.url,
+          shape: 'record' as const,
           metadata: {
             provider: 'notion',
             resource_type: 'database',

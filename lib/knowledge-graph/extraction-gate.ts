@@ -9,7 +9,14 @@
 //            to Tier A only when its text matches a decision/
 //            blocker signal pattern — a cheap regex gate that
 //            runs before any LLM call.
+//
+// P1-4: shape-aware tier function (gated on PIPELINE_SHAPE_ROUTING).
+//   Tier A — prose, email, work_item: always full LLM
+//   Tier B — thread: signal-pattern gated; record: description > 200 chars
+//   Tier C — tabular, bi_artifact, media, code: deterministic only, no LLM
 // ============================================================
+
+import type { DataShape } from '@/lib/integrations/base'
 
 /** Source types that always get full LLM extraction. */
 const TIER_A_SOURCE_TYPES = new Set([
@@ -75,4 +82,37 @@ export function shouldRunExtraction(
   return chunkTexts.some((text) =>
     SIGNAL_PATTERNS.some((pattern) => pattern.test(text))
   );
+}
+
+/**
+ * Shape-aware extraction tier (P1-4, requires PIPELINE_SHAPE_ROUTING flag).
+ *
+ * Tier A — full LLM extraction always run.
+ * Tier B — LLM extraction gated by a cheap heuristic.
+ * Tier C — deterministic only; LLM extraction never run.
+ */
+export function extractionTier(
+  shape: DataShape,
+  chunkTexts: string[]
+): 'A' | 'B' | 'C' {
+  switch (shape) {
+    case 'prose':
+    case 'email':
+    case 'work_item':
+      return 'A'
+
+    case 'thread':
+      // Signal-pattern gate (same logic as legacy Slack gating)
+      return chunkTexts.some((t) => SIGNAL_PATTERNS.some((p) => p.test(t))) ? 'A' : 'B'
+
+    case 'record':
+      // Extract only when the record contains a meaningful description (> 200 chars)
+      return chunkTexts.some((t) => t.length > 200) ? 'A' : 'B'
+
+    case 'tabular':
+    case 'bi_artifact':
+    case 'media':
+    case 'code':
+      return 'C'
+  }
 }

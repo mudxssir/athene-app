@@ -57,6 +57,7 @@ export async function fetchSalesforceCases(
           r.Description   ? `Description: ${r.Description}`       : null,
         ].filter(Boolean).join('\n'),
         source_url: `${instanceUrl}/lightning/r/Case/${r.Id}/view`,
+        shape: 'work_item' as const,
         metadata: {
           provider:      'salesforce',
           resource_type: 'cases',

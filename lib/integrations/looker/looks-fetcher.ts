@@ -54,6 +54,7 @@ export async function fetchLookerContent(
           title: `Looker Look: ${look.title}`,
           content: [look.description, rowContent].filter(Boolean).join('\n\n'),
           source_url: `${instanceUrl}/looks/${look.id}`,
+          shape: 'bi_artifact' as const,
           metadata: { provider: 'looker', resource_type: 'look', look_id: String(look.id) },
         } satisfies FetchedChunk
       } catch {
@@ -63,6 +64,7 @@ export async function fetchLookerContent(
           title: `Looker Look: ${look.title}`,
           content: look.description ?? look.title,
           source_url: `${instanceUrl}/looks/${look.id}`,
+          shape: 'bi_artifact' as const,
           metadata: { provider: 'looker', resource_type: 'look', look_id: String(look.id) },
         } satisfies FetchedChunk
       }
@@ -76,6 +78,7 @@ export async function fetchLookerContent(
       title: `Looker Dashboard: ${dash.title}`,
       content: dash.description ?? dash.title,
       source_url: `${instanceUrl}/dashboards/${dash.id}`,
+      shape: 'bi_artifact' as const,
       metadata: { provider: 'looker', resource_type: 'dashboard', dashboard_id: String(dash.id) },
     })
   }
@@ -155,6 +158,7 @@ export async function fetchLookerExplores(
           title: `Looker Explore: ${explore.label ?? exploreRef.name} (${model.label ?? model.name})`,
           content: lines.join('\n'),
           source_url: `${instanceUrl}/explore/${model.name}/${exploreRef.name}`,
+          shape: 'bi_artifact' as const,
           metadata: {
             provider: 'looker',
             resource_type: 'explore',

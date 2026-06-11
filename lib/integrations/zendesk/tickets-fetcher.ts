@@ -53,6 +53,7 @@ export async function fetchZendeskTickets(
       source_url: ticket.url
         .replace('/api/v2/tickets/', '/agent/tickets/')
         .replace('.json', ''),
+      shape: 'work_item' as const,
       metadata: {
         provider: 'zendesk',
         resource_type: 'ticket',

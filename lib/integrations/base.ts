@@ -4,11 +4,56 @@ import { getProviderConfig, type ProviderKey } from './providers'
 import { Nango } from '@nangohq/node'
 import { logger } from '@/lib/logger'
 
+// ─── Data shape contract (P1-1, PLAN_A §0.1) ─────────────────────────────────
+
+/**
+ * Canonical data shape for every FetchedChunk.
+ * All downstream routing — chunking strategy, embedding hint, extraction tier,
+ * decision-prompt gate — switches on this value instead of provider strings.
+ */
+export type DataShape =
+  | 'prose'       // documents, wiki pages, articles, notes
+  | 'email'       // one message = one unit (Gmail, Outlook)
+  | 'thread'      // chat conversations (Slack)
+  | 'work_item'   // tickets, issues, PRs (Jira, Linear, GitHub)
+  | 'record'      // CRM rows, calendar events — key-value units
+  | 'tabular'     // datasets: warehouse tables, sheets, parsed tables
+  | 'bi_artifact' // reports, dashboards, measures, model definitions
+  | 'media'       // images/diagrams → captioned prose (Phase 5)
+  | 'code'        // reserved — Phase 2+
+
+/**
+ * Deterministic owner annotation emitted by fetchers that have structured
+ * owner fields (Jira assignee, Linear assignee, GitHub PR author, etc.).
+ * Consumed by the KG builder to create OWNS/WORKS_ON edges without LLM extraction.
+ * Populated in Phase 2; declared here as a placeholder so the type is stable.
+ */
+export interface StructuredOwner {
+  person_label: string
+  provider_account_id?: string
+  relation: 'OWNS' | 'WORKS_ON' | 'REPORTED_BY' | 'DECIDED_BY'
+}
+
+/**
+ * Deterministic context envelope — breadcrumb + document-context line.
+ * Constructed by the indexing pipeline (Phase 3); fetchers leave this undefined.
+ * Declared here so FetchedChunk is forward-compatible.
+ */
+export interface ChunkContext {
+  breadcrumb?: string
+  doc_context?: string
+}
+
 // ─── Shared output type ─────────────────────────────────────────────────────
 
 /**
  * Canonical chunk shape returned by every fetcher.
  * Content lives in RAM only — never written to the DB.
+ *
+ * REQUIRED fields after P1-2: every fetcher must declare `shape`.
+ * The indexing pipeline reads `chunk.shape` for routing when
+ * PIPELINE_SHAPE_ROUTING is on; legacy provider-string fallback is
+ * retained until all fetchers are migrated (removed in P3).
  */
 export interface FetchedChunk {
   /** Opaque ID — used by live-doc-fetch to re-fetch on query time */
@@ -19,6 +64,12 @@ export interface FetchedChunk {
   content: string
   /** Deep link back to the source */
   source_url: string
+  /** Data shape — drives chunking strategy, embedding hint, extraction tier */
+  shape: DataShape
+  /** Pre-parsed ownership links (work_item fetchers; Phase 2 populates fully) */
+  structured_owners?: StructuredOwner[]
+  /** Context envelope (set by indexing pipeline in Phase 3; fetchers leave unset) */
+  context?: ChunkContext
   /** Lightweight metadata — NO body/content fields allowed */
   metadata: {
     provider: string

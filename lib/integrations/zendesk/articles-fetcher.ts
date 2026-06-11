@@ -39,6 +39,7 @@ export async function fetchZendeskArticles(
         title: article.title,
         content: `${article.title}\n\n${plainText}`,
         source_url: article.html_url,
+        shape: 'prose' as const,
         metadata: {
           provider: 'zendesk',
           resource_type: 'help_center_article',

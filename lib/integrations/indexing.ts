@@ -14,12 +14,13 @@
 
 import { createHash } from 'node:crypto'
 import { supabaseAdmin } from '@/lib/supabase/server'
-import type { FetchedChunk } from './base'
+import type { FetchedChunk, DataShape } from './base'
 import { isSkipSentinel } from './base'
 import { logger } from '@/lib/logger'
 import { embedBatchDetailed, type EmbeddingHint } from '@/lib/ai/embedding-factory'
 import { chunk as tokenChunk } from '@/lib/langgraph/tools/chunker'
 import { writeChunkText } from '@/lib/indexing/chunk-text-store'
+import { PIPELINE_SHAPE_ROUTING } from '@/lib/config/feature-flags'
 
 // ---- Constants --------------------------------------------------
 
@@ -143,41 +144,69 @@ function extractStructuredFields(meta: Record<string, unknown>): Record<string, 
 }
 
 /**
- * Routes to the correct chunker based on source type.
+ * Routes to the correct chunker based on DataShape (when PIPELINE_SHAPE_ROUTING is on)
+ * or legacy provider string (flag off / shape absent).
  *
- * Strategy | Trigger                         | Chunk size
- * ---------|-------------------------------- |-----------
- * record   | CRM + calendar                  | no split (whole record)
- * tabular  | data warehouse + BI             | 768 tok / 96 overlap
- * thread   | Slack, tickets, issues, PRs     | 768 tok / 128 overlap
- * email    | gmail, outlook                  | 2000 char / 200 overlap
- * document | everything else (default)       | 512 tok / 64 overlap
+ * Shape strategy | Shapes                          | Chunk size
+ * ---------------|-------------------------------- |-----------
+ * record         | record                          | no split (whole record)
+ * tabular        | tabular, bi_artifact            | 768 tok / 96 overlap
+ * thread         | thread, work_item               | 768 tok / 128 overlap
+ * email          | email                           | 2000 char / 200 overlap
+ * passthrough    | media                           | no split
+ * document       | prose, code (default)           | 512 tok / 64 overlap
  */
-export function chunkContent(content: string, sourceType?: string): string[] {
-  if (!sourceType) {
+export function chunkContent(content: string, shape?: DataShape, legacyProvider?: string): string[] {
+  if (PIPELINE_SHAPE_ROUTING && shape) {
+    switch (shape) {
+      case 'record':
+        if (content.length <= 3000) return [content]
+        return chunkEmail(content)
+      case 'tabular':
+      case 'bi_artifact':
+        if (content.length <= 4000) return [content]
+        return tokenChunk(content, { chunkSize: 768, overlap: 96 }).map((c) => c.text)
+      case 'email':
+        return chunkEmail(content)
+      case 'thread':
+      case 'work_item':
+        return tokenChunk(content, { chunkSize: 768, overlap: 128 }).map((c) => c.text)
+      case 'media':
+        return [content]
+      case 'prose':
+      case 'code':
+      default:
+        return tokenChunk(content, { chunkSize: 512, overlap: 64 }).map((c) => c.text)
+    }
+  }
+
+  // Legacy provider-string routing (flag off or no shape on chunk)
+  if (legacyProvider) {
+    logger.warn({ provider: legacyProvider }, '[indexing] legacy-routing')
+  }
+  if (!legacyProvider) {
     return tokenChunk(content, { chunkSize: 512, overlap: 64 }).map((c) => c.text)
   }
 
   // Structured records: each record is its own semantic unit — no splitting
-  if (RECORD_SOURCE_TYPES.has(sourceType)) {
+  if (RECORD_SOURCE_TYPES.has(legacyProvider)) {
     if (content.length <= 3000) return [content]
-    // Oversized record (unusual): fall back to email chunker which breaks on sentence boundaries
     return chunkEmail(content)
   }
 
   // Tabular/BI: fetchers already structure content; keep large chunks to preserve column context
-  if (TABULAR_SOURCE_TYPES.has(sourceType)) {
+  if (TABULAR_SOURCE_TYPES.has(legacyProvider)) {
     if (content.length <= 4000) return [content]
     return tokenChunk(content, { chunkSize: 768, overlap: 96 }).map((c) => c.text)
   }
 
   // Conversational threads: larger chunks + more overlap to keep thread context intact
-  if (THREAD_SOURCE_TYPES.has(sourceType)) {
+  if (THREAD_SOURCE_TYPES.has(legacyProvider)) {
     return tokenChunk(content, { chunkSize: 768, overlap: 128 }).map((c) => c.text)
   }
 
   // Email: character-based (short bodies, no tokenizer overhead needed)
-  if (EMAIL_SOURCE_TYPES.has(sourceType)) {
+  if (EMAIL_SOURCE_TYPES.has(legacyProvider)) {
     return chunkEmail(content)
   }
 
@@ -223,9 +252,10 @@ function normalizeContentTracked(content: string, title?: string): string {
   return normalized
 }
 
-/** Resolve the embedding hint from source type (only relevant for Google provider). */
-export function resolveEmbeddingHint(sourceType?: string): EmbeddingHint {
-  if (sourceType && RECORD_SOURCE_TYPES.has(sourceType)) return 'structured'
+/** Resolve the embedding hint from shape (flag on) or legacy provider string. */
+export function resolveEmbeddingHint(shape?: DataShape, legacyProvider?: string): EmbeddingHint {
+  if (PIPELINE_SHAPE_ROUTING && shape) return shape === 'record' ? 'structured' : 'document'
+  if (legacyProvider && RECORD_SOURCE_TYPES.has(legacyProvider)) return 'structured'
   return 'document'
 }
 
@@ -393,19 +423,18 @@ export async function indexDocument(
 
   // 1. Normalize then split content into type-appropriate chunks
   const normalizedContent = normalizeContentTracked(chunk.content, chunk.title)
-  const contentChunks = chunkContent(normalizedContent, chunk.metadata.provider)
+  const contentChunks = chunkContent(normalizedContent, chunk.shape, chunk.metadata.provider as string)
 
   if (contentChunks.length === 0) return documentId
 
   // 2. Generate embeddings for all chunks in a single batch (org-BYOK aware)
   const { embeddings, model: embeddingModel } = await generateEmbeddings(
-    contentChunks, orgId, resolveEmbeddingHint(chunk.metadata.provider as string)
+    contentChunks, orgId, resolveEmbeddingHint(chunk.shape, chunk.metadata.provider as string)
   )
 
   // 3. Build the records to upsert — must match document_embeddings schema exactly
-  const structuredFields = RECORD_SOURCE_TYPES.has(chunk.metadata.provider as string)
-    ? extractStructuredFields(chunk.metadata)
-    : null
+  const isRecord = PIPELINE_SHAPE_ROUTING ? chunk.shape === 'record' : RECORD_SOURCE_TYPES.has(chunk.metadata.provider as string)
+  const structuredFields = isRecord ? extractStructuredFields(chunk.metadata) : null
 
   const records = contentChunks.map((text, index) => {
     const meta = writeChunkText(chunk.metadata, text)
@@ -500,7 +529,7 @@ export async function indexDocuments(
         prepared.push({ chunk, documentId, subChunks: [] })
         continue
       }
-      const subChunks = chunkContent(normalizeContentTracked(chunk.content, chunk.title), chunk.metadata.provider)
+      const subChunks = chunkContent(normalizeContentTracked(chunk.content, chunk.title), chunk.shape, chunk.metadata.provider as string)
       if (subChunks.length > 0) {
         prepared.push({ chunk, documentId, subChunks })
       }
@@ -518,9 +547,8 @@ export async function indexDocuments(
   const changedItems = prepared.filter(item => item.subChunks.length > 0)
   const allTexts: string[] = changedItems.flatMap(item => item.subChunks)
   const allTemplates = changedItems.flatMap(item => {
-    const structuredFields = RECORD_SOURCE_TYPES.has(item.chunk.metadata.provider as string)
-      ? extractStructuredFields(item.chunk.metadata)
-      : null
+    const isRecord = PIPELINE_SHAPE_ROUTING ? item.chunk.shape === 'record' : RECORD_SOURCE_TYPES.has(item.chunk.metadata.provider as string)
+    const structuredFields = isRecord ? extractStructuredFields(item.chunk.metadata) : null
     return item.subChunks.map((text, index) => {
       const meta = writeChunkText(item.chunk.metadata, text)
       if (structuredFields) meta.structured_fields = structuredFields
@@ -544,7 +572,7 @@ export async function indexDocuments(
   // + drive + tabular in a single array), so the hint is resolved per item and texts
   // are embedded in per-hint groups. Row alignment is preserved by flat index.
   const flatHints: EmbeddingHint[] = changedItems.flatMap(item => {
-    const hint = resolveEmbeddingHint(item.chunk.metadata.provider as string)
+    const hint = resolveEmbeddingHint(item.chunk.shape, item.chunk.metadata.provider as string)
     return item.subChunks.map(() => hint)
   })
 

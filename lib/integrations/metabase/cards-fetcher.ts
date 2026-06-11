@@ -54,6 +54,7 @@ export async function fetchMetabaseContent(
         title: `Metabase: ${card.name}`,
         content: [card.description, sampleData].filter(Boolean).join('\n\n') || card.name,
         source_url: `${instanceUrl}/question/${card.id}`,
+        shape: 'bi_artifact' as const,
         metadata: {
           provider: 'metabase',
           resource_type: 'question',
@@ -76,6 +77,7 @@ export async function fetchMetabaseContent(
         title: `Metabase Dashboard: ${dash.name}`,
         content: dash.description ?? dash.name,
         source_url: `${instanceUrl}/dashboard/${dash.id}`,
+        shape: 'bi_artifact' as const,
         metadata: {
           provider: 'metabase',
           resource_type: 'dashboard',

@@ -222,6 +222,7 @@ export async function linearIssuesFetcher(
         title: `${issue.identifier}: ${issue.title}`,
         content: lines.join('\n'),
         source_url: issue.url,
+        shape: 'work_item' as const,
         metadata: {
           provider: 'linear',
           resource_type: 'issue',

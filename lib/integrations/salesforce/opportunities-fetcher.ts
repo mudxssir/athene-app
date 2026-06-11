@@ -65,6 +65,7 @@ export async function fetchSalesforceOpportunities(
           r.Description   ? `Description: ${r.Description}` : null,
         ].filter(Boolean).join('\n'),
         source_url: `${instanceUrl}/lightning/r/Opportunity/${r.Id}/view`,
+        shape: 'record' as const,
         metadata: {
           provider:      'salesforce',
           resource_type: 'opportunities',

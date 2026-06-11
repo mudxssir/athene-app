@@ -67,6 +67,7 @@ export async function githubWikiFetcher(
                 : fileTitle,
               content: slice,
               source_url: fileUrl,
+              shape: 'prose' as const,
               metadata: {
                 provider: 'github',
                 resource_type: 'markdown_file',

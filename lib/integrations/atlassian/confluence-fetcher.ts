@@ -65,6 +65,7 @@ export async function fetchConfluencePages(
         source_url: page._links?.webui
           ? `${wikiBase}${page._links.webui}`
           : `${wikiBase}/spaces/${page.spaceId}/pages/${page.id}`,
+        shape: 'prose' as const,
         metadata: {
           provider: "confluence",
           resource_type: "page",
@@ -125,6 +126,7 @@ export async function searchConfluencePages(
       source_url: page._links?.webui
         ? `${wikiBase}${page._links.webui}`
         : `${wikiBase}/spaces/${page.spaceId}/pages/${page.id}`,
+      shape: 'prose' as const,
       metadata: {
         provider: "confluence",
         resource_type: "page",

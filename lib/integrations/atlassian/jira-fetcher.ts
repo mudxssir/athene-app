@@ -124,6 +124,7 @@ export async function fetchJiraIssues(
         title: `[${issue.key}] ${issue.fields.summary}`,
         content: lines.join('\n'),
         source_url: `${cloudUrl}/browse/${issue.key}`,
+        shape: 'work_item' as const,
         metadata: {
           provider: "jira",
           resource_type: "issue",
@@ -185,6 +186,7 @@ export async function searchJiraIssues(
         issue.fields.assignee?.displayName ?? "Unassigned"
       }\n\n${description}`,
       source_url: `${cloudUrl}/browse/${issue.key}`,
+      shape: 'work_item' as const,
       metadata: {
         provider: "jira",
         resource_type: "issue",

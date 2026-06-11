@@ -63,6 +63,7 @@ export async function githubPrsFetcher(connectionId: string, orgId: string, owne
         title: pr.title,
         content: fullContent,
         source_url: pr.url,
+        shape: 'work_item' as const,
         metadata: {
           provider: 'github',
           resource_type: 'pull_request',

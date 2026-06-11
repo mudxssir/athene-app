@@ -57,6 +57,7 @@ export async function fetchDbtContent(
         title: `dbt Job: ${job.name}`,
         content: job.description || `dbt transformation job: ${job.name}`,
         source_url: `https://cloud.getdbt.com/deploy/${job.project_id}/jobs/${job.id}`,
+        shape: 'bi_artifact' as const,
         metadata: {
           provider: 'dbt',
           resource_type: 'job',
@@ -81,6 +82,7 @@ export async function fetchDbtContent(
         title: `dbt Run #${run.id} — ${run.status}`,
         content: `Job: ${run.job_definition?.name ?? String(run.job_id)}. Status: ${run.status}. Duration: ${duration}. Started: ${run.created_at}.`,
         source_url: `https://cloud.getdbt.com/runs/${run.id}`,
+        shape: 'bi_artifact' as const,
         metadata: {
           provider: 'dbt',
           resource_type: 'run',
@@ -111,6 +113,7 @@ export async function fetchDbtContent(
           `Schema: ${model.schema}`,
         ].filter(Boolean).join('\n'),
         source_url: `https://cloud.getdbt.com`,
+        shape: 'bi_artifact' as const,
         metadata: {
           provider: 'dbt',
           resource_type: 'model',

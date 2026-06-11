@@ -144,6 +144,7 @@ async function fetchWorkspaceContent(
           `Workspace: ${workspaceName}`,
         ].filter(Boolean).join('\n') || report.name,
         source_url: report.webUrl,
+        shape: 'bi_artifact' as const,
         metadata: chunkMetadata as any,
       })
     }
@@ -193,6 +194,7 @@ async function fetchWorkspaceContent(
           ? `Dataset: ${ds.name}\nWorkspace: ${workspaceName}\n\n${schemaContent}`
           : `Dataset: ${ds.name}\nWorkspace: ${workspaceName}`,
         source_url: `https://app.powerbi.com/groups/${groupId}/datasets/${ds.id}`,
+        shape: 'bi_artifact' as const,
         metadata: datasetMetadata as any,
       })
 
@@ -224,6 +226,7 @@ async function fetchWorkspaceContent(
               `DAX Expression: ${measure.expression}`,
             ].filter(Boolean).join('\n'),
             source_url: `https://app.powerbi.com/groups/${groupId}/datasets/${ds.id}`,
+            shape: 'bi_artifact' as const,
             metadata: measureMetadata as any,
           })
         }
@@ -260,6 +263,7 @@ async function fetchWorkspaceContent(
         title: `Power BI Dashboard: ${dash.displayName}`,
         content: `Dashboard: ${dash.displayName}\nWorkspace: ${workspaceName}`,
         source_url: dash.webUrl,
+        shape: 'bi_artifact' as const,
         metadata: dashboardMetadata as any,
       })
     }
@@ -296,6 +300,7 @@ async function fetchLegacyContent(
         title: `Power BI Report: ${report.name}`,
         content: report.description ?? report.name,
         source_url: report.webUrl,
+        shape: 'bi_artifact' as const,
         metadata: reportMetadata as any,
       })
     }
@@ -318,6 +323,7 @@ async function fetchLegacyContent(
         title: `Power BI Dataset: ${ds.name}`,
         content: `Dataset: ${ds.name}`,
         source_url: `https://app.powerbi.com/datasets/${ds.id}`,
+        shape: 'bi_artifact' as const,
         metadata: datasetMetadata as any,
       })
     }
@@ -340,6 +346,7 @@ async function fetchLegacyContent(
         title: `Power BI Dashboard: ${dash.displayName}`,
         content: `Dashboard: ${dash.displayName}`,
         source_url: dash.webUrl,
+        shape: 'bi_artifact' as const,
         metadata: dashboardMetadata as any,
       })
     }

@@ -52,6 +52,7 @@ export async function fetchHubSpotNotes(
           p.hs_note_body     ? `Body:\n${p.hs_note_body}`        : null,
         ].filter(Boolean).join('\n'),
         source_url: `https://app.hubspot.com/contacts/note/${record.id}`,
+        shape: 'prose' as const,
         metadata: {
           provider:    'hubspot',
           resource_type: 'notes',

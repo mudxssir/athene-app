@@ -68,6 +68,7 @@ export async function fetchHubSpotDeals(
           p.description ? `Description: ${p.description}` : null,
         ].filter(Boolean).join('\n'),
         source_url: `https://app.hubspot.com/contacts/deal/${record.id}`,
+        shape: 'record' as const,
         metadata: {
           provider:    'hubspot',
           resource_type: 'deals',

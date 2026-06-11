@@ -62,6 +62,7 @@ export async function fetchTableauWorkbooks(
       title: `Tableau: ${wb.name}`,
       content,
       source_url: wb.webpageUrl ?? `${session.serverUrl}/#/site/default/workbooks/${wb.id}`,
+      shape: 'bi_artifact' as const,
       metadata: {
         provider: 'tableau',
         resource_type: 'workbook',
@@ -102,6 +103,7 @@ export async function fetchTableauWorkbooks(
           title: `Tableau View: ${view.name} (${wb.name})`,
           content: baseContent + dataContent,
           source_url: `${session.serverUrl}/#/site/default/views/${view.contentUrl}`,
+          shape: 'bi_artifact' as const,
           metadata: {
             provider: 'tableau',
             resource_type: 'view',

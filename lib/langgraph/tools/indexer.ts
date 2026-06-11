@@ -24,7 +24,8 @@ import type { RLSContext } from "@/lib/supabase/rls-client";
 import {
   extractEntitiesAndRelations,
 } from "@/lib/knowledge-graph/extractor";
-import { shouldRunExtraction } from "@/lib/knowledge-graph/extraction-gate";
+import { shouldRunExtraction, extractionTier } from "@/lib/knowledge-graph/extraction-gate";
+import { PIPELINE_SHAPE_ROUTING } from "@/lib/config/feature-flags";
 import { deleteByDocument, upsertEdges, upsertNodes } from "@/lib/knowledge-graph/storage";
 import type { ExtractorChunk, Visibility } from "@/lib/knowledge-graph/types";
 import { chunk as chunkText, countTokens } from "./chunker";
@@ -44,6 +45,8 @@ export type IndexDocumentInput = {
   ownerUserId?: string | null;
   /** Passed through to document_embeddings.metadata — caller must not include body. */
   metadata?: Record<string, unknown>;
+  /** DataShape from FetchedChunk — used for shape-aware extraction tier when PIPELINE_SHAPE_ROUTING is on. */
+  shape?: import('@/lib/integrations/base').DataShape;
   /** When true, also build knowledge graph entries. Default true. */
   buildGraph?: boolean;
   /**
@@ -77,6 +80,7 @@ export async function indexDocument(
     visibility,
     ownerUserId = null,
     metadata = {},
+    shape,
     buildGraph = true,
     rlsContext,
   } = input;
@@ -203,10 +207,13 @@ export async function indexDocument(
   if (buildGraph && chunks.length > 0) {
     if (!rlsContext) {
       logger.warn({ documentId }, "[indexer] buildGraph requested but no rlsContext provided — skipping KG");
-    } else if (!shouldRunExtraction(sourceType, chunks.map((c) => c.text))) {
-      // Tier A/B gate (REFOCUS §5.3): Tier B sources (Slack) get embeddings
-      // only unless a decision/blocker signal pattern matches — no LLM call.
-      logger.info({ documentId, sourceType }, "[indexer] Tier B — no signal match, skipping KG extraction");
+    } else if (
+      PIPELINE_SHAPE_ROUTING && shape
+        ? extractionTier(shape, chunks.map((c) => c.text)) === 'C'
+        : !shouldRunExtraction(sourceType, chunks.map((c) => c.text))
+    ) {
+      // Shape-aware Tier C (flag on) or Tier B legacy gate: skip KG extraction.
+      logger.info({ documentId, sourceType, shape: shape ?? null }, "[indexer] Tier B/C — skipping KG extraction");
     } else {
       const extractorChunks: ExtractorChunk[] = chunks.map((c) => ({
         text: c.text,

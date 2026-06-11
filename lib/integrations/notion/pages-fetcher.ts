@@ -35,6 +35,7 @@ export async function fetchAllPages(connectionId: string, orgId: string, syncCon
         title,
         content,
         source_url: page.url,
+        shape: 'prose' as const,
         metadata: {
           provider: 'notion',
           resource_type: 'page',

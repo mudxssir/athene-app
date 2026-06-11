@@ -69,6 +69,7 @@ export async function fetchHubSpotCompanies(
           p.description    ? `Description: ${p.description}`       : null,
         ].filter(Boolean).join('\n'),
         source_url: `https://app.hubspot.com/contacts/company/${record.id}`,
+        shape: 'record' as const,
         metadata: {
           provider:    'hubspot',
           resource_type: 'companies',

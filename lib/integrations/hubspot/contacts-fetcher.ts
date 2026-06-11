@@ -67,6 +67,7 @@ export async function fetchHubSpotContacts(
           p.lifecyclestage ? `Lifecycle Stage: ${p.lifecyclestage}` : null,
         ].filter(Boolean).join('\n'),
         source_url: `https://app.hubspot.com/contacts/contact/${record.id}`,
+        shape: 'record' as const,
         metadata: {
           provider:    'hubspot',
           resource_type: 'contacts',

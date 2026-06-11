@@ -57,6 +57,7 @@ export async function fetchSalesforceContacts(
           r.Owner?.Name    ? `Owner: ${r.Owner.Name}`          : null,
         ].filter(Boolean).join('\n'),
         source_url: `${instanceUrl}/lightning/r/Contact/${r.Id}/view`,
+        shape: 'record' as const,
         metadata: {
           provider:      'salesforce',
           resource_type: 'contact',

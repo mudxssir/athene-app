@@ -118,6 +118,7 @@ async function fetchChannelMessages(
       title: `#${channelName}: ${msg.text.slice(0, 60)}${msg.text.length > 60 ? '...' : ''}`,
       content,
       source_url: `https://${workspaceDomain}.slack.com/archives/${channelId}/p${ts.replace('.', '')}`,
+      shape: 'thread' as const,
       metadata: {
         provider: 'slack',
         resource_type: 'channel_message',

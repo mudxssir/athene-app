@@ -230,6 +230,7 @@ export function gmailMetadataToChunk(msg: GmailMessageMetadata): FetchedChunk {
     title: subject,
     content: msg.snippet,
     source_url: `https://mail.google.com/mail/u/0/#inbox/${msg.id}`,
+    shape: 'email' as const,
     metadata,
   }
 }
@@ -343,6 +344,7 @@ export async function indexEmailChunks(
               title: headers.subject || '(no subject)',
               content: slice,
               source_url: `https://mail.google.com/mail/u/0/#inbox/${msg.id}`,
+              shape: 'email' as const,
               metadata,
             })
             offset += CHUNK_SIZE - CHUNK_OVERLAP

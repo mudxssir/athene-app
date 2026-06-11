@@ -181,6 +181,7 @@ export function calendarEventToChunk(event: CalendarEvent): FetchedChunk {
     title: event.summary,
     content,
     source_url: event.htmlLink || `https://calendar.google.com/calendar/event?eid=${event.id}`,
+    shape: 'record' as const,
     metadata,
   }
 }

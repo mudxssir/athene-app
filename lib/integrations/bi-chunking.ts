@@ -169,6 +169,7 @@ export function buildStatsChunk(
     title: `${provider.toUpperCase()}: ${tableFullName} — Schema & Statistics`,
     content,
     source_url: sourceUrl,
+    shape: 'tabular' as const,
     metadata: {
       provider,
       resource_type: 'table_stats',
@@ -191,6 +192,7 @@ export function buildSampleChunk(
       title: `${provider.toUpperCase()}: ${tableFullName} — Sample Rows`,
       content: `Table ${tableFullName} — no rows returned`,
       source_url: sourceUrl,
+      shape: 'tabular' as const,
       metadata: { provider, resource_type: 'table_sample', table: tableFullName },
     }
   }
@@ -226,6 +228,7 @@ export function buildSampleChunk(
     title: `${provider.toUpperCase()}: ${tableFullName} — Sample Rows`,
     content,
     source_url: sourceUrl,
+    shape: 'tabular' as const,
     metadata: { provider, resource_type: 'table_sample', table: tableFullName },
   }
 }
@@ -242,6 +245,7 @@ export function buildAggregationChunk(
       title: `${provider.toUpperCase()}: ${tableFullName} — Aggregations`,
       content: `Table ${tableFullName} — no aggregations available`,
       source_url: sourceUrl,
+      shape: 'tabular' as const,
       metadata: { provider, resource_type: 'table_aggregations', table: tableFullName },
     }
   }
@@ -260,6 +264,7 @@ export function buildAggregationChunk(
     title: `${provider.toUpperCase()}: ${tableFullName} — Aggregations`,
     content: lines.join('\n'),
     source_url: sourceUrl,
+    shape: 'tabular' as const,
     metadata: { provider, resource_type: 'table_aggregations', table: tableFullName },
   }
 }

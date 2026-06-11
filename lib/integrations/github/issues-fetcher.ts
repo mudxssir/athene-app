@@ -46,6 +46,7 @@ export async function githubIssuesFetcher(connectionId: string, orgId: string, o
         title: issue.title,
         content: fullContent,
         source_url: issue.url,
+        shape: 'work_item' as const,
         metadata: {
           provider: 'github',
           resource_type: 'issue',

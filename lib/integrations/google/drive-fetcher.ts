@@ -294,6 +294,7 @@ export function driveFileToChunk(file: DriveFile, content: string, folderPath: s
     title: file.name,
     content,
     source_url: file.webViewLink || `https://drive.google.com/file/d/${file.id}`,
+    shape: 'prose' as const,
     metadata,
   }
 }

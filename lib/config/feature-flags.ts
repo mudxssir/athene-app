@@ -13,3 +13,11 @@
  * Default OFF. Set WRITE_ACTIONS_ENABLED=true to unfreeze.
  */
 export const WRITE_ACTIONS_ENABLED = process.env.WRITE_ACTIONS_ENABLED === "true";
+
+/**
+ * P1: Shape-based routing replaces five provider-string Sets in the indexing
+ * pipeline (fixes audit D1/D3/D9/D10). Default OFF — legacy provider-string
+ * routing remains active until the flag is flipped per-org on pilot.
+ * Set PIPELINE_SHAPE_ROUTING=true to activate.
+ */
+export const PIPELINE_SHAPE_ROUTING = process.env.PIPELINE_SHAPE_ROUTING === "true";
