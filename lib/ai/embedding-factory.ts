@@ -421,6 +421,93 @@ export async function logEmbeddingProviderInfo(orgId?: string): Promise<void> {
   }
 }
 
+// ---- Pinned-model helpers (P1-13) --------------------------------------
+
+/**
+ * Returns the org's pinned embedding model name from the organizations table.
+ * Falls back to 'jina-embeddings-v3' if the row is not found or the column
+ * is null (pre-migration rows).
+ */
+export async function fetchOrgPinnedModel(orgId: string): Promise<string> {
+  try {
+    const { data } = await supabaseAdmin
+      .from('organizations')
+      .select('embedding_model_pinned')
+      .eq('id', orgId)
+      .single()
+    return (data as { embedding_model_pinned?: string })?.embedding_model_pinned
+      ?? 'jina-embeddings-v3'
+  } catch {
+    return 'jina-embeddings-v3'
+  }
+}
+
+/**
+ * Resolves an EmbeddingConfig for the org's pinned model only.
+ * Does NOT build a fallback chain — caller gets exactly one config or null.
+ */
+async function resolvePinnedConfig(orgId: string): Promise<EmbeddingConfig | null> {
+  // BYOK always takes precedence over the pinned system model
+  const byok = await fetchByokEmbeddingConfig(orgId).catch(() => null)
+  if (byok) return byok
+
+  const model = await fetchOrgPinnedModel(orgId)
+
+  // Map pinned model name → system provider config
+  if ((model === 'jina-embeddings-v3' || model.startsWith('jina-')) && process.env.JINA_API_KEY) {
+    return { provider: 'jina', model, dims: EMBEDDING_DIMS, apiKey: process.env.JINA_API_KEY }
+  }
+  if ((model === 'text-embedding-004' || model.startsWith('text-embedding-')) && process.env.GOOGLE_API_KEY) {
+    return { provider: 'google', model, dims: EMBEDDING_DIMS, apiKey: process.env.GOOGLE_API_KEY }
+  }
+  if ((model === 'nomic-embed-text-v1.5' || model.startsWith('nomic-')) && process.env.NOMIC_API_KEY) {
+    return { provider: 'nomic', model, dims: EMBEDDING_DIMS, apiKey: process.env.NOMIC_API_KEY!, baseUrl: 'https://api-atlas.nomic.ai/v1' }
+  }
+  if (model === 'bge-base-en-v1.5-local') {
+    return null // signals: use local BGE (caller checks for null)
+  }
+
+  // System default: Jina
+  if (process.env.JINA_API_KEY) {
+    return { provider: 'jina', model: 'jina-embeddings-v3', dims: EMBEDDING_DIMS, apiKey: process.env.JINA_API_KEY }
+  }
+  return null
+}
+
+/**
+ * P1-13: Pinned-model variant of embedBatchDetailed.
+ *
+ * When PIPELINE_SHAPE_ROUTING is enabled, this replaces the multi-provider
+ * fallback chain. Only the org's pinned model is used. If it fails (after
+ * MAX_PROVIDER_RETRIES retries), this throws — the caller (indexing.ts) is
+ * responsible for writing null-embedding placeholder rows and enqueueing
+ * the embed-retry QStash job.
+ *
+ * Exception: if embedding_model_pinned = 'bge-base-en-v1.5-local', the local
+ * Xenova pipeline is used (sovereignty lane, no API key required).
+ */
+export async function embedBatchPinned(
+  texts: string[],
+  orgId: string,
+  hint?: EmbeddingHint,
+  lateChunking = false,
+): Promise<EmbedDetailedResult> {
+  if (texts.length === 0) return { embeddings: [], model: 'none', provider: 'none' }
+
+  const config = await resolvePinnedConfig(orgId)
+
+  if (!config) {
+    // Pinned to local BGE — use Xenova (no fallback allowed; fail if unavailable)
+    const embeddings = await embedWithLocal(texts)
+    if (embeddings.length > 0) assertDims(embeddings[0])
+    return { embeddings, model: LOCAL_MODEL_ID, provider: 'local' }
+  }
+
+  const embeddings = await callProviderWithRetry(texts, config, hint, lateChunking)
+  if (embeddings.length > 0) assertDims(embeddings[0])
+  return { embeddings, model: config.model, provider: config.provider }
+}
+
 // ---- Public API --------------------------------------------------------
 
 /** Embed a single text string. Uses org BYOK if orgId provided. */

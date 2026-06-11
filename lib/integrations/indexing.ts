@@ -17,12 +17,13 @@ import { supabaseAdmin } from '@/lib/supabase/server'
 import type { FetchedChunk, DataShape } from './base'
 import { isSkipSentinel } from './base'
 import { logger } from '@/lib/logger'
-import { embedBatchDetailed, embedBatchLateChunking, type EmbeddingHint } from '@/lib/ai/embedding-factory'
+import { embedBatchDetailed, embedBatchLateChunking, embedBatchPinned, type EmbeddingHint } from '@/lib/ai/embedding-factory'
 import { chunk as tokenChunk } from '@/lib/langgraph/tools/chunker'
 import { writeChunkText } from '@/lib/indexing/chunk-text-store'
 import { PIPELINE_SHAPE_ROUTING } from '@/lib/config/feature-flags'
 import { computeSignals, selectStrategy, MIN_TOKENS, MAX_CHUNKS_PER_DOC } from '@/lib/indexing/chunk-policy'
 import { splitByHeadings, splitFenceAtomic, groupIntoParents } from '@/lib/indexing/structural-chunker'
+import { qstash } from '@/lib/qstash/client'
 
 // ---- Constants --------------------------------------------------
 
@@ -236,11 +237,14 @@ export function chunkContent(content: string, shape?: DataShape, legacyProvider?
 
 /**
  * Generates embeddings for the given texts via the EmbeddingFactory.
- * Provider resolved from: org BYOK → system env.
- * Hint lets the Google/Jina providers select the optimal task type.
- * Returns the model id alongside the vectors so rows carry provenance (P0-3).
- * When lateChunking=true and the active provider is Jina, uses late_chunking API
- * (P1-9) so each chunk is contextualized by its siblings within the same document.
+ *
+ * P1-13 pinned path (PIPELINE_SHAPE_ROUTING ON + orgId present):
+ *   Uses only the org's pinned model (embedBatchPinned). Throws if the pinned
+ *   provider fails — caller is responsible for writing null-embedding rows and
+ *   enqueueing embed-retry (no silent cross-model fallback).
+ *
+ * Legacy path (flag OFF or no orgId):
+ *   Multi-provider fallback chain as before.
  */
 async function generateEmbeddings(
   texts: string[],
@@ -248,6 +252,11 @@ async function generateEmbeddings(
   hint?: EmbeddingHint,
   lateChunking = false,
 ): Promise<{ embeddings: number[][]; model: string }> {
+  if (PIPELINE_SHAPE_ROUTING && orgId) {
+    // Pinned path — throws on provider failure (no cross-model fallback)
+    const { embeddings, model } = await embedBatchPinned(texts, orgId, hint, lateChunking)
+    return { embeddings, model }
+  }
   const fn = lateChunking ? embedBatchLateChunking : embedBatchDetailed
   const { embeddings, model } = await fn(texts, orgId, hint)
   return { embeddings, model }
@@ -552,9 +561,31 @@ export async function indexDocument(
   const useLateChunking = PIPELINE_SHAPE_ROUTING && !!chunk.shape && LATE_CHUNKING_SHAPES.has(chunk.shape) && contentChunks.length > 1
 
   // 2. Generate embeddings for all chunks in a single batch (org-BYOK aware)
-  const { embeddings, model: embeddingModel } = await generateEmbeddings(
-    contentChunks, orgId, hint, useLateChunking
-  )
+  // P1-13: when PIPELINE_SHAPE_ROUTING is ON, generateEmbeddings uses the pinned model
+  // and throws on provider failure (no cross-model fallback). We catch here and write
+  // null-embedding placeholder rows so the document is not lost, then enqueue embed-retry.
+  let embeddings: number[][] = []
+  let embeddingModel = ''
+  let needsRetry = false
+
+  try {
+    const result = await generateEmbeddings(contentChunks, orgId, hint, useLateChunking)
+    embeddings = result.embeddings
+    embeddingModel = result.model
+  } catch (embErr) {
+    if (PIPELINE_SHAPE_ROUTING && orgId) {
+      // Write placeholder rows with needs_embedding=true; retry worker fills them in.
+      logger.warn(
+        { title: chunk.title, err: embErr instanceof Error ? embErr.message : String(embErr) },
+        '[indexing] Pinned provider failed — writing null-embedding placeholders, enqueueing embed-retry'
+      )
+      needsRetry = true
+      embeddings = contentChunks.map(() => [])
+      embeddingModel = ''
+    } else {
+      throw embErr
+    }
+  }
 
   // 3. Build the records to upsert — must match document_embeddings schema exactly
   const records = contentChunks.map((text, index) => {
@@ -568,10 +599,11 @@ export async function indexDocument(
       source_type: chunk.metadata.provider,
       visibility,
       chunk_index: index,
-      embedding: embeddings[index],
-      embedding_model: embeddingModel,
+      embedding: needsRetry ? null : (embeddings[index] ?? null),
+      embedding_model: needsRetry ? null : (embeddingModel || null),
       pipeline_version: PIPELINE_VERSION,
       parent_chunk_index: null,
+      needs_embedding: needsRetry,
       content_hash: createHash('sha256').update(text).digest('hex'),
       content_preview: text.slice(0, 200),
       metadata: meta,
@@ -587,6 +619,20 @@ export async function indexDocument(
   if (error) {
     logger.error({ title: chunk.title, err: error.message }, '[indexing] Error upserting chunks')
     throw error
+  }
+
+  // P1-13: enqueue embed-retry job for placeholder rows
+  if (needsRetry && orgId) {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL
+    if (appUrl) {
+      const idempotencyKey = `org:embed-retry:${documentId}`
+      qstash.publishJSON({
+        url: `${appUrl}/api/worker/embed-retry`,
+        body: { org_id: orgId, document_id: documentId },
+        retries: 3,
+        deduplicationId: idempotencyKey,
+      }).catch(err => logger.warn({ err: err instanceof Error ? err.message : String(err), documentId }, '[indexing] Failed to enqueue embed-retry job (non-fatal)'))
+    }
   }
 
   // 5. Prune stale chunks — if the document shrank, delete high-index rows that are no longer valid.
