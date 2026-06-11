@@ -14,7 +14,7 @@ _Branch: `pipeline/p0-stop-the-bleeding` · Flag(s): none (P0 is patch-level) ·
 | P0-5b | Admin sync-health UI row for skip counts (endpoint shipped; UI pending) | todo | XS | P0-5 |
 | P0-6 | `chunk-text-store.ts` encrypt-capable helper + refactor readers/writers | done (`9ba3b18`) | M | — |
 | P0-7 | Fallback-activation + normalize-strip telemetry | done (`58b26e6`, `5fc9fda`) | S | P0-3 |
-| P0-8 | Eval harness + per-shape golden sets + recorded baselines | todo | L | P0-1..P0-5 |
+| P0-8 | Eval harness + per-shape golden sets + recorded baselines | done (`a8491b4`) | L | P0-1..P0-5 |
 
 **Session notes (2026-06-11):**
 - Migration version collision found and fixed: `20260611000001` was already taken by
