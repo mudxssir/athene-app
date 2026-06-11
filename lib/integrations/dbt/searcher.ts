@@ -20,6 +20,7 @@ export async function dbtSearch(connectionId: string, orgId: string, query: stri
           title: `dbt Job: ${job.name}`,
           content: job.description || job.name,
           source_url: `https://cloud.getdbt.com/deploy/${job.project_id}/jobs/${job.id}`,
+          shape: 'bi_artifact' as const,
           metadata: { provider: 'dbt', resource_type: 'job', job_id: String(job.id) },
         })
       }
@@ -37,6 +38,7 @@ export async function dbtSearch(connectionId: string, orgId: string, query: stri
         title: `dbt Model: ${model.name}`,
         content: model.description || `dbt model: ${model.name}`,
         source_url: `https://cloud.getdbt.com`,
+        shape: 'bi_artifact' as const,
         metadata: { provider: 'dbt', resource_type: 'model', model_name: model.name },
       })
     }

@@ -44,6 +44,7 @@ export async function bigquerySearch(connectionId: string, orgId: string, query:
               title: `BigQuery result: ${datasetId}.${tableId}`,
               content,
               source_url: `https://console.cloud.google.com/bigquery?project=${projectId}&p=${projectId}&d=${datasetId}&t=${tableId}&page=table`,
+              shape: 'tabular' as const,
               metadata: {
                 provider: 'bigquery',
                 resource_type: 'search_result',

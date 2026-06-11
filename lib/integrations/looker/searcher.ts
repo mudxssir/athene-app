@@ -15,6 +15,7 @@ export async function lookerSearch(connectionId: string, orgId: string, query: s
         title: `Looker Look: ${look.title}`,
         content: look.description ?? look.title,
         source_url: `${instanceUrl}/looks/${look.id}`,
+        shape: 'bi_artifact' as const,
         metadata: { provider: 'looker', resource_type: 'look', look_id: String(look.id) },
       })
     }
@@ -30,6 +31,7 @@ export async function lookerSearch(connectionId: string, orgId: string, query: s
         title: `Looker Dashboard: ${dash.title}`,
         content: dash.description ?? dash.title,
         source_url: `${instanceUrl}/dashboards/${dash.id}`,
+        shape: 'bi_artifact' as const,
         metadata: { provider: 'looker', resource_type: 'dashboard', dashboard_id: String(dash.id) },
       })
     }

@@ -16,6 +16,7 @@ export async function tableauSearch(connectionId: string, orgId: string, query: 
         title: `Tableau: ${wb.name}`,
         content: wb.description ?? wb.name,
         source_url: wb.webpageUrl ?? `${session.serverUrl}/#/workbooks/${wb.id}`,
+        shape: 'bi_artifact' as const,
         metadata: { provider: 'tableau', resource_type: 'workbook', workbook_id: wb.id },
       })
     }
@@ -32,6 +33,7 @@ export async function tableauSearch(connectionId: string, orgId: string, query: 
         title: `Tableau View: ${view.name}`,
         content: view.name,
         source_url: `${session.serverUrl}/#/views/${view.contentUrl}`,
+        shape: 'bi_artifact' as const,
         metadata: { provider: 'tableau', resource_type: 'view', view_id: view.id },
       })
     }

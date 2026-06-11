@@ -29,8 +29,8 @@ import { execSync } from 'node:child_process'
 // imports hoist above loadEnv() and the supabase module asserts env at import.
 type Pipeline = {
   normalizeContent: (c: string) => string
-  chunkContent: (c: string, sourceType?: string) => string[]
-  resolveEmbeddingHint: (sourceType?: string) => 'document' | 'structured' | 'query'
+  chunkContent: (c: string, shape?: import('@/lib/integrations/base').DataShape, legacyProvider?: string) => string[]
+  resolveEmbeddingHint: (shape?: import('@/lib/integrations/base').DataShape, legacyProvider?: string) => 'document' | 'structured' | 'query'
   embedBatchDetailed: (
     texts: string[], orgId?: string, hint?: 'document' | 'structured' | 'query'
   ) => Promise<{ embeddings: number[][]; model: string; provider: string }>
@@ -100,7 +100,7 @@ async function evalShape(fixture: Fixture): Promise<ShapeResult> {
   const chunkTexts: string[] = []
   const chunkDocIds: string[] = []
   for (const doc of fixture.documents) {
-    const chunks = pipe.chunkContent(pipe.normalizeContent(doc.content), fixture.provider)
+    const chunks = pipe.chunkContent(pipe.normalizeContent(doc.content), undefined, fixture.provider)
     for (const c of chunks) {
       chunkTexts.push(c)
       chunkDocIds.push(doc.id)
@@ -108,7 +108,7 @@ async function evalShape(fixture: Fixture): Promise<ShapeResult> {
   }
 
   // 2. Embed chunks (index-side hint) and queries (query hint)
-  const indexHint = pipe.resolveEmbeddingHint(fixture.provider)
+  const indexHint = pipe.resolveEmbeddingHint(undefined, fixture.provider)
   const chunkVecs = await embedAll(chunkTexts, indexHint)
   const queryVecs = await embedAll(fixture.queries.map((q) => q.query), 'query')
 

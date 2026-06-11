@@ -254,6 +254,7 @@ export async function tabularChunksFromParsed(
           title: `${title}${tables.length > 1 ? ` — ${tableName}` : ''} — Analysis`,
           content: analysis,
           source_url: sourceUrl,
+          shape: 'bi_artifact' as const,
           metadata: { provider, resource_type: 'spreadsheet_analysis' },
         })
       }

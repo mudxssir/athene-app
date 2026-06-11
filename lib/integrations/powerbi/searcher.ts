@@ -19,6 +19,7 @@ export async function powerbiSearch(connectionId: string, orgId: string, query: 
           title: `Power BI Report: ${report.name}`,
           content: report.description ?? report.name,
           source_url: report.webUrl,
+          shape: 'bi_artifact' as const,
           metadata: { provider: 'powerbi', resource_type: 'report', report_id: report.id },
         })
       }
@@ -37,6 +38,7 @@ export async function powerbiSearch(connectionId: string, orgId: string, query: 
           title: `Power BI Dataset: ${ds.name}`,
           content: `Dataset: ${ds.name}`,
           source_url: `https://app.powerbi.com/datasets/${ds.id}`,
+          shape: 'bi_artifact' as const,
           metadata: { provider: 'powerbi', resource_type: 'dataset', dataset_id: ds.id },
         })
       }

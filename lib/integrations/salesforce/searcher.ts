@@ -63,6 +63,7 @@ export async function salesforceSearch(
         title:       rec.Name ?? rec.Subject ?? rec.Id,
         content:     rec.Name ?? rec.Subject ?? rec.Id, // fallback for content
         source_url:         `${baseUrl}/lightning/r/${rec.attributes.type}/${rec.Id}/view`,
+        shape: 'record' as const,
         metadata: {
           provider: 'salesforce',
           resource_type: resourceType,

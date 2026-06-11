@@ -18,10 +18,11 @@ export async function microsoftSearch(connectionId: string, orgId: string, query
           title: `Email: ${email.subject}`,
           content: `From: ${email.from?.emailAddress?.name || 'Unknown'}\nDate: ${email.receivedDateTime}\n\n${email.bodyPreview}`,
           source_url: email.webLink,
-          metadata: { 
+          shape: 'email' as const,
+          metadata: {
             provider: 'microsoft',
             resource_type: 'email',
-            id: email.id 
+            id: email.id
           }
         })
       }
@@ -37,10 +38,11 @@ export async function microsoftSearch(connectionId: string, orgId: string, query
           title: `Event: ${event.subject}`,
           content: `Time: ${event.start?.dateTime} to ${event.end?.dateTime}\nLocation: ${event.location?.displayName || 'N/A'}\n\n${event.bodyPreview || ''}`,
           source_url: event.webLink,
-          metadata: { 
+          shape: 'record' as const,
+          metadata: {
             provider: 'microsoft',
             resource_type: 'event',
-            id: event.id 
+            id: event.id
           }
         })
       }

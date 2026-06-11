@@ -18,6 +18,7 @@ export async function metabaseSearch(connectionId: string, orgId: string, query:
         title: `Metabase ${isCard ? 'Question' : 'Dashboard'}: ${item.name}`,
         content: item.description ?? item.name,
         source_url: `${instanceUrl}/${isCard ? 'question' : 'dashboard'}/${item.id}`,
+        shape: 'bi_artifact' as const,
         metadata: {
           provider: 'metabase',
           resource_type: item.model,

@@ -49,7 +49,8 @@ export async function snowflakeSearch(connectionId: string, orgId: string, query
           title: `Result from ${tableName}`,
           content: content,
           source_url: `snowflake://${tableFullName}`,
-          metadata: { 
+          shape: 'tabular' as const,
+          metadata: {
             provider: 'snowflake',
             resource_type: 'search_result',
             table: tableFullName 

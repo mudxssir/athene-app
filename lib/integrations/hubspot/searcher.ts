@@ -64,6 +64,7 @@ export async function hubspotSearch(
           title,
           content: p['description'] ?? p['hs_note_body']?.slice(0, 200) ?? title,
           source_url: `https://app.hubspot.com/contacts/${singularType}/${rec.id}`,
+          shape: 'record' as const,
           metadata: {
             provider: 'hubspot',
             resource_type: resourceType,

@@ -141,6 +141,7 @@ export async function POST(req: NextRequest) {
       title,
       content,
       source_url: `https://test.athene.local/${tag}`,
+      shape: 'prose' as const,
       metadata: {
         provider: "test",
         resource_type: "test_document",

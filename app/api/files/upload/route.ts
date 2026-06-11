@@ -251,6 +251,7 @@ export async function POST(req: NextRequest) {
                 title: file.name,
                 content: text,
                 source_url: storagePath,
+                shape: 'prose' as const,
                 metadata: {
                   provider: "direct_upload",
                   resource_type: ext.toLowerCase(),

@@ -24,6 +24,7 @@ export async function notionSearch(connectionId: string, orgId: string, query: s
       title: getPageTitle(page),
       content,
       source_url: page.url,
+      shape: 'prose' as const,
       metadata: {
         provider: 'notion',
         resource_type: 'page',

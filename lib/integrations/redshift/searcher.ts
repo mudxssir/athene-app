@@ -37,6 +37,7 @@ export async function redshiftSearch(connectionId: string, orgId: string, query:
           title: `Redshift result: ${tableName}`,
           content,
           source_url: `redshift://${creds.clusterId}/${creds.database}/${tableFullName}`,
+          shape: 'tabular' as const,
           metadata: {
             provider: 'redshift',
             resource_type: 'search_result',
