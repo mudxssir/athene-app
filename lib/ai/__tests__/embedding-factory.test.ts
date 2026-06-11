@@ -44,11 +44,13 @@ vi.mock("@/lib/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
-// Mock the OpenAI SDK (used by BYOK path and Together/Nomic compat)
+// Mock the OpenAI SDK (used by BYOK path and Together/Nomic compat).
+// Must be a real class — the factory calls `new OpenAI(...)`, and an
+// arrow-function mockImplementation is not constructible.
 vi.mock("openai", () => ({
-  default: vi.fn().mockImplementation(() => ({
-    embeddings: { create: openaiCreateMock },
-  })),
+  default: class FakeOpenAI {
+    embeddings = { create: openaiCreateMock };
+  },
 }));
 
 // Replace global fetch (used by Jina provider)
@@ -327,4 +329,48 @@ describe("Jina task type per hint (P0-2)", () => {
     await embed("indexed chunk text", undefined, "document");
     expect(lastJinaBody().task).toBe("retrieval.passage");
   });
+});
+
+// ─── P0-7: fallback activation telemetry ─────────────────────────────────────
+
+import { logger } from "@/lib/logger";
+
+describe("fallback activation telemetry (P0-7)", () => {
+  const ENV_KEYS = ["JINA_API_KEY", "TOGETHER_API_KEY", "NOMIC_API_KEY", "GOOGLE_API_KEY"];
+  const savedEnv: Record<string, string | undefined> = {};
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    ENV_KEYS.forEach((k) => { savedEnv[k] = process.env[k]; delete process.env[k]; });
+    process.env.JINA_API_KEY = "jina-primary-key";
+    process.env.TOGETHER_API_KEY = "together-fallback-key";
+    rpcMock.mockResolvedValue({ data: [], error: null }); // no BYOK
+  });
+
+  afterEach(() => {
+    ENV_KEYS.forEach((k) => {
+      if (savedEnv[k] !== undefined) process.env[k] = savedEnv[k];
+      else delete process.env[k];
+    });
+  });
+
+  it("warns FALLBACK ACTIVATED when a batch is embedded by a non-primary model", async () => {
+    // Primary (Jina, fetch-based) fails every retry; Together (OpenAI-compat) succeeds
+    fetchMock.mockRejectedValue(new Error("jina down"));
+    openaiCreateMock.mockResolvedValue({
+      data: [{ embedding: ZERO_VEC, index: 0 }],
+    });
+
+    const result = await embed("fallback telemetry probe");
+    expect(result).toHaveLength(EMBEDDING_DIMS);
+
+    const fallbackWarns = (logger.warn as ReturnType<typeof vi.fn>).mock.calls.filter(
+      (c) => typeof c[1] === "string" && c[1].includes("FALLBACK ACTIVATED")
+    );
+    expect(fallbackWarns).toHaveLength(1);
+    expect(fallbackWarns[0][0]).toMatchObject({
+      usedProvider: "together",
+      primaryProvider: "jina",
+    });
+  }, 15000);
 });
