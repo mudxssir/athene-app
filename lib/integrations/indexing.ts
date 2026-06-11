@@ -17,10 +17,12 @@ import { supabaseAdmin } from '@/lib/supabase/server'
 import type { FetchedChunk, DataShape } from './base'
 import { isSkipSentinel } from './base'
 import { logger } from '@/lib/logger'
-import { embedBatchDetailed, type EmbeddingHint } from '@/lib/ai/embedding-factory'
+import { embedBatchDetailed, embedBatchLateChunking, type EmbeddingHint } from '@/lib/ai/embedding-factory'
 import { chunk as tokenChunk } from '@/lib/langgraph/tools/chunker'
 import { writeChunkText } from '@/lib/indexing/chunk-text-store'
 import { PIPELINE_SHAPE_ROUTING } from '@/lib/config/feature-flags'
+import { computeSignals, selectStrategy, MIN_TOKENS, MAX_CHUNKS_PER_DOC } from '@/lib/indexing/chunk-policy'
+import { splitByHeadings, splitFenceAtomic, groupIntoParents } from '@/lib/indexing/structural-chunker'
 
 // ---- Constants --------------------------------------------------
 
@@ -65,6 +67,13 @@ const TABULAR_SOURCE_TYPES = new Set([
 const THREAD_SOURCE_TYPES = new Set([
   'slack', 'zendesk', 'jira', 'linear', 'github',
 ])
+
+/**
+ * P1-9: shapes where Jina late chunking improves quality.
+ * Children of the same document are batched in one API call with late_chunking:true
+ * so each child's embedding is conditioned on the full sibling context.
+ */
+const LATE_CHUNKING_SHAPES = new Set<DataShape>(['prose', 'email', 'thread', 'work_item'])
 
 /** CRM / structured field keys worth promoting to filterable metadata */
 const STRUCTURED_FIELD_KEYS = [
@@ -144,39 +153,48 @@ function extractStructuredFields(meta: Record<string, unknown>): Record<string, 
 }
 
 /**
- * Routes to the correct chunker based on DataShape (when PIPELINE_SHAPE_ROUTING is on)
- * or legacy provider string (flag off / shape absent).
+ * Routes to the correct chunker based on DataShape and the dynamic chunk-policy
+ * engine (P1-5/P1-6) when PIPELINE_SHAPE_ROUTING is on.
  *
- * Shape strategy | Shapes                          | Chunk size
- * ---------------|-------------------------------- |-----------
- * record         | record                          | no split (whole record)
- * tabular        | tabular, bi_artifact            | 768 tok / 96 overlap
- * thread         | thread, work_item               | 768 tok / 128 overlap
- * email          | email                           | 2000 char / 200 overlap
- * passthrough    | media                           | no split
- * document       | prose, code (default)           | 512 tok / 64 overlap
+ * Policy engine dispatch (flag ON):
+ *   computeSignals → selectStrategy → execute plan:
+ *     passthrough   — whole content as single chunk (below noSplitCeiling)
+ *     structural    — markdown heading-tree splitting with breadcrumb trails
+ *     fence-atomic  — token windows, code fences treated as atomic units
+ *     token         — fixed-window token chunker with plan's budget and overlap
+ *
+ * Legacy fallback (flag OFF or shape absent):
+ *   Provider-string dispatch retained from P1-3; logs [indexing] legacy-routing.
  */
 export function chunkContent(content: string, shape?: DataShape, legacyProvider?: string): string[] {
   if (PIPELINE_SHAPE_ROUTING && shape) {
-    switch (shape) {
-      case 'record':
-        if (content.length <= 3000) return [content]
-        return chunkEmail(content)
-      case 'tabular':
-      case 'bi_artifact':
-        if (content.length <= 4000) return [content]
-        return tokenChunk(content, { chunkSize: 768, overlap: 96 }).map((c) => c.text)
-      case 'email':
-        return chunkEmail(content)
-      case 'thread':
-      case 'work_item':
-        return tokenChunk(content, { chunkSize: 768, overlap: 128 }).map((c) => c.text)
-      case 'media':
+    const signals = computeSignals(content)
+    const plan = selectStrategy(shape, signals)
+
+    switch (plan.strategy) {
+      case 'passthrough':
         return [content]
-      case 'prose':
-      case 'code':
-      default:
-        return tokenChunk(content, { chunkSize: 512, overlap: 64 }).map((c) => c.text)
+
+      case 'structural': {
+        const sections = splitByHeadings(content, MIN_TOKENS)
+        return sections.map(c => c.text).slice(0, MAX_CHUNKS_PER_DOC)
+      }
+
+      case 'fence-atomic': {
+        const overlapTokens = Math.round(plan.childTarget * plan.overlap)
+        const overlapFraction = plan.childTarget > 0 ? overlapTokens / plan.childTarget : 0
+        return splitFenceAtomic(content, plan.childTarget, overlapFraction)
+          .map(c => c.text)
+          .slice(0, MAX_CHUNKS_PER_DOC)
+      }
+
+      case 'token':
+      default: {
+        const overlapTokens = Math.round(plan.childTarget * plan.overlap)
+        return tokenChunk(content, { chunkSize: plan.childTarget, overlap: overlapTokens })
+          .map(c => c.text)
+          .slice(0, MAX_CHUNKS_PER_DOC)
+      }
     }
   }
 
@@ -221,13 +239,17 @@ export function chunkContent(content: string, shape?: DataShape, legacyProvider?
  * Provider resolved from: org BYOK → system env.
  * Hint lets the Google/Jina providers select the optimal task type.
  * Returns the model id alongside the vectors so rows carry provenance (P0-3).
+ * When lateChunking=true and the active provider is Jina, uses late_chunking API
+ * (P1-9) so each chunk is contextualized by its siblings within the same document.
  */
 async function generateEmbeddings(
   texts: string[],
   orgId?: string,
-  hint?: EmbeddingHint
+  hint?: EmbeddingHint,
+  lateChunking = false,
 ): Promise<{ embeddings: number[][]; model: string }> {
-  const { embeddings, model } = await embedBatchDetailed(texts, orgId, hint)
+  const fn = lateChunking ? embedBatchLateChunking : embedBatchDetailed
+  const { embeddings, model } = await fn(texts, orgId, hint)
   return { embeddings, model }
 }
 
@@ -423,19 +445,118 @@ export async function indexDocument(
 
   // 1. Normalize then split content into type-appropriate chunks
   const normalizedContent = normalizeContentTracked(chunk.content, chunk.title)
+  const isRecord = PIPELINE_SHAPE_ROUTING ? chunk.shape === 'record' : RECORD_SOURCE_TYPES.has(chunk.metadata.provider as string)
+  const structuredFields = isRecord ? extractStructuredFields(chunk.metadata) : null
+  const hint = resolveEmbeddingHint(chunk.shape, chunk.metadata.provider as string)
+
+  // P1-8 + P1-9: structural strategy → parent rows (no embedding) + child rows (embedded,
+  // with parent_chunk_index). Late chunking used for eligible shapes when Jina is active.
+  if (PIPELINE_SHAPE_ROUTING && chunk.shape) {
+    const signals = computeSignals(normalizedContent)
+    const plan = selectStrategy(chunk.shape, signals)
+
+    if (plan.strategy === 'structural' && plan.parentTarget !== null) {
+      const sections = splitByHeadings(normalizedContent, MIN_TOKENS)
+      if (sections.length === 0) return documentId
+
+      const parentGroups = groupIntoParents(sections, plan.parentTarget)
+      const records: object[] = []
+      let nextChunkIndex = 0
+
+      // Parent rows first (chunk_index 0..nParents-1); no embedding, just stored text
+      for (const group of parentGroups) {
+        const parentIdx = nextChunkIndex++
+        const meta = writeChunkText(chunk.metadata, group.parentText)
+        if (structuredFields) (meta as Record<string, unknown>).structured_fields = structuredFields
+        records.push({
+          org_id: orgId,
+          document_id: documentId,
+          department_id: departmentId,
+          owner_user_id: ownerUserId,
+          source_type: chunk.metadata.provider,
+          visibility,
+          chunk_index: parentIdx,
+          embedding: null,
+          embedding_model: null,
+          pipeline_version: PIPELINE_VERSION,
+          parent_chunk_index: null,
+          content_hash: createHash('sha256').update(group.parentText).digest('hex'),
+          content_preview: group.parentText.slice(0, 200),
+          metadata: meta,
+        })
+      }
+
+      // Child rows: embed with late chunking per parent group
+      for (let gi = 0; gi < parentGroups.length; gi++) {
+        const group = parentGroups[gi]
+        const childTexts = group.children.map(c => c.text)
+        const useLateChunking = LATE_CHUNKING_SHAPES.has(chunk.shape!) && childTexts.length > 1
+
+        const { embeddings: childEmbeddings, model: embeddingModel } = await generateEmbeddings(
+          childTexts, orgId, hint, useLateChunking
+        )
+
+        for (let ci = 0; ci < childTexts.length; ci++) {
+          const text = childTexts[ci]
+          const childIdx = nextChunkIndex++
+          const meta = writeChunkText(chunk.metadata, text)
+          if (structuredFields) (meta as Record<string, unknown>).structured_fields = structuredFields
+          records.push({
+            org_id: orgId,
+            document_id: documentId,
+            department_id: departmentId,
+            owner_user_id: ownerUserId,
+            source_type: chunk.metadata.provider,
+            visibility,
+            chunk_index: childIdx,
+            embedding: childEmbeddings[ci],
+            embedding_model: embeddingModel,
+            pipeline_version: PIPELINE_VERSION,
+            parent_chunk_index: gi,  // points to parent row's chunk_index
+            content_hash: createHash('sha256').update(text).digest('hex'),
+            content_preview: text.slice(0, 200),
+            metadata: meta,
+          })
+        }
+      }
+
+      const { error } = await supabaseAdmin
+        .from('document_embeddings')
+        .upsert(records, { onConflict: 'document_id,chunk_index' })
+
+      if (error) {
+        logger.error({ title: chunk.title, err: error.message }, '[indexing] Error upserting structural chunks')
+        throw error
+      }
+
+      const { error: pruneErr } = await supabaseAdmin
+        .from('document_embeddings')
+        .delete()
+        .eq('document_id', documentId)
+        .gte('chunk_index', nextChunkIndex)
+
+      if (pruneErr) {
+        logger.warn({ title: chunk.title, err: pruneErr.message }, '[indexing] Failed to prune stale structural chunks (non-fatal)')
+      }
+
+      return documentId
+    }
+  }
+
+  // Standard (non-structural) path
   const contentChunks = chunkContent(normalizedContent, chunk.shape, chunk.metadata.provider as string)
 
   if (contentChunks.length === 0) return documentId
 
+  // P1-9: use late chunking for eligible shapes when PIPELINE_SHAPE_ROUTING is on
+  const useLateChunking = PIPELINE_SHAPE_ROUTING && !!chunk.shape && LATE_CHUNKING_SHAPES.has(chunk.shape) && contentChunks.length > 1
+
   // 2. Generate embeddings for all chunks in a single batch (org-BYOK aware)
   const { embeddings, model: embeddingModel } = await generateEmbeddings(
-    contentChunks, orgId, resolveEmbeddingHint(chunk.shape, chunk.metadata.provider as string)
+    contentChunks, orgId, hint, useLateChunking
   )
 
   // 3. Build the records to upsert — must match document_embeddings schema exactly
-  const isRecord = PIPELINE_SHAPE_ROUTING ? chunk.shape === 'record' : RECORD_SOURCE_TYPES.has(chunk.metadata.provider as string)
-  const structuredFields = isRecord ? extractStructuredFields(chunk.metadata) : null
-
   const records = contentChunks.map((text, index) => {
     const meta = writeChunkText(chunk.metadata, text)
     if (structuredFields) meta.structured_fields = structuredFields
@@ -450,6 +571,7 @@ export async function indexDocument(
       embedding: embeddings[index],
       embedding_model: embeddingModel,
       pipeline_version: PIPELINE_VERSION,
+      parent_chunk_index: null,
       content_hash: createHash('sha256').update(text).digest('hex'),
       content_preview: text.slice(0, 200),
       metadata: meta,
@@ -560,6 +682,7 @@ export async function indexDocuments(
         source_type: item.chunk.metadata.provider,
         visibility,
         chunk_index: index,
+        parent_chunk_index: null,  // P1-8: bulk path uses standalone rows (no parent grouping); structural docs use indexDocument
         content_hash: createHash('sha256').update(text).digest('hex'),
         content_preview: text.slice(0, 200),
         metadata: meta,

@@ -220,7 +220,8 @@ async function embedWithGoogle(
 async function embedWithJina(
   texts: string[],
   config: EmbeddingConfig,
-  hint?: EmbeddingHint
+  hint?: EmbeddingHint,
+  lateChunking = false,
 ): Promise<number[][]> {
   const response = await fetch("https://api.jina.ai/v1/embeddings", {
     method: "POST",
@@ -234,6 +235,10 @@ async function embedWithJina(
       dimensions: config.dims,
       // P0-2 (audit D5): queries must use the asymmetric query task, not passage
       task: hint === "query" ? "retrieval.query" : "retrieval.passage",
+      // P1-9: late chunking — batch children per parent so each child's embedding
+      // is conditioned on the full sibling context (bidirectional attention).
+      // Only set when caller is batching chunks from ONE parent document.
+      ...(lateChunking ? { late_chunking: true } : {}),
     }),
   })
 
@@ -253,7 +258,8 @@ const MAX_PROVIDER_RETRIES = 2
 async function callProviderWithRetry(
   texts: string[],
   config: EmbeddingConfig,
-  hint?: EmbeddingHint
+  hint?: EmbeddingHint,
+  lateChunking = false,
 ): Promise<number[][]> {
   let lastErr: unknown
   for (let attempt = 0; attempt <= MAX_PROVIDER_RETRIES; attempt++) {
@@ -264,7 +270,7 @@ async function callProviderWithRetry(
         case "openai":
           return await embedWithOpenAI(texts, config)
         case "jina":
-          return await embedWithJina(texts, config, hint)
+          return await embedWithJina(texts, config, hint, lateChunking)
         case "together":
         case "nomic":
           return await embedWithOpenAICompat(texts, config)
@@ -294,7 +300,8 @@ const LOCAL_MODEL_ID = "bge-base-en-v1.5-local"
 async function embedTexts(
   texts: string[],
   orgId?: string,
-  hint?: EmbeddingHint
+  hint?: EmbeddingHint,
+  lateChunking = false,
 ): Promise<EmbedDetailedResult> {
   if (texts.length === 0) return { embeddings: [], model: "none", provider: "none" }
 
@@ -325,11 +332,12 @@ async function embedTexts(
     }
   }
 
-  // 3. Try each API provider in order, falling back on failure
+  // 3. Try each API provider in order, falling back on failure.
+  // Late chunking is only passed to Jina (other providers silently ignore it via callProviderWithRetry).
   let lastErr: unknown
   for (const config of candidates) {
     try {
-      const embeddings = await callProviderWithRetry(texts, config, hint)
+      const embeddings = await callProviderWithRetry(texts, config, hint, lateChunking)
       // P0-7 (audit D6 exposure): fallback activation means this batch was embedded by a
       // different model than the org's primary — a mixed-vector-space event. Loud until
       // P1 replaces silent fallback with a same-model retry queue.
@@ -447,4 +455,38 @@ export async function embedBatchDetailed(
   const result = await embedTexts(texts, orgId, hint)
   if (result.embeddings.length > 0) assertDims(result.embeddings[0])
   return result
+}
+
+/**
+ * P1-9: Late-chunking variant of embedBatchDetailed.
+ *
+ * All texts MUST be children of the SAME parent document. When the active
+ * provider is Jina (jina-embeddings-v3), the batch is submitted with
+ * `late_chunking: true` so each child's embedding is conditioned on the
+ * full sibling context rather than being computed in isolation.
+ *
+ * Falls back to standard batch embedding for non-Jina providers (no error —
+ * late chunking is a quality upgrade, not a correctness requirement).
+ * Falls back to standard batch embedding if any provider call fails.
+ *
+ * Applies to shapes prose / email / thread / work_item where context between
+ * chunks strongly affects meaning (pronouns, references, implicit context).
+ */
+export async function embedBatchLateChunking(
+  texts: string[],
+  orgId?: string,
+  hint?: EmbeddingHint
+): Promise<EmbedDetailedResult> {
+  try {
+    const result = await embedTexts(texts, orgId, hint, /* lateChunking */ true)
+    if (result.embeddings.length > 0) assertDims(result.embeddings[0])
+    return result
+  } catch (err) {
+    // If late-chunking call fails, fall back to standard batch (never drop the doc)
+    logger.warn(
+      { err: err instanceof Error ? err.message : String(err), orgId: orgId ?? null, batchSize: texts.length },
+      "[EmbeddingFactory] Late-chunking call failed — falling back to standard batch embedding"
+    )
+    return embedBatchDetailed(texts, orgId, hint)
+  }
 }
