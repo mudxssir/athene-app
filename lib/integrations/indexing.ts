@@ -263,6 +263,29 @@ async function generateEmbeddings(
 }
 
 /**
+ * P1-13: enqueue an embed-retry job for a document whose rows were written with
+ * needs_embedding=true (pinned provider unavailable). Idempotent per document
+ * via QStash deduplicationId. Failures are logged and swallowed — the retry
+ * queue is a recovery lane, never a reason to fail indexing.
+ */
+function enqueueEmbedRetry(orgId: string, documentId: string): void {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL
+  if (!appUrl) {
+    logger.warn({ documentId }, '[indexing] NEXT_PUBLIC_APP_URL not set — cannot enqueue embed-retry')
+    return
+  }
+  qstash.publishJSON({
+    url: `${appUrl}/api/worker/embed-retry`,
+    body: { org_id: orgId, document_id: documentId },
+    retries: 3,
+    deduplicationId: `org:embed-retry:${documentId}`,
+  }).catch(err => logger.warn(
+    { err: err instanceof Error ? err.message : String(err), documentId },
+    '[indexing] Failed to enqueue embed-retry job (non-fatal)'
+  ))
+}
+
+/**
  * normalizeContent wrapper that measures how much was stripped (P0-7 / audit D8
  * exposure metric): a high strip ratio on code-bearing docs signals corruption
  * by the HTML-strip regex — informs the P3 per-shape sanitization fix.
@@ -472,7 +495,10 @@ export async function indexDocument(
       const records: object[] = []
       let nextChunkIndex = 0
 
-      // Parent rows first (chunk_index 0..nParents-1); no embedding, just stored text
+      // Parent rows first (chunk_index 0..nParents-1); no embedding, just stored text.
+      // needs_embedding stays false: parents are intentionally embedding-free and
+      // must never be picked up by the embed-retry worker. Set explicitly so an
+      // upsert over a previously-flagged row clears the flag (review fix #5).
       for (const group of parentGroups) {
         const parentIdx = nextChunkIndex++
         const meta = writeChunkText(chunk.metadata, group.parentText)
@@ -489,21 +515,42 @@ export async function indexDocument(
           embedding_model: null,
           pipeline_version: PIPELINE_VERSION,
           parent_chunk_index: null,
+          needs_embedding: false,
           content_hash: createHash('sha256').update(group.parentText).digest('hex'),
           content_preview: group.parentText.slice(0, 200),
           metadata: meta,
         })
       }
 
-      // Child rows: embed with late chunking per parent group
+      // Child rows: embed with late chunking per parent group.
+      // Review fix #2: a pinned-provider failure on any group must not throw the
+      // whole document away — upsertDocumentRecord already stamped the new
+      // content_hash, so a throw here means the doc is never retried. Instead,
+      // the failed group's children are written as null-embedding placeholders
+      // (needs_embedding=true) and an embed-retry job is enqueued after upsert.
+      let anyChildNeedsRetry = false
+
       for (let gi = 0; gi < parentGroups.length; gi++) {
         const group = parentGroups[gi]
         const childTexts = group.children.map(c => c.text)
         const useLateChunking = LATE_CHUNKING_SHAPES.has(chunk.shape!) && childTexts.length > 1
 
-        const { embeddings: childEmbeddings, model: embeddingModel } = await generateEmbeddings(
-          childTexts, orgId, hint, useLateChunking
-        )
+        let childEmbeddings: number[][] = []
+        let embeddingModel: string | null = null
+        let groupNeedsRetry = false
+
+        try {
+          const result = await generateEmbeddings(childTexts, orgId, hint, useLateChunking)
+          childEmbeddings = result.embeddings
+          embeddingModel = result.model
+        } catch (embErr) {
+          logger.warn(
+            { title: chunk.title, parentGroup: gi, err: embErr instanceof Error ? embErr.message : String(embErr) },
+            '[indexing] Pinned provider failed on structural group — writing null-embedding placeholders, will enqueue embed-retry'
+          )
+          groupNeedsRetry = true
+          anyChildNeedsRetry = true
+        }
 
         for (let ci = 0; ci < childTexts.length; ci++) {
           const text = childTexts[ci]
@@ -518,10 +565,11 @@ export async function indexDocument(
             source_type: chunk.metadata.provider,
             visibility,
             chunk_index: childIdx,
-            embedding: childEmbeddings[ci],
-            embedding_model: embeddingModel,
+            embedding: groupNeedsRetry ? null : childEmbeddings[ci],
+            embedding_model: groupNeedsRetry ? null : embeddingModel,
             pipeline_version: PIPELINE_VERSION,
             parent_chunk_index: gi,  // points to parent row's chunk_index
+            needs_embedding: groupNeedsRetry,
             content_hash: createHash('sha256').update(text).digest('hex'),
             content_preview: text.slice(0, 200),
             metadata: meta,
@@ -536,6 +584,10 @@ export async function indexDocument(
       if (error) {
         logger.error({ title: chunk.title, err: error.message }, '[indexing] Error upserting structural chunks')
         throw error
+      }
+
+      if (anyChildNeedsRetry) {
+        enqueueEmbedRetry(orgId, documentId)
       }
 
       const { error: pruneErr } = await supabaseAdmin
@@ -623,16 +675,7 @@ export async function indexDocument(
 
   // P1-13: enqueue embed-retry job for placeholder rows
   if (needsRetry && orgId) {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL
-    if (appUrl) {
-      const idempotencyKey = `org:embed-retry:${documentId}`
-      qstash.publishJSON({
-        url: `${appUrl}/api/worker/embed-retry`,
-        body: { org_id: orgId, document_id: documentId },
-        retries: 3,
-        deduplicationId: idempotencyKey,
-      }).catch(err => logger.warn({ err: err instanceof Error ? err.message : String(err), documentId }, '[indexing] Failed to enqueue embed-retry job (non-fatal)'))
-    }
+    enqueueEmbedRetry(orgId, documentId)
   }
 
   // 5. Prune stale chunks — if the document shrank, delete high-index rows that are no longer valid.
@@ -789,14 +832,33 @@ export async function indexDocuments(
   }
 
   // ---- Phase 4: upsert all records in one call -------------------
+  // Review fix #3: with pinning (flag ON) a failed batch must not silently drop
+  // its rows — the documents row already carries the new content_hash, so the
+  // next sync would skip them forever. Write null-embedding placeholders with
+  // needs_embedding=true and enqueue embed-retry per affected document instead.
+  // Flag OFF keeps the legacy behavior (failed rows filtered out, errors counted).
   const records = allTemplates
-    .map((tmpl, idx) => ({
-      ...tmpl,
-      embedding: allEmbeddings[idx] ?? [],
-      embedding_model: allModels[idx],
-      pipeline_version: PIPELINE_VERSION,
-    }))
-    .filter((r) => r.embedding.length > 0)
+    .map((tmpl, idx) => {
+      const embedded = allEmbeddings[idx] !== null
+      return {
+        ...tmpl,
+        embedding: embedded ? allEmbeddings[idx] : null,
+        embedding_model: embedded ? allModels[idx] : null,
+        pipeline_version: PIPELINE_VERSION,
+        needs_embedding: !embedded,
+      }
+    })
+    .filter((r) => r.embedding !== null || PIPELINE_SHAPE_ROUTING)
+
+  // Enqueue one embed-retry job per document that has placeholder rows
+  if (PIPELINE_SHAPE_ROUTING) {
+    const retryDocIds = new Set(
+      records.filter(r => r.needs_embedding).map(r => r.document_id as string)
+    )
+    for (const docId of retryDocIds) {
+      enqueueEmbedRetry(orgId, docId)
+    }
+  }
 
   if (records.length > 0) {
     const { error } = await supabaseAdmin

@@ -223,6 +223,22 @@ All 89 tests pass. Zero regressions.
 
 All 137 TS tests pass. Zero TypeScript errors.
 
+### Review fixes (2026-06-12, post-P1-15 code review)
+
+| # | Severity | Fix |
+|---|----------|-----|
+| 1 | Critical | `20260612000002` migration: added `DROP FUNCTION IF EXISTS` for the 2-arg and 3-arg `vector_search`/`vector_search_cross_dept` overloads before creating the 4-arg version. Without this, PostgREST calls passing 3 named params matched both overloads → PGRST203 "function is not unique" → all search broken. Grants for dropped signatures removed. |
+| 2 | High | `indexing.ts` structural branch: per-group try/catch around `generateEmbeddings`. Failed groups write null-embedding children with `needs_embedding=true`; `embed-retry` enqueued after upsert. Previously a pinned failure threw with `content_hash` already stamped → document permanently unindexed. |
+| 3 | High | `indexDocuments` bulk path: when flag ON, failed-batch rows are upserted as placeholders (`needs_embedding=true`) and `embed-retry` is enqueued per affected document, instead of being silently filtered out. Flag OFF keeps legacy filter-out behavior. |
+| 4 | High | `re-embed.ts`: `.neq('embedding_model', pinned)` excluded NULL-model rows (SQL three-valued logic). Replaced with `.or('embedding_model.neq.X,embedding_model.is.null')` in both count and page queries. Also removed unused `outer:` loop label. |
+| 5 | Medium | All record builders now set `needs_embedding` explicitly (structural parents/children, bulk templates). Prevents a PostgREST upsert from leaving a stale `needs_embedding=true` on a row that just received a valid embedding — which the new search filter would have hidden forever. |
+
+Shared `enqueueEmbedRetry(orgId, documentId)` helper extracted in `indexing.ts` (used by structural, standard, and bulk paths; QStash `deduplicationId = org:embed-retry:<docId>`).
+
+New test file `lib/integrations/__tests__/indexing-embed-fallback.test.ts` (8 tests): structural total/partial/success, standard failure/success, bulk flag-ON failure/success + flag-OFF legacy filter-out. Verified the 24 pre-existing failures (8 files: calendar-agent, rbac, looker, onedrive, sharepoint, redshift, tableau, action-executor) are identical with the fixes stashed — zero regressions from this change.
+
+Outstanding from review (not fixed here): #6 embed-retry preview-embedding guard, #7 sync_errors NULL dedup, #8 model-prefix map, fuzz + parent/child integrity tests.
+
 ### What's NOT in P1
 
 - Sidecar chunk API (P2): separate request to extraction sidecar with structured output

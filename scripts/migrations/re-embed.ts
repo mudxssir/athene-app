@@ -146,23 +146,29 @@ async function main() {
   let cursor: string | null = resumeCursor
   let total: number | null  = null
 
+  // Rows needing re-embed: model differs from pinned OR model is NULL.
+  // Review fix #4: .neq() alone excludes NULL rows (SQL three-valued logic:
+  // NULL != 'x' evaluates to NULL, not true) — but NULL-model rows (pre-P0
+  // provenance rows) are exactly the ones most in need of re-embedding.
+  const staleModelFilter = `embedding_model.neq.${pinnedModel},embedding_model.is.null`
+
   // Count total (for progress display)
   const { count } = await supabase
     .from('document_embeddings')
     .select('id', { count: 'exact', head: true })
     .eq('org_id', orgId)
-    .neq('embedding_model', pinnedModel)
+    .or(staleModelFilter)
 
   total = count ?? null
   console.log(`[re-embed] Rows to re-embed: ${total ?? 'unknown'}`)
 
   try {
-    outer: while (true) {
+    while (true) {
       let query = supabase
         .from('document_embeddings')
         .select('id, document_id, chunk_index, metadata, content_preview, embedding_model')
         .eq('org_id', orgId)
-        .neq('embedding_model', pinnedModel)
+        .or(staleModelFilter)
         .order('id', { ascending: true })
         .limit(CHUNK_PAGE_SIZE)
 

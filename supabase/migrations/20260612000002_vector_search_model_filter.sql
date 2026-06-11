@@ -18,6 +18,20 @@
 -- in search even if a bug allowed a non-null value through).
 -- ============================================================
 
+-- ---- 0. Drop superseded overloads (review fix #1) --------------------------
+-- CREATE OR REPLACE only replaces a function with the SAME argument
+-- signature. Adding p_model_filter creates a NEW 4-arg overload; if the
+-- older 2-arg / 3-arg versions are left in place, a PostgREST call passing
+-- three named params matches BOTH the 3-arg function (exactly) and the
+-- 4-arg function (via DEFAULT) → "function is not unique" (PGRST203) and
+-- every vector search fails at runtime. Drop all superseded signatures
+-- first so exactly one overload of each function remains.
+
+DROP FUNCTION IF EXISTS vector_search(vector, int);
+DROP FUNCTION IF EXISTS vector_search(vector, int, float8);
+DROP FUNCTION IF EXISTS vector_search_cross_dept(vector, int);
+DROP FUNCTION IF EXISTS vector_search_cross_dept(vector, int, float8);
+
 -- ---- 1. vector_search (org-scoped, member/admin) --------------------------
 
 CREATE OR REPLACE FUNCTION vector_search (
@@ -178,11 +192,8 @@ END;
 $$;
 
 -- ---- 3. Grants -----------------------------------------------------------
+-- Only the 4-arg overload exists now (older signatures dropped above).
+-- Callers passing fewer args still resolve to it via DEFAULTs.
 
 GRANT EXECUTE ON FUNCTION vector_search(vector, int, float8, text)            TO authenticated;
 GRANT EXECUTE ON FUNCTION vector_search_cross_dept(vector, int, float8, text) TO authenticated;
--- Backward-compat grants for older 3-arg overloads (still valid via DEFAULT)
-GRANT EXECUTE ON FUNCTION vector_search(vector, int, float8)            TO authenticated;
-GRANT EXECUTE ON FUNCTION vector_search_cross_dept(vector, int, float8) TO authenticated;
-GRANT EXECUTE ON FUNCTION vector_search(vector, int)                    TO authenticated;
-GRANT EXECUTE ON FUNCTION vector_search_cross_dept(vector, int)         TO authenticated;
