@@ -114,11 +114,9 @@ describe("resolveUserAccess", () => {
   });
 
   it("resolves role from DB when Redis cache is empty", async () => {
-    // Org lookup
-    supabaseMock.tableData["organizations"] = { id: INT_ORG_ID };
-    // Member lookup — separate eq chain.  We override `from` to return the
-    // right data per query sequence.
-    let orgQueried = false;
+    // The happy path is a single JOIN query: org_members with an embedded
+    // organizations!inner(id) — no separate organizations lookup anymore.
+    let memberQueried = false;
     supabaseMock.from.mockImplementation((table: string) => {
       const b: any = {};
       b.select = () => b;
@@ -126,22 +124,22 @@ describe("resolveUserAccess", () => {
       b.eq     = () => b;
       b.insert = () => b;
       b.maybeSingle = () => {
-        if (table === "organizations") {
-          orgQueried = true;
-          return Promise.resolve({ data: { id: INT_ORG_ID }, error: null });
-        }
         if (table === "org_members") {
+          memberQueried = true;
           return Promise.resolve({
-            data: { id: INT_USER_ID, role: "member", department_id: DEPT_ID },
+            data: {
+              id: INT_USER_ID,
+              role: "member",
+              department_id: DEPT_ID,
+              org_id: INT_ORG_ID,
+              organizations: { id: INT_ORG_ID },
+            },
             error: null,
           });
         }
-        if (table === "access_grants") {
-          return Promise.resolve({ data: [], error: null });
-        }
         return Promise.resolve({ data: null, error: null });
       };
-      // access_grants uses array response, not maybeSingle
+      // access_grants resolves as an array via await (no maybeSingle)
       b.then = (resolve: (v: any) => void) =>
         resolve({ data: [], error: null });
       return b;
@@ -149,10 +147,11 @@ describe("resolveUserAccess", () => {
 
     const result = await resolveUserAccess("uid-db-hit", "oid-db-hit", "org:member");
 
-    expect(orgQueried).toBe(true);
+    expect(memberQueried).toBe(true);
     expect(result.role).toBe("member");
     expect(result.dept_id).toBe(DEPT_ID);
     expect(result.internal_user_id).toBe(INT_USER_ID);
+    expect(result.internal_org_id).toBe(INT_ORG_ID);
   });
 
   it("excludes expired grants from accessible_dept_ids — active and no-expiry grants are kept (1C.4)", async () => {

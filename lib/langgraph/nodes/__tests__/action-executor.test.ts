@@ -77,11 +77,13 @@ function makeState(overrides: Record<string, unknown> = {}) {
 }
 
 function makeConnectionQuery(provider: string) {
+  // Chain shape must match resolveConnection: select→eq→in→order→limit(resolves)
   return {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     in: vi.fn().mockReturnThis(),
-    order: vi.fn().mockResolvedValue({
+    order: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockResolvedValue({
       data: [{ connection_id: "conn-1", provider_config_key: provider }],
       error: null,
     }),
@@ -272,7 +274,8 @@ describe("actionExecutorNode", () => {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       in: vi.fn().mockReturnThis(),
-      order: vi.fn().mockResolvedValue({ data: [], error: null }),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue({ data: [], error: null }),
     });
 
     const result = await actionExecutorNode(
@@ -292,7 +295,8 @@ describe("actionExecutorNode", () => {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       in: vi.fn().mockReturnThis(),
-      order: vi.fn().mockResolvedValue({
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue({
         data: null,
         error: { message: "DB connection refused" },
       }),

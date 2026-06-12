@@ -63,7 +63,9 @@ describe("calendarAgent", () => {
     expect((result.pending_write_action as any)?.payload?.summary).toBe("Meeting with Alice");
   });
 
-  it("handles search requests by setting is_search and search_range", async () => {
+  it("handles search requests read-only — direct message, no HITL approval", async () => {
+    // Search is read-only: the agent answers directly instead of queuing a
+    // calendar-search write action through the approval flow.
     const mockDraft = {
       action_type: "search",
       is_search: true,
@@ -83,8 +85,10 @@ describe("calendarAgent", () => {
 
     const result = await calendarAgent(state);
 
-    expect((result.pending_write_action as any)?.tool).toBe("calendar-search");
-    expect((result.pending_write_action as any)?.payload?.is_search).toBe(true);
+    expect(result.pending_write_action).toBeUndefined();
+    expect(result.awaiting_approval).toBeUndefined();
+    expect(result.messages?.[0].content).toContain("search your calendar");
+    expect(result.messages?.[0].content).toContain("Find time with Bob");
   });
 
   it("validates create actions and returns a message if start/end are missing", async () => {

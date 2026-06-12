@@ -51,7 +51,8 @@ describe('sharepoint-fetcher', () => {
       vi.mocked(mammoth.extractRawText).mockResolvedValue({ value: 'docx text' } as any)
 
       const content = await fetchDocContent('conn-123', 'org-123', 'drive-123', 'item-123')
-      expect(content).toBe('docx text')
+      expect(content.text).toBe('docx text')
+      expect(content.tables).toEqual([])
     })
 
     it('should extract text from .pdf', async () => {
@@ -60,7 +61,7 @@ describe('sharepoint-fetcher', () => {
       vi.mocked((pdf as any).default).mockResolvedValue({ text: 'pdf text' } as any)
 
       const content = await fetchDocContent('conn-123', 'org-123', 'drive-123', 'item-123')
-      expect(content).toBe('pdf text')
+      expect(content.text).toBe('pdf text')
     })
 
     it('should extract text from .txt as UTF-8', async () => {
@@ -68,7 +69,7 @@ describe('sharepoint-fetcher', () => {
       vi.mocked(graphClient.graphDownload).mockResolvedValue(new TextEncoder().encode('txt content').buffer)
 
       const content = await fetchDocContent('conn-123', 'org-123', 'drive-123', 'item-123')
-      expect(content).toBe('txt content')
+      expect(content.text).toBe('txt content')
     })
   })
 

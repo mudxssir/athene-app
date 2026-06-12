@@ -34,10 +34,14 @@ describe("fetchLookerContent", () => {
     const looks = [{ id: 1, title: "Revenue Trend", description: "Monthly revenue", short_url: "/1" }];
     const lookData = [{ "orders.total": "1000", "orders.month": "2026-05" }];
 
-    mockLookerFetch
-      .mockResolvedValueOnce(looks)       // GET /looks
-      .mockResolvedValueOnce(lookData)    // POST /looks/1/run/json
-      .mockResolvedValueOnce([]);         // GET /dashboards (empty)
+    // Looks and dashboards are fetched in parallel — mock by path, not call order
+    mockLookerFetch.mockImplementation(async (_conn: unknown, _org: unknown, path: unknown) => {
+      const p = String(path);
+      if (p.startsWith("/looks?")) return looks;
+      if (p.includes("/run/json")) return lookData;
+      if (p.startsWith("/dashboards")) return [];
+      return [];
+    });
 
     const result = await fetchLookerContent("conn-1", "org-1");
 
@@ -66,13 +70,15 @@ describe("fetchLookerContent", () => {
     expect(lookChunk?.content).toBe("Needs params"); // description as content
   });
 
-  it("uses title as fallback when look description and run data are null", async () => {
+  it("uses title as fallback when look description and run data are empty", async () => {
     const looks = [{ id: 3, title: "Empty Look", description: null, short_url: "/3" }];
 
-    mockLookerFetch
-      .mockResolvedValueOnce(looks)
-      .mockRejectedValueOnce(new Error("No data"))
-      .mockResolvedValueOnce([]);
+    mockLookerFetch.mockImplementation(async (_conn: unknown, _org: unknown, path: unknown) => {
+      const p = String(path);
+      if (p.startsWith("/looks?")) return looks;
+      if (p.includes("/run/json")) return [];   // run succeeds with zero rows
+      return [];
+    });
 
     const result = await fetchLookerContent("conn-1", "org-1");
 

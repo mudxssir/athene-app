@@ -93,14 +93,15 @@ describe("fetchRedshiftTables", () => {
     expect(result.some((c) => c.chunk_id?.includes("public.customers"))).toBe(true);
   });
 
-  it("discovers tables from information_schema when allowlist is empty", async () => {
-    mockRedshiftQuery
-      .mockResolvedValueOnce([{ full_name: "public.orders" }]) // discoverTables
-      .mockResolvedValueOnce([{ column_name: "id", data_type: "integer" }])  // schema
-      .mockResolvedValueOnce([{ row_count: 100 }])   // count
-      .mockResolvedValue([]);                          // stats/sample
+  it("skips sync entirely when allowlist is empty (no accidental full-schema indexing)", async () => {
+    // Auto-discovery was removed: an empty allowlist must not scan
+    // information_schema — it could index sensitive tables. The fetcher
+    // returns [] and never touches the warehouse.
+    mockGetRedshiftCredentials.mockResolvedValue({ ...baseCreds, allowlist: [] });
 
     const result = await fetchRedshiftTables("conn-1", "org-1");
-    expect(result.some((c) => c.chunk_id?.includes("public.orders"))).toBe(true);
+
+    expect(result).toEqual([]);
+    expect(mockRedshiftQuery).not.toHaveBeenCalled();
   });
 });

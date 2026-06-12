@@ -52,7 +52,9 @@ export async function fetchLookerContent(
         return {
           chunk_id: `looker_look_${look.id}`,
           title: `Looker Look: ${look.title}`,
-          content: [look.description, rowContent].filter(Boolean).join('\n\n'),
+          // Title fallback: a look with no description whose run returns zero
+          // rows must not produce an empty-content chunk (unembeddable).
+          content: [look.description, rowContent].filter(Boolean).join('\n\n') || look.title,
           source_url: `${instanceUrl}/looks/${look.id}`,
           shape: 'bi_artifact' as const,
           metadata: { provider: 'looker', resource_type: 'look', look_id: String(look.id) },
