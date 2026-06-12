@@ -34,9 +34,16 @@ export function buildStructuredOwnerGraph(doc: StructuredOwnerDoc): ExtractionRe
     return { nodes: [], edges: [] };
   }
 
-  // Ownership edges are always org_wide: cross-team coordination requires
-  // that "Alice owns ticket X" is visible regardless of department boundary.
-  const visibility: Visibility = "org_wide";
+  // Visibility split (P2-5, playbook item 5): ownership edges and the work-item
+  // node INHERIT the document's visibility — "ownership is org-readable only via
+  // item". Who is assigned to a dept-scoped ticket (HR case, security incident)
+  // must not leak org-wide as a person→OWNS→label edge. Cross-functional
+  // visibility is the job of the LINK edges (BLOCKS/PART_OF/RELATED_TO) in
+  // structured-links.ts, which stay org_wide.
+  const itemVisibility: Visibility = (doc.visibility ?? "department") as Visibility;
+  // Person nodes are org_wide: a person's existence is not sensitive, and
+  // cross-department person dedup requires one node per human.
+  const personVisibility: Visibility = "org_wide";
   const departmentIds = doc.department_id ? [doc.department_id] : [];
   const resourceType = (doc.metadata?.resource_type as string) ?? "ticket";
   const selfEntityType = resourceType === "pull_request" ? "pull_request" : "ticket";
@@ -51,7 +58,7 @@ export function buildStructuredOwnerGraph(doc: StructuredOwnerDoc): ExtractionRe
     label: selfLabel,
     entity_type: selfEntityType,
     department_ids: departmentIds,
-    visibility,
+    visibility: itemVisibility,
     source_documents: [doc.id],
     metadata: { structured: true },
   });
@@ -71,7 +78,7 @@ export function buildStructuredOwnerGraph(doc: StructuredOwnerDoc): ExtractionRe
         label: personLabel,
         entity_type: "person",
         department_ids: departmentIds,
-        visibility,
+        visibility: personVisibility,
         source_documents: [doc.id],
         metadata: personMeta,
       });
@@ -88,7 +95,7 @@ export function buildStructuredOwnerGraph(doc: StructuredOwnerDoc): ExtractionRe
       confidence: 1.0,
       source_document: doc.id,
       department_id: doc.department_id,
-      visibility,
+      visibility: itemVisibility,
       metadata: { structured: true },
     });
   }

@@ -69,6 +69,14 @@ export interface SyncConfig {
    */
   afterDate?: string
 
+  /**
+   * Slack bot IDs whose messages SHOULD be indexed (P2-9). Bot messages are
+   * skipped by default (CI alerts, Jira bots produce noise); orgs whose
+   * knowledge lives in bot posts (standup bots, incident bots) list those
+   * bot IDs here.
+   */
+  botAllowlist?: string[]
+
   /** ISO-8601 timestamp of the last configuration change. */
   lastConfiguredAt?: string
 }
@@ -112,7 +120,11 @@ export function parseSyncConfig(raw: unknown): SyncConfig {
 
   const afterDate = typeof obj.afterDate === 'string' ? obj.afterDate : undefined
 
-  return { mode, selectedResources, excludedResources, resourceTypeFilters, afterDate, lastConfiguredAt }
+  const botAllowlist = Array.isArray(obj.botAllowlist)
+    ? obj.botAllowlist.filter((id): id is string => typeof id === 'string')
+    : undefined
+
+  return { mode, selectedResources, excludedResources, resourceTypeFilters, afterDate, lastConfiguredAt, botAllowlist }
 }
 
 /**

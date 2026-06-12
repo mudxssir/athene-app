@@ -11,6 +11,8 @@ function extractJiraOwners(issue: any): StructuredOwner[] {
     owners.push({
       person_label: issue.fields.assignee.displayName,
       provider_account_id: issue.fields.assignee.accountId,
+      // emailAddress is present only when Atlassian privacy settings allow it
+      ...(issue.fields.assignee.emailAddress ? { provider_email: issue.fields.assignee.emailAddress } : {}),
       relation: 'OWNS',
     })
   }
@@ -18,6 +20,7 @@ function extractJiraOwners(issue: any): StructuredOwner[] {
     owners.push({
       person_label: issue.fields.reporter.displayName,
       provider_account_id: issue.fields.reporter.accountId,
+      ...(issue.fields.reporter.emailAddress ? { provider_email: issue.fields.reporter.emailAddress } : {}),
       relation: 'REPORTED_BY',
     })
   }

@@ -7,7 +7,11 @@ export async function fetchZendeskTickets(
   subdomain: string
 ): Promise<FetchedChunk[]> {
   const allTickets: any[] = []
-  let nextPath: string | null = '/tickets.json?per_page=100&sort_by=updated_at'
+  // Sideload users so assignee/requester resolve to real names + emails
+  // (person_label "zendesk:12345" never merges with the same human's node
+  // from other providers, and the email drives identity auto-claim).
+  const userById = new Map<number, { name?: string; email?: string }>()
+  let nextPath: string | null = '/tickets.json?per_page=100&sort_by=updated_at&include=users'
 
   while (nextPath) {
     const path: string = nextPath.startsWith('http')
@@ -15,6 +19,9 @@ export async function fetchZendeskTickets(
       : nextPath
     const res = await zendeskFetch<any>(connectionId, orgId, subdomain, path)
     allTickets.push(...res.tickets)
+    for (const user of res.users ?? []) {
+      if (user?.id) userById.set(user.id, { name: user.name, email: user.email })
+    }
     nextPath = res.next_page
   }
 
@@ -41,10 +48,22 @@ export async function fetchZendeskTickets(
     const publicComments = commentMap.get(ticket.id) ?? ''
     const structuredOwners: StructuredOwner[] = []
     if (ticket.assignee_id) {
-      structuredOwners.push({ person_label: `zendesk:${ticket.assignee_id}`, provider_account_id: String(ticket.assignee_id), relation: 'OWNS' })
+      const u = userById.get(ticket.assignee_id)
+      structuredOwners.push({
+        person_label: u?.name ?? `zendesk:${ticket.assignee_id}`,
+        provider_account_id: String(ticket.assignee_id),
+        ...(u?.email ? { provider_email: u.email } : {}),
+        relation: 'OWNS',
+      })
     }
     if (ticket.requester_id) {
-      structuredOwners.push({ person_label: `zendesk:${ticket.requester_id}`, provider_account_id: String(ticket.requester_id), relation: 'REPORTED_BY' })
+      const u = userById.get(ticket.requester_id)
+      structuredOwners.push({
+        person_label: u?.name ?? `zendesk:${ticket.requester_id}`,
+        provider_account_id: String(ticket.requester_id),
+        ...(u?.email ? { provider_email: u.email } : {}),
+        relation: 'REPORTED_BY',
+      })
     }
     return {
       chunk_id: `zendesk-ticket-${ticket.id}`,

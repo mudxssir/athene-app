@@ -26,6 +26,15 @@ const PRS_QUERY = `
               login
             }
           }
+          reviewRequests(first: 10) {
+            nodes {
+              requestedReviewer {
+                ... on User {
+                  login
+                }
+              }
+            }
+          }
           reviews(first: 50) {
             nodes {
               body
@@ -96,15 +105,23 @@ export async function githubPrsFetcher(connectionId: string, orgId: string, owne
           target_entity_type: 'ticket',
         }));
 
-      // Structured owners: author and assignees
+      // Structured owners: author, assignees, and requested reviewers
+      // (playbook item 2: "PR requested reviewers as WORKS_ON" — on GitHub,
+      // PRs commonly have reviewers and no assignees).
       const structuredOwners: StructuredOwner[] = []
+      const seenOwners = new Set<string>()
       if (pr.author?.login) {
+        seenOwners.add(`${pr.author.login}:OWNS`)
         structuredOwners.push({ person_label: pr.author.login, provider_account_id: pr.author.login, relation: 'OWNS' })
       }
-      for (const assignee of pr.assignees?.nodes ?? []) {
-        if (assignee.login) {
-          structuredOwners.push({ person_label: assignee.login, provider_account_id: assignee.login, relation: 'WORKS_ON' })
-        }
+      const worksOnLogins = [
+        ...(pr.assignees?.nodes ?? []).map((a: any) => a?.login),
+        ...(pr.reviewRequests?.nodes ?? []).map((r: any) => r?.requestedReviewer?.login),
+      ].filter(Boolean)
+      for (const login of worksOnLogins) {
+        if (seenOwners.has(`${login}:WORKS_ON`)) continue
+        seenOwners.add(`${login}:WORKS_ON`)
+        structuredOwners.push({ person_label: login, provider_account_id: login, relation: 'WORKS_ON' })
       }
 
       const chunk: FetchedChunk = {

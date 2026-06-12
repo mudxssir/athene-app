@@ -60,6 +60,7 @@ const ISSUES_QUERY = `
         assignee {
           id
           name
+          email
         }
         project {
           id
@@ -140,6 +141,7 @@ const ISSUES_QUERY_FILTERED = `
         assignee {
           id
           name
+          email
         }
         project {
           id
@@ -244,7 +246,12 @@ export async function linearIssuesFetcher(
       }
 
       const structuredOwners: StructuredOwner[] = issue.assignee
-        ? [{ person_label: issue.assignee.name, provider_account_id: issue.assignee.id, relation: 'WORKS_ON' }]
+        ? [{
+            person_label: issue.assignee.name,
+            provider_account_id: issue.assignee.id,
+            ...(issue.assignee.email ? { provider_email: issue.assignee.email } : {}),
+            relation: 'WORKS_ON',
+          }]
         : []
 
       chunks.push({

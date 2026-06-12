@@ -125,15 +125,20 @@ describe("buildStructuredOwnerGraph", () => {
     expect(edges[0].target_entity_type).toBe("pull_request");
   });
 
-  it("uses org_wide visibility regardless of document visibility", () => {
+  it("visibility split: person nodes org_wide, item node + owner edges inherit doc visibility", () => {
+    // Playbook item 5: "ownership is org-readable only via item" — owner edges
+    // carry the document's scope; person nodes stay org_wide for cross-dept dedup.
     const doc = makeDoc({
       structured_owners: [
         { person_label: "Alice", provider_account_id: "acc-1", relation: "OWNS" },
       ],
     });
     const { nodes, edges } = buildStructuredOwnerGraph(doc);
-    nodes.forEach((n) => expect(n.visibility).toBe("org_wide"));
-    edges.forEach((e) => expect(e.visibility).toBe("org_wide"));
+    const personNodes = nodes.filter((n) => n.entity_type === "person");
+    const itemNodes = nodes.filter((n) => n.entity_type !== "person");
+    personNodes.forEach((n) => expect(n.visibility).toBe("org_wide"));
+    itemNodes.forEach((n) => expect(n.visibility).toBe("department"));
+    edges.forEach((e) => expect(e.visibility).toBe("department"));
   });
 
   it("sets org_id and department_id on all nodes and edges", () => {

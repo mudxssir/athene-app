@@ -31,6 +31,8 @@ export type DataShape =
 export interface StructuredOwner {
   person_label: string
   provider_account_id?: string
+  /** Provider-reported email — drives org_member_identities auto-claim (P2-4). */
+  provider_email?: string
   relation: 'OWNS' | 'WORKS_ON' | 'REPORTED_BY' | 'DECIDED_BY'
 }
 

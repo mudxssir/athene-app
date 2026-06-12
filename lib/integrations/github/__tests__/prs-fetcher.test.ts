@@ -65,6 +65,27 @@ describe("githubPrsFetcher (P2-6)", () => {
     expect(owners.find(o => o.relation === "WORKS_ON")).toMatchObject({ person_label: "bob" });
   });
 
+  it("emits requested reviewers as WORKS_ON structured_owners", async () => {
+    const pr = makePR({
+      reviewRequests: { nodes: [{ requestedReviewer: { login: "carol" } }, { requestedReviewer: {} }] },
+    });
+    mockGithubFetch.mockResolvedValue(makePage([pr]));
+    const result = await githubPrsFetcher("conn-1", "org-1", "myorg", "myrepo");
+    const owners = result[0].structured_owners ?? [];
+    expect(owners.find(o => o.relation === "WORKS_ON")).toMatchObject({ person_label: "carol" });
+  });
+
+  it("dedups a login that is both assignee and requested reviewer", async () => {
+    const pr = makePR({
+      assignees: { nodes: [{ login: "bob" }] },
+      reviewRequests: { nodes: [{ requestedReviewer: { login: "bob" } }] },
+    });
+    mockGithubFetch.mockResolvedValue(makePage([pr]));
+    const result = await githubPrsFetcher("conn-1", "org-1", "myorg", "myrepo");
+    const worksOn = (result[0].structured_owners ?? []).filter(o => o.relation === "WORKS_ON");
+    expect(worksOn).toHaveLength(1);
+  });
+
   it("includes review bodies in content", async () => {
     const pr = makePR({ reviews: { nodes: [{ body: "LGTM", author: { login: "carol" } }] } });
     mockGithubFetch.mockResolvedValue(makePage([pr]));

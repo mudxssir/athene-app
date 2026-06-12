@@ -23,6 +23,7 @@ import { writeChunkText } from '@/lib/indexing/chunk-text-store'
 import { PIPELINE_SHAPE_ROUTING } from '@/lib/config/feature-flags'
 import { computeSignals, selectStrategy, truncateAtTokenCap, neutralizeMonsterRuns, MIN_TOKENS, MAX_CHUNKS_PER_DOC } from '@/lib/indexing/chunk-policy'
 import { splitByHeadings, splitFenceAtomic, groupIntoParents } from '@/lib/indexing/structural-chunker'
+import { claimIdentitiesFromOwners } from './identity-claim'
 import { qstash } from '@/lib/qstash/client'
 
 // ---- Constants --------------------------------------------------
@@ -481,6 +482,12 @@ export async function indexDocument(
   visibility: VisibilityLevel = 'department',
   ownerUserId: string | null = null
 ): Promise<string> {
+  // P2-4: auto-claim identity mappings from owner annotations (fire-and-forget;
+  // never blocks or fails indexing).
+  if (chunk.structured_owners?.length) {
+    void claimIdentitiesFromOwners(orgId, String(chunk.metadata.provider ?? ''), chunk.structured_owners)
+  }
+
   // 0. Resolve/create the documents row; skip embedding if content unchanged
   const { documentId, contentChanged } = await upsertDocumentRecord(
     chunk, orgId, connectionId, departmentId, visibility, ownerUserId
@@ -762,6 +769,12 @@ export async function indexDocuments(
   // ---- Phase 1: resolve document rows and split into sub-chunks ----
   for (const chunk of chunks) {
     try {
+      // P2-4: identity auto-claim (fire-and-forget). The structural delegation
+      // below routes through indexDocument which claims on its own path.
+      if (chunk.structured_owners?.length) {
+        void claimIdentitiesFromOwners(orgId, String(chunk.metadata.provider ?? ''), chunk.structured_owners)
+      }
+
       // P1-8 (bulk wiring): structural-strategy documents need parent/child rows,
       // which only indexDocument builds. Delegate BEFORE upsertDocumentRecord runs
       // here — indexDocument does its own upsert, and a pre-stamped content_hash

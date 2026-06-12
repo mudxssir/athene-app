@@ -11,6 +11,7 @@
 // ============================================================
 
 import { withRLS, type RLSContext } from "@/lib/supabase/rls-client";
+import { logger } from "@/lib/logger";
 import { resolveEntity } from "./entity-resolver";
 import type { GraphNode, GraphEdge } from "./query";
 
@@ -108,7 +109,11 @@ async function resolvePersonNode(
 
   for (const q of lookups) {
     const candidates = await resolveEntity(ctx, q, { entityType: "person", limit: 1 });
-    if (candidates.length > 0) return candidates[0].canonicalNodeId;
+    if (candidates.length > 0) {
+      // P2 gate metric: count heuristic fallbacks; no names/emails logged.
+      logger.warn({ orgId: ctx.org_id, memberId: ctx.user_id }, "[identity] heuristic-fallback hit (my-obligations)");
+      return candidates[0].canonicalNodeId;
+    }
   }
   return null;
 }

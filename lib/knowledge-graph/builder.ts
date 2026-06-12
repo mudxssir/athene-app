@@ -22,6 +22,7 @@ import { extractEntitiesAndRelations } from './extractor'
 import { shouldRunExtraction } from './extraction-gate'
 import { buildStructuredLinkGraph } from './structured-links'
 import { buildStructuredOwnerGraph } from './structured-owners'
+import { KG_OWNER_GRAPH } from '@/lib/config/feature-flags'
 import { upsertGraph, deleteByDocument } from './storage'
 import { detectCommunities } from './community'
 import { extractAndUpsertEvents } from './event-extractor'
@@ -251,10 +252,14 @@ async function processDocument(
   nodes.push(...structured.nodes)
   edges.push(...structured.edges)
 
-  // Structured owners (P2-3): PERSON → work_item edges from fetcher-provided owner annotations.
-  const ownersGraph = buildStructuredOwnerGraph(docArg)
-  nodes.push(...ownersGraph.nodes)
-  edges.push(...ownersGraph.edges)
+  // Structured owners (P2-3): PERSON → work_item edges from fetcher-provided
+  // owner annotations. Behind KG_OWNER_GRAPH (P2 rollback story) — default OFF
+  // until the phase gate.
+  if (KG_OWNER_GRAPH) {
+    const ownersGraph = buildStructuredOwnerGraph(docArg)
+    nodes.push(...ownersGraph.nodes)
+    edges.push(...ownersGraph.edges)
+  }
 
   // BUG-12 FIX: Only update global counters after full success
   if (nodes.length > 0 || edges.length > 0) {

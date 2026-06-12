@@ -21,3 +21,11 @@ export const WRITE_ACTIONS_ENABLED = process.env.WRITE_ACTIONS_ENABLED === "true
  * Set PIPELINE_SHAPE_ROUTING=true to activate.
  */
 export const PIPELINE_SHAPE_ROUTING = process.env.PIPELINE_SHAPE_ROUTING === "true";
+
+/**
+ * P2: deterministic PERSON nodes + ownership edges (OWNS/WORKS_ON/REPORTED_BY)
+ * built from fetcher-emitted structured_owners in the KG builder. Default OFF
+ * until the P2 gate (rollback story: owner-graph step behind flag).
+ * Set KG_OWNER_GRAPH=true to activate.
+ */
+export const KG_OWNER_GRAPH = process.env.KG_OWNER_GRAPH === "true";

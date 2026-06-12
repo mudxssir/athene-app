@@ -69,7 +69,7 @@ describe('Slack Integration', () => {
         json: async () => ({
           ok: true,
           has_more: false,
-          messages: [{ ts: '1714123456.000100', text: 'Hello team!', user: 'U123' }],
+          messages: [{ ts: '1714123456.000100', text: 'Hello team, here is the deployment plan for the new release tomorrow', user: 'U123' }],
         }),
       })
 
@@ -97,7 +97,7 @@ describe('Slack Integration', () => {
         json: async () => ({
           ok: true,
           has_more: false,
-          messages: [{ ts: '1714123456.000100', text: 'Hello!', user: 'U123' }],
+          messages: [{ ts: '1714123456.000100', text: 'Quick update on the migration progress for everyone following along here', user: 'U123' }],
         }),
       })
 
@@ -149,31 +149,86 @@ describe('Slack Integration', () => {
       expect(parent!.content).not.toContain('Reply one')
     })
 
-    it('emits reply as a separate child chunk', async () => {
+    it('emits replies as a windowed child chunk (slack-msg-{ch}-{ts}:r{n})', async () => {
       mockTeamInfo()
       mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, channels: [{ id: 'C1', name: 'gen', is_archived: false }] }) })
       mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, has_more: false, messages: [{ ts: '100.000', text: 'Parent', user: 'U1', thread_ts: '100.000', reply_count: 1 }] }) })
       mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, messages: [{ ts: '100.000', text: 'Parent', user: 'U1' }, { ts: '101.000', text: 'Reply one', user: 'U2' }] }) })
 
       const chunks = await fetchSlackMessages('conn-1', 'org-1')
-      const reply = chunks.find((c) => c.chunk_id === 'slack-reply-C1-101.000')
-      expect(reply).toBeDefined()
-      expect(reply!.content).toBe('Reply one')
-      expect(reply!.metadata.resource_type).toBe('channel_reply')
-      expect(reply!.metadata.parent_chunk_id).toBe('slack-msg-C1-100.000')
+      const window = chunks.find((c) => c.chunk_id === 'slack-msg-C1-100.000:r0')
+      expect(window).toBeDefined()
+      expect(window!.content).toBe('Reply one')
+      expect(window!.metadata.resource_type).toBe('channel_reply_window')
+      expect(window!.metadata.parent_chunk_id).toBe('slack-msg-C1-100.000')
+      expect(window!.metadata.window_index).toBe(0)
     })
 
-    it('each reply gets its own chunk id — append-only on new reply', async () => {
+    it('groups replies into windows of 10 — full windows stay stable, only the tail mutates', async () => {
       mockTeamInfo()
+      const replies = Array.from({ length: 12 }, (_, i) => ({
+        ts: `${201 + i}.000`, text: `Reply number ${i + 1}`, user: `U${i + 2}`,
+      }))
       mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, channels: [{ id: 'C1', name: 'gen', is_archived: false }] }) })
-      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, has_more: false, messages: [{ ts: '200.000', text: 'Q', user: 'U1', thread_ts: '200.000', reply_count: 2 }] }) })
-      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, messages: [{ ts: '200.000', text: 'Q', user: 'U1' }, { ts: '201.000', text: 'A1', user: 'U2' }, { ts: '202.000', text: 'A2', user: 'U3' }] }) })
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, has_more: false, messages: [{ ts: '200.000', text: 'Q', user: 'U1', thread_ts: '200.000', reply_count: 12 }] }) })
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, messages: [{ ts: '200.000', text: 'Q', user: 'U1' }, ...replies] }) })
 
       const chunks = await fetchSlackMessages('conn-1', 'org-1')
-      expect(chunks.find((c) => c.chunk_id === 'slack-reply-C1-201.000')).toBeDefined()
-      expect(chunks.find((c) => c.chunk_id === 'slack-reply-C1-202.000')).toBeDefined()
-      // Total: 1 parent + 2 reply chunks
+      // 1 parent + 2 windows (10 + 2)
       expect(chunks).toHaveLength(3)
+      const w0 = chunks.find((c) => c.chunk_id === 'slack-msg-C1-200.000:r0')
+      const w1 = chunks.find((c) => c.chunk_id === 'slack-msg-C1-200.000:r1')
+      expect(w0).toBeDefined()
+      expect(w1).toBeDefined()
+      expect(w0!.content).toContain('Reply number 1')
+      expect(w0!.content).toContain('Reply number 10')
+      expect(w0!.content).not.toContain('Reply number 11')
+      expect(w1!.content).toContain('Reply number 11')
+      expect(w1!.content).toContain('Reply number 12')
+      // A 13th reply would change ONLY w1's content; w0 and the parent keep
+      // their content (hash-stable) — that is the append-only invariant.
+    })
+
+    it('skips short messages (<10 tokens) without replies, keeps short thread anchors', async () => {
+      mockTeamInfo()
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, channels: [{ id: 'C1', name: 'gen', is_archived: false }] }) })
+      mockFetch.mockResolvedValueOnce({
+        ok: true, status: 200,
+        json: async () => ({
+          ok: true, has_more: false,
+          messages: [
+            { ts: '300.000', text: '+1', user: 'U1' },                 // short, no replies → skipped
+            { ts: '301.000', text: 'lgtm', user: 'U2' },               // short, no replies → skipped
+            { ts: '302.000', text: 'deploy?', user: 'U3', thread_ts: '302.000', reply_count: 1 }, // short but anchors a thread → kept
+          ],
+        }),
+      })
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, messages: [{ ts: '302.000', text: 'deploy?', user: 'U3' }, { ts: '303.000', text: 'Yes, deploying at 5pm after the standup discussion concludes today', user: 'U4' }] }) })
+
+      const chunks = await fetchSlackMessages('conn-1', 'org-1')
+      expect(chunks.find((c) => c.chunk_id === 'slack-msg-C1-300.000')).toBeUndefined()
+      expect(chunks.find((c) => c.chunk_id === 'slack-msg-C1-301.000')).toBeUndefined()
+      expect(chunks.find((c) => c.chunk_id === 'slack-msg-C1-302.000')).toBeDefined()
+      expect(chunks.find((c) => c.chunk_id === 'slack-msg-C1-302.000:r0')).toBeDefined()
+    })
+
+    it('skips bot messages unless the bot is allowlisted in syncConfig', async () => {
+      const botMsg = { ts: '400.000', text: 'Standup summary: Alice finished the auth refactor and Bob starts on billing today', user: 'B1', bot_id: 'B-STANDUP' }
+
+      // Run 1: no allowlist → bot skipped
+      mockTeamInfo()
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, channels: [{ id: 'C1', name: 'gen', is_archived: false }] }) })
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, has_more: false, messages: [botMsg] }) })
+      const withoutAllowlist = await fetchSlackMessages('conn-1', 'org-1')
+      expect(withoutAllowlist).toHaveLength(0)
+
+      // Run 2: allowlisted → bot indexed
+      mockTeamInfo()
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, channels: [{ id: 'C1', name: 'gen', is_archived: false }] }) })
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, has_more: false, messages: [botMsg] }) })
+      const withAllowlist = await fetchSlackMessages('conn-1', 'org-1', { mode: 'all', botAllowlist: ['B-STANDUP'] })
+      expect(withAllowlist).toHaveLength(1)
+      expect(withAllowlist[0].content).toContain('Standup summary')
     })
   })
 })
