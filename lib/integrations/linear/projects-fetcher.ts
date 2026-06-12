@@ -98,7 +98,7 @@ export async function linearProjectsFetcher(
         title: project.name,
         content: lines.join('\n'),
         source_url: project.url,
-        shape: 'record' as const,
+        shape: 'work_item' as const,
         metadata: {
           provider:      'linear',
           resource_type: 'project',

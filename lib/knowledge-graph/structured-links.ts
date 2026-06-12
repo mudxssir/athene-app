@@ -18,6 +18,7 @@ const VALID_RELATIONS = new Set([
   "DEPENDS_ON",
   "RELATED_TO",
   "RESOLVES",
+  "PART_OF",
 ]);
 
 export interface StructuredLinkDoc {

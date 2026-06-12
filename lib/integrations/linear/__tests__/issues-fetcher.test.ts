@@ -24,6 +24,8 @@ function makeIssue(overrides: Record<string, unknown> = {}) {
     updatedAt: "2026-05-10T00:00:00Z",
     state: { name: "In Progress", type: "started" },
     assignee: { id: "user-uuid-alice", name: "Alice Smith" },
+    project: { id: "proj-1", name: "Q2 Launch" },
+    cycle: { id: "cycle-1", name: "Sprint 12" },
     team: { name: "Engineering", key: "ENG" },
     labels: { nodes: [{ name: "bug" }, { name: "auth" }] },
     comments: {
@@ -137,6 +139,29 @@ describe("linearIssuesFetcher", () => {
     mockLinearFetch.mockResolvedValue(makePage([makeIssue({ assignee: null })]));
     const result = await linearIssuesFetcher("conn-1", "org-1");
     expect(result[0].structured_owners).toBeUndefined();
+  });
+
+  it("emits PART_OF structured_link for project", async () => {
+    mockLinearFetch.mockResolvedValue(makePage([makeIssue()]));
+    const result = await linearIssuesFetcher("conn-1", "org-1");
+    const links = (result[0].metadata?.structured_links ?? []) as any[];
+    const partOf = links.filter((l) => l.relation === "PART_OF");
+    expect(partOf.some((l) => l.target_label === "Q2 Launch")).toBe(true);
+  });
+
+  it("emits PART_OF structured_link for cycle", async () => {
+    mockLinearFetch.mockResolvedValue(makePage([makeIssue()]));
+    const result = await linearIssuesFetcher("conn-1", "org-1");
+    const links = (result[0].metadata?.structured_links ?? []) as any[];
+    const cycleLink = links.find((l) => l.relation === "PART_OF" && l.target_label === "Sprint 12");
+    expect(cycleLink).toBeDefined();
+  });
+
+  it("emits no PART_OF link when project and cycle are null", async () => {
+    mockLinearFetch.mockResolvedValue(makePage([makeIssue({ project: null, cycle: null })]));
+    const result = await linearIssuesFetcher("conn-1", "org-1");
+    const links = (result[0].metadata?.structured_links ?? []) as any[];
+    expect(links.filter((l) => l.relation === "PART_OF")).toHaveLength(0);
   });
 
   it("paginates until hasNextPage is false", async () => {

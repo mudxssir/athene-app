@@ -185,7 +185,7 @@ export type ExtractionResult = {
  * exception: the builder swaps it to `target —RESOLVED_BY→ this entity`.
  */
 export type StructuredLink = {
-  relation: "BLOCKS" | "BLOCKED_BY" | "DEPENDS_ON" | "RELATED_TO" | "RESOLVES";
+  relation: "BLOCKS" | "BLOCKED_BY" | "DEPENDS_ON" | "RELATED_TO" | "RESOLVES" | "PART_OF";
   /** Human-readable label of the linked entity, e.g. "PROJ-123: Fix login" */
   target_label: string;
   /** Entity type of the target node (defaults to "ticket") */

@@ -86,7 +86,7 @@ export async function linearCyclesFetcher(
         title: cycle.name,
         content: fullContent,
         source_url: `https://linear.app/cycle/${cycle.id}`,
-        shape: 'record' as const,
+        shape: 'work_item' as const,
         metadata: {
           provider: 'linear',
           resource_type: 'cycle',

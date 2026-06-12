@@ -61,6 +61,14 @@ const ISSUES_QUERY = `
           id
           name
         }
+        project {
+          id
+          name
+        }
+        cycle {
+          id
+          name
+        }
         team {
           name
           key
@@ -130,6 +138,14 @@ const ISSUES_QUERY_FILTERED = `
           type
         }
         assignee {
+          id
+          name
+        }
+        project {
+          id
+          name
+        }
+        cycle {
           id
           name
         }
@@ -218,6 +234,15 @@ export async function linearIssuesFetcher(
       if (comments) lines.push('', 'Comments:', comments)
 
       const structuredLinks = extractLinearLinks(issue)
+
+      // PART_OF: issue belongs to its project and/or cycle
+      if (issue.project?.name) {
+        structuredLinks.push({ relation: 'PART_OF', target_label: issue.project.name, target_entity_type: 'project' })
+      }
+      if (issue.cycle?.name) {
+        structuredLinks.push({ relation: 'PART_OF', target_label: issue.cycle.name, target_entity_type: 'ticket' })
+      }
+
       const structuredOwners: StructuredOwner[] = issue.assignee
         ? [{ person_label: issue.assignee.name, provider_account_id: issue.assignee.id, relation: 'WORKS_ON' }]
         : []
