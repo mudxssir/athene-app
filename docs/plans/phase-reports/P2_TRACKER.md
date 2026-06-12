@@ -14,8 +14,33 @@ _Branch: `pipeline/p2-engineering-depth` · Flags: `KG_OWNER_GRAPH` (default OFF
 | P2-7 | Linear project/cycle PART_OF + work_item shapes | done | `8c5e4a6` |
 | P2-8 | Jira ADF placeholders + sprint-absence tolerance | done | `3843155` |
 | P2-9 | Slack stable windows (10-reply windows, bot allow-list, short-skip) | done | `f831c59` + review fixes |
-| P2-10 | Tier-B chain: regex → sidecar GLiNER confirm → LLM | todo | — |
+| P2-10 | Tier-B chain: regex → sidecar GLiNER confirm → LLM | done | (this commit) |
 | P2-11 | Third extraction pass (blocker/obligation prompt) | todo | — |
+
+### P2-10 notes
+
+- Sidecar `/nlp/gliner` lane: GLiNER zero-shot NER (`urchade/gliner_small-v2.1`,
+  overridable via `GLINER_MODEL`), labels person/organization/project,
+  lazy-loaded singleton, 50-text/5k-char caps, per-text error isolation,
+  503 on model-unavailable (callers fail open). `gliner==0.2.13` pinned.
+- `glinerExtract()` in sidecar-client: shares the circuit breaker + 120 s
+  timeout; entity text never logged (counts/duration only).
+- Chain (`extraction-gate.ts`): `shouldRunExtractionChained` (legacy
+  source-type path, builder.ts) and `extractionTierChained` (shape path,
+  indexer.ts). Verdicts: regex-negative → B (GLiNER never runs);
+  regex-positive + entities → A; regex-positive + no entities → B (false
+  positive cut); sidecar down/unconfigured → A (fail open — false positive
+  costs one LLM call, false negative loses a decision). ONE sidecar call per
+  document, only the signal-matching chunks sent (queueing standard).
+- Obligation/ownership verbs added to the regex set (assigned to, taking
+  over, owns/owner of, responsible for, action item, due by, follow-up by,
+  will handle/pick up). Bare "own" deliberately excluded ("their own").
+- **Latent bug fixed in indexer.ts**: the flag-ON gate skipped KG only on
+  Tier 'C', so an unpromoted Tier-B thread ran the LLM anyway. Now skips on
+  anything !== 'A'.
+- Python tests for the new lane (auth, caps, 503 degrade, stub-model entity
+  shape, per-text isolation) run in the sidecar's own env/CI — pytest is not
+  installed in the app-repo dev environment (same as P1-10).
 
 ## Post-review fix round (2026-06-12)
 

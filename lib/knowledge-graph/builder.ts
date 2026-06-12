@@ -19,7 +19,7 @@ import { createHash } from 'node:crypto'
 // under withRLS().
 import { supabaseAdmin } from '@/lib/supabase/server'
 import { extractEntitiesAndRelations } from './extractor'
-import { shouldRunExtraction } from './extraction-gate'
+import { shouldRunExtractionChained } from './extraction-gate'
 import { buildStructuredLinkGraph } from './structured-links'
 import { buildStructuredOwnerGraph } from './structured-owners'
 import { KG_OWNER_GRAPH } from '@/lib/config/feature-flags'
@@ -226,12 +226,13 @@ async function processDocument(
     )
   }
 
-  // Tier A/B gate (REFOCUS §5.3): Slack chunks get embeddings only unless
-  // they match decision/blocker signal patterns — no LLM call otherwise.
+  // Tier A/B gate (REFOCUS §5.3 + P2-10 chain): Slack chunks get embeddings
+  // only unless they match decision/blocker signal patterns AND GLiNER
+  // confirms real person/org/project entities (sidecar down → fail open).
   const chunkTexts = extractorChunks.map((c) => c.text)
-  const runLLM = shouldRunExtraction(doc.source_type, chunkTexts)
+  const runLLM = await shouldRunExtractionChained(doc.source_type, chunkTexts)
   if (!runLLM) {
-    logger.info({ docId, sourceType: doc.source_type }, '[builder] Tier B — no signal match, skipping LLM extraction')
+    logger.info({ docId, sourceType: doc.source_type }, '[builder] Tier B — gate not passed, skipping LLM extraction')
   }
 
   const { nodes, edges } = runLLM

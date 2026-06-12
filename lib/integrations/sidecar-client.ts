@@ -84,6 +84,19 @@ export interface ChunkResult {
   duration_ms: number
 }
 
+export interface GlinerEntity {
+  text: string
+  label: string
+  score: number
+  text_index: number
+}
+
+export interface GlinerResult {
+  entities: GlinerEntity[]
+  model_version: string
+  duration_ms: number
+}
+
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
 function isConfigured(): boolean {
@@ -211,6 +224,55 @@ export async function chunkSemantic(
     logger.warn(
       { err: err instanceof Error ? err.message : String(err) },
       '[sidecar] chunk failed — falling back to TS chunker'
+    )
+    return null
+  }
+}
+
+/**
+ * GLiNER zero-shot NER confirm (P2-10 Tier-B chain).
+ * Batched: pass ALL of a document's candidate chunk texts in one call —
+ * never call per-chunk. Returns null when the sidecar is unavailable,
+ * unconfigured, or errors; callers treat null as "no confirmation possible"
+ * and fail open to their regex-only decision.
+ *
+ * Entity text is never logged — only counts and duration.
+ */
+export async function glinerExtract(
+  texts: string[],
+  labels: string[] = ['person', 'organization', 'project'],
+  threshold = 0.4,
+): Promise<GlinerResult | null> {
+  if (!isConfigured()) return null
+  if (!cbAvailable()) {
+    logger.warn({}, '[sidecar] Circuit breaker open — skipping GLiNER confirm')
+    return null
+  }
+  if (texts.length === 0) return { entities: [], model_version: 'none', duration_ms: 0 }
+
+  try {
+    const res = await fetchWithTimeout(`${getSidecarUrl()}/nlp/gliner`, {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texts, labels, threshold }),
+    })
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`)
+    }
+
+    const data = (await res.json()) as GlinerResult
+    cbSuccess()
+    logger.info(
+      { texts: texts.length, entities: data.entities.length, duration_ms: data.duration_ms },
+      '[sidecar] gliner OK'
+    )
+    return data
+  } catch (err) {
+    cbFailure()
+    logger.warn(
+      { err: err instanceof Error ? err.message : String(err) },
+      '[sidecar] gliner failed — caller falls back to regex-only gate'
     )
     return null
   }

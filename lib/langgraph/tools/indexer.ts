@@ -24,7 +24,7 @@ import type { RLSContext } from "@/lib/supabase/rls-client";
 import {
   extractEntitiesAndRelations,
 } from "@/lib/knowledge-graph/extractor";
-import { shouldRunExtraction, extractionTier } from "@/lib/knowledge-graph/extraction-gate";
+import { shouldRunExtractionChained, extractionTierChained } from "@/lib/knowledge-graph/extraction-gate";
 import { PIPELINE_SHAPE_ROUTING } from "@/lib/config/feature-flags";
 import { deleteByDocument, upsertEdges, upsertNodes } from "@/lib/knowledge-graph/storage";
 import type { ExtractorChunk, Visibility } from "@/lib/knowledge-graph/types";
@@ -209,10 +209,12 @@ export async function indexDocument(
       logger.warn({ documentId }, "[indexer] buildGraph requested but no rlsContext provided — skipping KG");
     } else if (
       PIPELINE_SHAPE_ROUTING && shape
-        ? extractionTier(shape, chunks.map((c) => c.text)) === 'C'
-        : !shouldRunExtraction(sourceType, chunks.map((c) => c.text))
+        // P2-10: thread regex positives are GLiNER-confirmed before promotion;
+        // Tier B (unconfirmed) and Tier C both skip the LLM here.
+        ? (await extractionTierChained(shape, chunks.map((c) => c.text))) !== 'A'
+        : !(await shouldRunExtractionChained(sourceType, chunks.map((c) => c.text)))
     ) {
-      // Shape-aware Tier C (flag on) or Tier B legacy gate: skip KG extraction.
+      // Shape-aware Tier B/C (flag on) or legacy Tier B gate: skip KG extraction.
       logger.info({ documentId, sourceType, shape: shape ?? null }, "[indexer] Tier B/C — skipping KG extraction");
     } else {
       const extractorChunks: ExtractorChunk[] = chunks.map((c) => ({

@@ -60,6 +60,12 @@ const SIGNAL_PATTERNS: RegExp[] = [
   /\bcommit(?:ted)? to\b/i,
   /\bescalat/i,
   /\b(?:owe|owes|promised)\b/i,
+  // obligation / ownership verbs (P2-10)
+  /\b(?:assigned to|taking over|handing (?:off|over)|taking ownership)\b/i,
+  /\b(?:owns|owner of|ownership of|responsible for|on point for|on the hook for)\b/i,
+  /\b(?:will (?:handle|take|pick up|own)|picking (?:up|this up))\b/i,
+  /\b(?:action item|follow[- ]up (?:by|on)|needs? to (?:ship|deliver|finish|complete))\b/i,
+  /\bdue (?:by|on|date|this|next)\b/i,
 ];
 
 /**
@@ -120,4 +126,76 @@ export function extractionTier(
     case 'code':
       return 'C'
   }
+}
+
+// ── P2-10: Tier-B chain — regex → GLiNER confirm → LLM ───────────────────────
+//
+// The regex gate is deliberately high-recall, so it admits false positives
+// ("this blocks nothing", "no deadline here"). GLiNER zero-shot NER runs ONLY
+// on regex-positive documents and confirms the text actually mentions a
+// person / organization / project — the entities a decision or blocker needs.
+// Chain verdicts:
+//   regex negative                    → B (embeddings only; GLiNER never runs)
+//   regex positive + GLiNER entities  → A (LLM extraction)
+//   regex positive + GLiNER empty     → B (regex false positive cut)
+//   regex positive + sidecar down     → A (fail open — a false positive costs
+//                                          one LLM call; a false negative loses
+//                                          a decision from the graph)
+// Batching: ONE sidecar call per document, sending only the signal-matching
+// chunks (queueing standard: never per-chunk calls).
+
+/**
+ * GLiNER confirm over a document's signal-matching chunks.
+ * Returns true (entities found), false (none — false positive), or
+ * null (sidecar unavailable — caller fails open).
+ */
+async function glinerConfirm(signalTexts: string[]): Promise<boolean | null> {
+  // Lazy import keeps server-only sidecar code out of any client bundle that
+  // imports the sync gate functions.
+  const { sidecarAvailable, glinerExtract } = await import('@/lib/integrations/sidecar-client')
+  if (!sidecarAvailable()) return null
+  const result = await glinerExtract(signalTexts)
+  if (result === null) return null
+  return result.entities.length > 0
+}
+
+/**
+ * Async Tier-B chain for legacy source-type routing (builder.ts path).
+ * Identical to shouldRunExtraction except Tier-B regex positives are
+ * confirmed by GLiNER before the LLM is unlocked.
+ */
+export async function shouldRunExtractionChained(
+  sourceType: string | null | undefined,
+  chunkTexts: string[]
+): Promise<boolean> {
+  const src = (sourceType ?? "").toLowerCase();
+  if (!src || TIER_A_SOURCE_TYPES.has(src)) return true;
+  if (!TIER_B_SOURCE_TYPES.has(src)) return true;
+
+  const signalTexts = chunkTexts.filter((text) =>
+    SIGNAL_PATTERNS.some((pattern) => pattern.test(text))
+  );
+  if (signalTexts.length === 0) return false;
+
+  const confirmed = await glinerConfirm(signalTexts);
+  return confirmed === null ? true : confirmed;
+}
+
+/**
+ * Async Tier-B chain for shape routing (indexer.ts path, PIPELINE_SHAPE_ROUTING).
+ * Identical to extractionTier except thread-shape regex positives are
+ * confirmed by GLiNER before promotion to Tier A.
+ */
+export async function extractionTierChained(
+  shape: DataShape,
+  chunkTexts: string[]
+): Promise<'A' | 'B' | 'C'> {
+  if (shape !== 'thread') return extractionTier(shape, chunkTexts)
+
+  const signalTexts = chunkTexts.filter((t) => SIGNAL_PATTERNS.some((p) => p.test(t)))
+  if (signalTexts.length === 0) return 'B'
+
+  const confirmed = await glinerConfirm(signalTexts)
+  if (confirmed === null) return 'A'  // fail open
+  return confirmed ? 'A' : 'B'
 }

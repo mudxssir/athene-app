@@ -25,6 +25,7 @@ import {
   sidecarAvailable,
   parseSidecar,
   chunkSemantic,
+  glinerExtract,
   _circuitBreakerState,
   _resetCircuitBreaker,
 } from '@/lib/integrations/sidecar-client'
@@ -163,6 +164,56 @@ describe('circuit breaker', () => {
 
     const result = await chunkSemantic('hello world', 512)
     expect(result).toMatchObject(mockResult)
+    vi.unstubAllGlobals()
+  })
+
+  // ── glinerExtract (P2-10) ───────────────────────────────────────────
+
+  it('glinerExtract returns GlinerResult on success and posts to /nlp/gliner', async () => {
+    const mockResult = {
+      entities: [{ text: 'Alice', label: 'person', score: 0.9, text_index: 0 }],
+      model_version: 'urchade/gliner_small-v2.1',
+      duration_ms: 12,
+    }
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => mockResult } as Response)
+    vi.stubGlobal('fetch', fetchMock)
+    _resetCircuitBreaker()
+
+    const result = await glinerExtract(['Alice is blocked on deploy'])
+    expect(result).toMatchObject(mockResult)
+    expect(fetchMock.mock.calls[0][0]).toBe('http://sidecar.internal/nlp/gliner')
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string)
+    expect(body.labels).toEqual(['person', 'organization', 'project'])
+    vi.unstubAllGlobals()
+  })
+
+  it('glinerExtract returns null on HTTP failure (503 model unavailable)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 } as Response))
+    _resetCircuitBreaker()
+    expect(await glinerExtract(['text'])).toBeNull()
+    vi.unstubAllGlobals()
+  })
+
+  it('glinerExtract short-circuits empty input without a network call', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    _resetCircuitBreaker()
+    const result = await glinerExtract([])
+    expect(result).toMatchObject({ entities: [] })
+    expect(fetchMock).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
+  })
+
+  it('glinerExtract returns null when circuit breaker is open', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('down')))
+    _resetCircuitBreaker()
+    for (let i = 0; i < 3; i++) await glinerExtract(['text'])
+    expect(_circuitBreakerState().state).toBe('open')
+
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+    expect(await glinerExtract(['text'])).toBeNull()
+    expect(fetchSpy).not.toHaveBeenCalled()
     vi.unstubAllGlobals()
   })
 })

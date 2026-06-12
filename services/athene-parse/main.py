@@ -5,6 +5,7 @@ Endpoints:
   GET  /healthz          → liveness probe
   POST /parse            → Docling (primary) → MarkItDown (fallback) → markdown
   POST /chunk            → Chonkie semantic chunking
+  POST /nlp/gliner       → GLiNER zero-shot NER confirm (Tier-B gate, P2-10)
 
 Auth: Bearer token (SIDECAR_AUTH_TOKEN env var). All endpoints except /healthz
       require the token. Requests without it are rejected 401.
@@ -242,3 +243,95 @@ def _chunk_naive(text: str, target_tokens: int) -> tuple[list[ChunkItem], str]:
     if buf.strip():
         chunks.append(ChunkItem(text=buf.strip(), token_count=len(buf) // 4))
     return chunks, "naive-paragraph"
+
+
+# ── /nlp/gliner ───────────────────────────────────────────────────────────────
+# P2-10 Tier-B confirm lane: zero-shot NER over thread chunks that matched the
+# decision/blocker regex. Entities of the requested labels confirm the chunk
+# is about real people/orgs/projects (→ promote to LLM extraction); none found
+# means the regex hit was a false positive (→ stay embeddings-only).
+
+GLINER_MODEL_NAME = os.environ.get("GLINER_MODEL", "urchade/gliner_small-v2.1")
+GLINER_MAX_TEXTS = 50          # one call per document; cap pathological docs
+GLINER_MAX_CHARS_PER_TEXT = 5_000
+GLINER_DEFAULT_LABELS = ["person", "organization", "project"]
+
+_gliner_model: Any = None      # lazy singleton — model load is seconds-slow
+
+
+def _get_gliner_model() -> Any:
+    global _gliner_model
+    if _gliner_model is None:
+        from gliner import GLiNER
+        _gliner_model = GLiNER.from_pretrained(GLINER_MODEL_NAME)
+    return _gliner_model
+
+
+class GlinerRequest(BaseModel):
+    texts: list[str]
+    labels: list[str] = GLINER_DEFAULT_LABELS
+    threshold: float = 0.4
+
+
+class GlinerEntity(BaseModel):
+    text: str
+    label: str
+    score: float
+    text_index: int    # index into the request's texts array
+
+
+class GlinerResponse(BaseModel):
+    entities: list[GlinerEntity]
+    model_version: str
+    duration_ms: int
+
+
+@app.post("/nlp/gliner", response_model=GlinerResponse, dependencies=[Depends(require_auth)])
+async def nlp_gliner(body: GlinerRequest) -> GlinerResponse:
+    """
+    Zero-shot NER confirm. Batched: callers send all of a document's candidate
+    chunks in ONE request (never per-chunk calls). Returns every entity above
+    threshold with the index of the text it came from.
+
+    503 when the GLiNER model is unavailable — callers treat that as
+    "no confirmation possible" and fail open to their regex-only decision.
+    """
+    if not body.texts:
+        raise HTTPException(status_code=422, detail="texts must be non-empty")
+    if len(body.texts) > GLINER_MAX_TEXTS:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Too many texts ({len(body.texts)}). Limit is {GLINER_MAX_TEXTS} per request.",
+        )
+
+    t0 = time.perf_counter()
+    try:
+        model = _get_gliner_model()
+    except Exception:
+        raise HTTPException(status_code=503, detail="GLiNER model unavailable")
+
+    labels = body.labels or GLINER_DEFAULT_LABELS
+    entities: list[GlinerEntity] = []
+    for idx, text in enumerate(body.texts):
+        clipped = text[:GLINER_MAX_CHARS_PER_TEXT]
+        if not clipped.strip():
+            continue
+        try:
+            predictions = model.predict_entities(clipped, labels, threshold=body.threshold)
+        except Exception:
+            continue  # per-text isolation: one bad text never poisons the batch
+        for ent in predictions:
+            entities.append(
+                GlinerEntity(
+                    text=str(ent.get("text", "")),
+                    label=str(ent.get("label", "")),
+                    score=float(ent.get("score", 0.0)),
+                    text_index=idx,
+                )
+            )
+
+    return GlinerResponse(
+        entities=entities,
+        model_version=GLINER_MODEL_NAME,
+        duration_ms=int((time.perf_counter() - t0) * 1000),
+    )
