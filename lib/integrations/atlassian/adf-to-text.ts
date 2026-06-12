@@ -32,6 +32,55 @@ export function extractTextFromADF(node: ADFNode | ADFNode[] | null | undefined)
     return '\n'
   }
 
+  // ── Inline nodes with deterministic text representation ──────────────
+  if (node.type === 'mention') {
+    return node.attrs?.text ?? `@${node.attrs?.id ?? 'unknown'}`
+  }
+  if (node.type === 'emoji') {
+    return node.attrs?.text ?? node.attrs?.shortName ?? ''
+  }
+  if (node.type === 'inlineCard') {
+    return node.attrs?.url ?? '[link]'
+  }
+  if (node.type === 'status') {
+    return node.attrs?.text ? `[${node.attrs.text}]` : ''
+  }
+  if (node.type === 'date') {
+    return node.attrs?.timestamp ? new Date(Number(node.attrs.timestamp)).toISOString().slice(0, 10) : '[date]'
+  }
+
+  // ── Block nodes ──────────────────────────────────────────────────────
+  if (node.type === 'panel') {
+    const inner = node.content ? extractTextFromADF(node.content) : ''
+    const panelType = node.attrs?.panelType ?? 'note'
+    return `[${panelType}]\n${inner.trim()}\n`
+  }
+  if (node.type === 'expand') {
+    const title = node.attrs?.title ?? 'expand'
+    const inner = node.content ? extractTextFromADF(node.content) : ''
+    return `[${title}]\n${inner.trim()}\n`
+  }
+  if (node.type === 'table') {
+    return node.content ? extractTextFromADF(node.content) : '[table]\n'
+  }
+  if (node.type === 'tableRow') {
+    const cells = node.content ? node.content.map((c) => extractTextFromADF(c).replace(/\n/g, ' ').trim()) : []
+    return cells.join(' | ') + '\n'
+  }
+  if (node.type === 'tableCell' || node.type === 'tableHeader') {
+    return node.content ? extractTextFromADF(node.content) : ''
+  }
+  if (node.type === 'media' || node.type === 'mediaSingle' || node.type === 'mediaGroup') {
+    const name = node.attrs?.fileName ?? node.attrs?.alt ?? null
+    return name ? `[attachment: ${name}]` : '[attachment]'
+  }
+  if (node.type === 'blockCard') {
+    return `[${node.attrs?.url ?? 'link'}]\n`
+  }
+  if (node.type === 'rule') {
+    return '---\n'
+  }
+
   // Handle blocks that should be followed by a newline
   const blockTypes = ['paragraph', 'heading', 'listItem', 'blockquote', 'codeBlock']
   const isBlock = blockTypes.includes(node.type)

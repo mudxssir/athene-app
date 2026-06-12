@@ -97,6 +97,72 @@ describe('Atlassian Utils', () => {
       expect(text).toContain('• Item 2')
     })
 
+    // ── P2-8 ADF placeholder tests ────────────────────────────────────
+    it('renders mention nodes as @name', () => {
+      const adf = { type: 'doc', content: [{ type: 'mention', attrs: { text: '@Alice', id: 'uid-1' } }] }
+      expect(adfToText(adf)).toBe('@Alice')
+    })
+
+    it('renders emoji as text shorthand', () => {
+      const adf = { type: 'doc', content: [{ type: 'emoji', attrs: { shortName: ':tada:', text: '🎉' } }] }
+      expect(adfToText(adf)).toBe('🎉')
+    })
+
+    it('renders inlineCard URL', () => {
+      const adf = { type: 'doc', content: [{ type: 'inlineCard', attrs: { url: 'https://jira/PROJ-1' } }] }
+      expect(adfToText(adf)).toBe('https://jira/PROJ-1')
+    })
+
+    it('renders panel with type prefix', () => {
+      const adf = {
+        type: 'doc', content: [{
+          type: 'panel', attrs: { panelType: 'warning' },
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Be careful' }] }],
+        }],
+      }
+      const text = adfToText(adf)
+      expect(text).toContain('[warning]')
+      expect(text).toContain('Be careful')
+    })
+
+    it('renders table rows with cell separators', () => {
+      const adf = {
+        type: 'doc', content: [{
+          type: 'table', content: [{
+            type: 'tableRow', content: [
+              { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'A' }] }] },
+              { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'B' }] }] },
+            ],
+          }],
+        }],
+      }
+      const text = adfToText(adf)
+      expect(text).toContain('A')
+      expect(text).toContain('B')
+      expect(text).toContain('|')
+    })
+
+    it('renders media as [attachment] placeholder', () => {
+      const adf = {
+        type: 'doc', content: [{
+          type: 'mediaSingle', content: [{ type: 'media', attrs: { fileName: 'report.pdf' } }],
+        }],
+      }
+      expect(adfToText(adf)).toContain('attachment')
+    })
+
+    it('renders expand with title', () => {
+      const adf = {
+        type: 'doc', content: [{
+          type: 'expand', attrs: { title: 'More details' },
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hidden text' }] }],
+        }],
+      }
+      const text = adfToText(adf)
+      expect(text).toContain('More details')
+      expect(text).toContain('Hidden text')
+    })
+
     it('decodes HTML entities', () => {
       const html = '<p>It&apos;s &quot;quoted&quot; &amp; &lt;tagged&gt;</p>'
       expect(confluenceHtmlToText(html)).toBe('It\'s "quoted" & <tagged>')

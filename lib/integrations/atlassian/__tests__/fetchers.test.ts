@@ -92,6 +92,24 @@ describe('Atlassian Fetchers (ATH-31 Verification)', () => {
       expect(chunks[0].structured_owners).toBeUndefined()
     })
 
+    it('tolerates missing sprint field without crashing', async () => {
+      ;(client.atlassianFetch as any).mockResolvedValueOnce({
+        issues: [{
+          id: '20', key: 'P-20',
+          fields: {
+            summary: 'No sprint issue',
+            updated: '2026-06-01T00:00:00Z',
+            status: { name: 'Open' },
+            // sprint field absent entirely
+          },
+        }],
+        total: 1, startAt: 0,
+      })
+      const chunks = await fetchJiraIssues(mockConnId, mockOrgId, { limit: 50 })
+      expect(chunks).toHaveLength(1)
+      expect(chunks[0].content).not.toContain('Sprint:')
+    })
+
     it('searchJiraIssues (Mode B) returns correct shape', async () => {
       ;(client.atlassianFetch as any).mockResolvedValueOnce({
         issues: [{ id: '1', key: 'SEARCH-1', fields: { summary: 'Search result', updated: '2026-04-30T00:00:00Z' } }]
