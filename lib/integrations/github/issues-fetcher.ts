@@ -1,5 +1,6 @@
 import { githubFetch } from './client';
 import { FetchedChunk, StructuredOwner } from '../base';
+import type { StructuredLink } from '@/lib/knowledge-graph/types';
 
 const ISSUES_QUERY = `
   query GetIssues($owner: String!, $repo: String!, $cursor: String) {
@@ -11,9 +12,11 @@ const ISSUES_QUERY = `
         }
         nodes {
           id
+          number
           title
           body
           url
+          state
           createdAt
           author {
             login
@@ -26,6 +29,16 @@ const ISSUES_QUERY = `
           comments(first: 50) {
             nodes {
               body
+            }
+          }
+          timelineItems(first: 10, itemTypes: [CROSS_REFERENCED_EVENT]) {
+            nodes {
+              ... on CrossReferencedEvent {
+                source {
+                  ... on PullRequest { number title url }
+                  ... on Issue { number title url }
+                }
+              }
             }
           }
         }
@@ -59,6 +72,15 @@ export async function githubIssuesFetcher(connectionId: string, orgId: string, o
         }
       }
 
+      // Timeline cross-references: PRs or issues that mention this issue
+      const timelineLinks: StructuredLink[] = (issue.timelineItems?.nodes ?? [])
+        .filter((e: any) => e?.source?.number)
+        .map((e: any) => ({
+          relation: 'RELATED_TO' as const,
+          target_label: `#${e.source.number}: ${e.source.title ?? ''}`.trim(),
+          target_entity_type: 'ticket',
+        }))
+
       const chunk: FetchedChunk = {
         chunk_id: issue.id,
         title: issue.title,
@@ -70,8 +92,10 @@ export async function githubIssuesFetcher(connectionId: string, orgId: string, o
           provider: 'github',
           resource_type: 'issue',
           created_at: issue.createdAt,
+          state: issue.state,
           owner,
-          repo
+          repo,
+          ...(timelineLinks.length > 0 ? { structured_links: timelineLinks } : {}),
         }
       };
 

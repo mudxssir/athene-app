@@ -15,11 +15,14 @@ import { githubIssuesFetcher } from "../issues-fetcher";
 function makeIssue(overrides: Record<string, unknown> = {}) {
   return {
     id: "issue-1",
+    number: 1,
     title: "Bug: login fails",
     body: "Steps to reproduce...",
     url: "https://github.com/org/repo/issues/1",
+    state: "OPEN",
     createdAt: "2026-05-01T00:00:00Z",
     comments: { nodes: [{ body: "Confirmed." }, { body: "Fixed in v2." }] },
+    timelineItems: { nodes: [] },
     ...overrides,
   };
 }
@@ -115,6 +118,22 @@ describe("githubIssuesFetcher", () => {
     mockGithubFetch.mockResolvedValue(makePage([issue]));
     const result = await githubIssuesFetcher("conn-1", "org-1", "myorg", "myrepo");
     expect(result[0].structured_owners).toBeUndefined();
+  });
+
+  it("emits structured_links for timeline cross-references", async () => {
+    const issue = makeIssue({
+      timelineItems: {
+        nodes: [
+          { source: { number: 99, title: "Fix for bug", url: "https://github.com/org/repo/pull/99" } },
+        ],
+      },
+    });
+    mockGithubFetch.mockResolvedValue(makePage([issue]));
+    const result = await githubIssuesFetcher("conn-1", "org-1", "myorg", "myrepo");
+    const links = result[0].metadata?.structured_links as any[];
+    expect(links).toBeDefined();
+    expect(links).toHaveLength(1);
+    expect(links[0]).toMatchObject({ relation: "RELATED_TO", target_label: "#99: Fix for bug" });
   });
 
   it("passes owner and repo to the GraphQL query variables", async () => {
