@@ -360,7 +360,10 @@ async function upsertDocumentRecord(
         owner_user_id: ownerUserId,
         visibility,
         external_url: chunk.source_url,
-        metadata: chunk.metadata,
+        metadata: {
+          ...chunk.metadata,
+          ...(chunk.structured_owners ? { structured_owners: chunk.structured_owners } : {}),
+        },
         content_hash: newContentHash,
       },
       { onConflict: 'org_id,connection_id,external_id' }

@@ -97,6 +97,26 @@ describe("githubIssuesFetcher", () => {
     expect(secondCallVars.cursor).toBe("cursor-1");
   });
 
+  it("emits structured_owners for author (REPORTED_BY) and assignees (WORKS_ON)", async () => {
+    const issue = makeIssue({
+      author: { login: "alice" },
+      assignees: { nodes: [{ login: "bob" }, { login: "carol" }] },
+    });
+    mockGithubFetch.mockResolvedValue(makePage([issue]));
+    const result = await githubIssuesFetcher("conn-1", "org-1", "myorg", "myrepo");
+    const owners = result[0].structured_owners ?? [];
+    expect(owners).toHaveLength(3);
+    expect(owners.find(o => o.relation === "REPORTED_BY")).toMatchObject({ person_label: "alice", provider_account_id: "alice" });
+    expect(owners.filter(o => o.relation === "WORKS_ON").map(o => o.person_label)).toEqual(["bob", "carol"]);
+  });
+
+  it("emits no structured_owners when author and assignees are absent", async () => {
+    const issue = makeIssue({ author: null, assignees: { nodes: [] } });
+    mockGithubFetch.mockResolvedValue(makePage([issue]));
+    const result = await githubIssuesFetcher("conn-1", "org-1", "myorg", "myrepo");
+    expect(result[0].structured_owners).toBeUndefined();
+  });
+
   it("passes owner and repo to the GraphQL query variables", async () => {
     mockGithubFetch.mockResolvedValue(makePage([]));
     await githubIssuesFetcher("conn-1", "org-1", "acme-corp", "backend-api");

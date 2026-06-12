@@ -23,7 +23,7 @@ function makeIssue(overrides: Record<string, unknown> = {}) {
     createdAt: "2026-05-01T00:00:00Z",
     updatedAt: "2026-05-10T00:00:00Z",
     state: { name: "In Progress", type: "started" },
-    assignee: { name: "Alice Smith" },
+    assignee: { id: "user-uuid-alice", name: "Alice Smith" },
     team: { name: "Engineering", key: "ENG" },
     labels: { nodes: [{ name: "bug" }, { name: "auth" }] },
     comments: {
@@ -123,6 +123,20 @@ describe("linearIssuesFetcher", () => {
     expect(result).toHaveLength(1);
     expect(result[0].content).not.toContain("Team:");
     expect(result[0].content).not.toContain("Assignee:");
+  });
+
+  it("emits structured_owners WORKS_ON for assignee with provider_account_id", async () => {
+    mockLinearFetch.mockResolvedValue(makePage([makeIssue()]));
+    const result = await linearIssuesFetcher("conn-1", "org-1");
+    const owners = result[0].structured_owners ?? [];
+    expect(owners).toHaveLength(1);
+    expect(owners[0]).toMatchObject({ person_label: "Alice Smith", provider_account_id: "user-uuid-alice", relation: "WORKS_ON" });
+  });
+
+  it("emits no structured_owners when assignee is null", async () => {
+    mockLinearFetch.mockResolvedValue(makePage([makeIssue({ assignee: null })]));
+    const result = await linearIssuesFetcher("conn-1", "org-1");
+    expect(result[0].structured_owners).toBeUndefined();
   });
 
   it("paginates until hasNextPage is false", async () => {

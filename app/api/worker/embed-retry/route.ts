@@ -22,6 +22,7 @@ export const maxDuration = 300;
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { verifyQStashSignature, checkIdempotency } from '@/lib/qstash/verify'
+// SERVICE-ROLE JUSTIFICATION: QStash-verified background worker; updates document_embeddings and sync_errors — no user-facing reads.
 import { supabaseAdmin } from '@/lib/supabase/server'
 import { logger } from '@/lib/logger'
 import { parseBody, uuidSchema } from '@/lib/validation'

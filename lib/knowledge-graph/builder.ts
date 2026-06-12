@@ -21,6 +21,7 @@ import { supabaseAdmin } from '@/lib/supabase/server'
 import { extractEntitiesAndRelations } from './extractor'
 import { shouldRunExtraction } from './extraction-gate'
 import { buildStructuredLinkGraph } from './structured-links'
+import { buildStructuredOwnerGraph } from './structured-owners'
 import { upsertGraph, deleteByDocument } from './storage'
 import { detectCommunities } from './community'
 import { extractAndUpsertEvents } from './event-extractor'
@@ -236,18 +237,24 @@ async function processDocument(
     ? await extractEntitiesAndRelations(extractorChunks, supabaseAdmin)
     : { nodes: [], edges: [] }
 
-  // Structured links (REFOCUS §5.3): Jira/Linear/GitHub blocking links are
-  // stated by the source system — ingested as EXTRACTED/1.0 edges, no LLM.
-  const structured = buildStructuredLinkGraph({
+  const docArg = {
     id: doc.id,
     org_id: doc.org_id,
     title: doc.title ?? null,
     department_id: doc.department_id ?? null,
     visibility: doc.visibility ?? null,
     metadata: (doc.metadata ?? null) as Record<string, unknown> | null,
-  })
+  }
+
+  // Structured links (REFOCUS §5.3): Jira/Linear/GitHub blocking links — no LLM.
+  const structured = buildStructuredLinkGraph(docArg)
   nodes.push(...structured.nodes)
   edges.push(...structured.edges)
+
+  // Structured owners (P2-3): PERSON → work_item edges from fetcher-provided owner annotations.
+  const ownersGraph = buildStructuredOwnerGraph(docArg)
+  nodes.push(...ownersGraph.nodes)
+  edges.push(...ownersGraph.edges)
 
   // BUG-12 FIX: Only update global counters after full success
   if (nodes.length > 0 || edges.length > 0) {

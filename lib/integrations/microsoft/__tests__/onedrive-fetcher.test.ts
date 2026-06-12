@@ -29,7 +29,7 @@ describe('onedrive-fetcher', () => {
     vi.mocked(graphClient.graphDownload).mockResolvedValue(new TextEncoder().encode('hello').buffer)
 
     const content = await fetchOneDriveDocContent('conn-123', 'org-123', 'item-123')
-    expect(content).toBe('hello')
+    expect(content.text).toBe('hello')
     expect(graphClient.graphDownload).toHaveBeenCalledWith('conn-123', 'org-123', '/me/drive/items/item-123/content')
   })
 })

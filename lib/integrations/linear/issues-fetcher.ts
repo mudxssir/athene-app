@@ -1,5 +1,5 @@
 import { linearFetch } from './client'
-import { FetchedChunk } from '../base'
+import { FetchedChunk, StructuredOwner } from '../base'
 import { type SyncConfig, getSelectedResourceIds } from '../sync-config'
 import type { StructuredLink } from '@/lib/knowledge-graph/types'
 
@@ -58,6 +58,7 @@ const ISSUES_QUERY = `
           type
         }
         assignee {
+          id
           name
         }
         team {
@@ -129,6 +130,7 @@ const ISSUES_QUERY_FILTERED = `
           type
         }
         assignee {
+          id
           name
         }
         team {
@@ -216,6 +218,9 @@ export async function linearIssuesFetcher(
       if (comments) lines.push('', 'Comments:', comments)
 
       const structuredLinks = extractLinearLinks(issue)
+      const structuredOwners: StructuredOwner[] = issue.assignee
+        ? [{ person_label: issue.assignee.name, provider_account_id: issue.assignee.id, relation: 'WORKS_ON' }]
+        : []
 
       chunks.push({
         chunk_id: issue.id,
@@ -223,6 +228,7 @@ export async function linearIssuesFetcher(
         content: lines.join('\n'),
         source_url: issue.url,
         shape: 'work_item' as const,
+        ...(structuredOwners.length > 0 ? { structured_owners: structuredOwners } : {}),
         metadata: {
           provider: 'linear',
           resource_type: 'issue',

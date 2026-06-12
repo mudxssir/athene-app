@@ -1,9 +1,28 @@
 import { getAtlassianResources, atlassianFetch } from "./client";
 import { extractTextFromADF } from "./adf-to-text";
-import type { FetchedChunk } from "../base";
+import type { FetchedChunk, StructuredOwner } from "../base";
 import { assertSafeMetadata } from "../base";
 import { type SyncConfig, getSelectedResourceIds } from "../sync-config";
 import type { StructuredLink } from "@/lib/knowledge-graph/types";
+
+function extractJiraOwners(issue: any): StructuredOwner[] {
+  const owners: StructuredOwner[] = []
+  if (issue.fields?.assignee) {
+    owners.push({
+      person_label: issue.fields.assignee.displayName,
+      provider_account_id: issue.fields.assignee.accountId,
+      relation: 'OWNS',
+    })
+  }
+  if (issue.fields?.reporter) {
+    owners.push({
+      person_label: issue.fields.reporter.displayName,
+      provider_account_id: issue.fields.reporter.accountId,
+      relation: 'REPORTED_BY',
+    })
+  }
+  return owners
+}
 
 /**
  * Map Jira issue links to structured graph links (REFOCUS §5.3).
@@ -118,6 +137,7 @@ export async function fetchJiraIssues(
       }
 
       const structuredLinks = extractJiraLinks(issue);
+      const structuredOwners = extractJiraOwners(issue);
 
       const chunk: FetchedChunk = {
         chunk_id: `jira_${issue.id}`,
@@ -125,6 +145,7 @@ export async function fetchJiraIssues(
         content: lines.join('\n'),
         source_url: `${cloudUrl}/browse/${issue.key}`,
         shape: 'work_item' as const,
+        ...(structuredOwners.length > 0 ? { structured_owners: structuredOwners } : {}),
         metadata: {
           provider: "jira",
           resource_type: "issue",

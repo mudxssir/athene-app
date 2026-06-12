@@ -1,5 +1,5 @@
 import { zendeskFetch } from './client'
-import type { FetchedChunk } from '@/lib/integrations/base'
+import type { FetchedChunk, StructuredOwner } from '@/lib/integrations/base'
 
 export async function fetchZendeskTickets(
   connectionId: string,
@@ -39,6 +39,13 @@ export async function fetchZendeskTickets(
 
   return allTickets.map((ticket) => {
     const publicComments = commentMap.get(ticket.id) ?? ''
+    const structuredOwners: StructuredOwner[] = []
+    if (ticket.assignee_id) {
+      structuredOwners.push({ person_label: `zendesk:${ticket.assignee_id}`, provider_account_id: String(ticket.assignee_id), relation: 'OWNS' })
+    }
+    if (ticket.requester_id) {
+      structuredOwners.push({ person_label: `zendesk:${ticket.requester_id}`, provider_account_id: String(ticket.requester_id), relation: 'REPORTED_BY' })
+    }
     return {
       chunk_id: `zendesk-ticket-${ticket.id}`,
       title: `Ticket #${ticket.id}: ${ticket.subject}`,
@@ -54,6 +61,7 @@ export async function fetchZendeskTickets(
         .replace('/api/v2/tickets/', '/agent/tickets/')
         .replace('.json', ''),
       shape: 'work_item' as const,
+      ...(structuredOwners.length > 0 ? { structured_owners: structuredOwners } : {}),
       metadata: {
         provider: 'zendesk',
         resource_type: 'ticket',

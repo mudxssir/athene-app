@@ -57,6 +57,41 @@ describe('Atlassian Fetchers (ATH-31 Verification)', () => {
       expect(client.atlassianFetch).toHaveBeenCalledTimes(2)
     })
 
+    it('emits structured_owners for assignee and reporter', async () => {
+      ;(client.atlassianFetch as any).mockResolvedValueOnce({
+        issues: [{
+          id: '10', key: 'P-10',
+          fields: {
+            summary: 'Owner test',
+            updated: '2026-06-01T00:00:00Z',
+            status: { name: 'Open' },
+            assignee: { accountId: 'acc-1', displayName: 'Alice' },
+            reporter: { accountId: 'acc-2', displayName: 'Bob' },
+          },
+        }],
+        total: 1, startAt: 0,
+      })
+
+      const chunks = await fetchJiraIssues(mockConnId, mockOrgId, { limit: 50 })
+      const owners = chunks[0].structured_owners ?? []
+      expect(owners).toHaveLength(2)
+      expect(owners.find(o => o.relation === 'OWNS')).toMatchObject({ person_label: 'Alice', provider_account_id: 'acc-1' })
+      expect(owners.find(o => o.relation === 'REPORTED_BY')).toMatchObject({ person_label: 'Bob', provider_account_id: 'acc-2' })
+    })
+
+    it('emits no structured_owners when assignee and reporter are absent', async () => {
+      ;(client.atlassianFetch as any).mockResolvedValueOnce({
+        issues: [{
+          id: '11', key: 'P-11',
+          fields: { summary: 'No owner', updated: '2026-06-01T00:00:00Z', status: { name: 'Open' } },
+        }],
+        total: 1, startAt: 0,
+      })
+
+      const chunks = await fetchJiraIssues(mockConnId, mockOrgId, { limit: 50 })
+      expect(chunks[0].structured_owners).toBeUndefined()
+    })
+
     it('searchJiraIssues (Mode B) returns correct shape', async () => {
       ;(client.atlassianFetch as any).mockResolvedValueOnce({
         issues: [{ id: '1', key: 'SEARCH-1', fields: { summary: 'Search result', updated: '2026-04-30T00:00:00Z' } }]
