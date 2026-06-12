@@ -206,7 +206,7 @@ export default function BriefingPage() {
 
           <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
             {/* Date widget */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'var(--bg-muted)', border: '1px solid var(--border)', padding: '14px 18px', borderRadius: 22 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'var(--bg-muted)', border: '1px solid var(--border)', padding: '14px 18px', borderRadius: "var(--r-lg)" }}>
               <IconTile icon={Calendar} size={44} tone="primary" />
               <div>
                 <div className="eyebrow" style={{ marginBottom: 4 }}>Temporal context</div>
@@ -219,7 +219,7 @@ export default function BriefingPage() {
             {/* History */}
             <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
               <SheetTrigger asChild>
-                <button style={{ width: 58, height: 58, borderRadius: 18, background: 'var(--bg-muted)', border: '1px solid var(--border)', color: 'var(--fg-muted)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all .2s var(--ease-out)' }}
+                <button style={{ width: 58, height: 58, borderRadius: "var(--r-md)", background: 'var(--bg-muted)', border: '1px solid var(--border)', color: 'var(--fg-muted)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all .2s var(--ease-out)' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-strong)'; (e.currentTarget as HTMLElement).style.color = 'var(--primary)'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--fg-muted)'; }}
                   title="History">
@@ -274,15 +274,15 @@ export default function BriefingPage() {
 
             {/* Refresh */}
             <button onClick={handleRefresh} disabled={refreshing || enqueuing || historyItemLoading}
-              style={{ width: 58, height: 58, borderRadius: 18, background: 'var(--bg-muted)', border: '1px solid var(--border)', color: 'var(--fg-muted)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all .2s var(--ease-out)' }}
+              style={{ width: 58, height: 58, borderRadius: "var(--r-md)", background: 'var(--bg-muted)', border: '1px solid var(--border)', color: 'var(--fg-muted)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all .2s var(--ease-out)' }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(160,74,27,.4)'; (e.currentTarget as HTMLElement).style.color = 'var(--primary)'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--fg-muted)'; }}>
               <RefreshCw size={20} strokeWidth={1.7} className={refreshing ? 'animate-spin' : ''} />
             </button>
 
-            {/* Trigger synthesis */}
-            <button onClick={handleGenerate} disabled={enqueuing}
-              style={{ height: 58, padding: '0 28px', borderRadius: 18, background: 'var(--primary)', color: '#fff', border: 'none', fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 800, letterSpacing: '0.28em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer', boxShadow: '0 14px 30px -10px rgba(160,74,27,.55)', transition: 'all .15s var(--ease-out)' }}
+            {/* Trigger synthesis — lavender disruptor (generative action) */}
+            <button onClick={handleGenerate} disabled={enqueuing} className="btn-lav"
+              style={{ height: 58, padding: '0 28px', borderRadius: "var(--r-md)", fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 800, letterSpacing: '0.28em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer', boxShadow: '0 14px 30px -10px rgba(124,91,166,.5)' }}
               onMouseDown={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(1px)'; }}
               onMouseUp={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; }}>
               {enqueuing ? <><Loader2 size={16} className="animate-spin" />Synthesizing…</> : <><Sparkles size={16} strokeWidth={1.8} />{briefing ? 'Refresh' : 'Trigger synthesis'}</>}
@@ -300,7 +300,7 @@ export default function BriefingPage() {
             { icon: MessageSquare, label: 'Messages This Week',   value: (stats.queries.messages_7d ?? 0).toLocaleString(),      sub: `${stats.queries.active_threads_7d} active threads`, tone: 'honey' as const },
             { icon: FileText,      label: 'Briefings This Month', value: stats.briefings.this_month.toLocaleString(),            sub: stats.briefings.this_month === 0 ? 'Generate your first below' : 'Synthesized reports', tone: 'primary' as const },
           ].map(({ icon: I, label, value, sub, tone }) => (
-            <div key={label} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 22, padding: '18px 20px' }}>
+            <div key={label} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: "var(--r-lg)", padding: '18px 20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                 <IconTile icon={I} size={32} tone={tone} />
                 <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--fg-muted)' }}>{label}</span>
@@ -329,7 +329,7 @@ export default function BriefingPage() {
               Not enough data to generate a briefing — connect more sources first.
             </p>
             <Link href="/admin/integrations">
-              <button style={{ height: 58, padding: '0 30px', borderRadius: 18, background: 'var(--secondary)', border: 'none', color: '#fff', fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 800, letterSpacing: '0.28em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+              <button style={{ height: 58, padding: '0 30px', borderRadius: "var(--r-md)", background: 'var(--secondary)', border: 'none', color: '#fff', fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 800, letterSpacing: '0.28em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
                 <Plug size={16} />Connect Sources
               </button>
             </Link>
@@ -346,7 +346,7 @@ export default function BriefingPage() {
             {enqueuing && (
               <div style={{ maxWidth: 400, margin: '0 auto 28px', textAlign: 'left' }}>
                 <div style={{ height: 4, borderRadius: 999, background: 'var(--bg-muted)', overflow: 'hidden', marginBottom: 10 }}>
-                  <div style={{ height: '100%', borderRadius: 999, background: 'var(--primary)', animation: 'briefing-fill 45s linear forwards' }} />
+                  <div style={{ height: '100%', borderRadius: 999, background: 'var(--primary)', animation: 'briefing-fill 45s cubic-bezier(0.1,0.6,0.25,1) forwards' }} />
                 </div>
                 <SynthesisStatusCycler elapsed={elapsed} />
               </div>
@@ -363,7 +363,7 @@ export default function BriefingPage() {
               return (
                 <>
                   <button onClick={handleGenerate} disabled={btnDisabled}
-                    style={{ height: 58, padding: '0 30px', borderRadius: 18, background: 'var(--primary)', border: 'none', color: '#fff', fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 800, letterSpacing: '0.28em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 10, cursor: btnDisabled ? 'not-allowed' : 'pointer', boxShadow: '0 14px 30px -10px rgba(160,74,27,.55)', opacity: btnDisabled ? 0.6 : 1 }}>
+                    style={{ height: 58, padding: '0 30px', borderRadius: "var(--r-md)", background: 'var(--primary)', border: 'none', color: '#fff', fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 800, letterSpacing: '0.28em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 10, cursor: btnDisabled ? 'not-allowed' : 'pointer', boxShadow: '0 14px 30px -10px rgba(160,74,27,.55)', opacity: btnDisabled ? 0.6 : 1 }}>
                     {enqueuing
                       ? <><Loader2 size={16} className="animate-spin" />Synthesizing…</>
                       : noConnections

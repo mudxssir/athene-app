@@ -21,7 +21,7 @@ export default function CleanSignInPage() {
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[400px] bg-secondary/5 blur-[120px] -z-10 rounded-full opacity-50" />
 
             {/* Centered Minimalist Logo */}
-            <div className="mb-8 flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="mb-8 flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-400">
                 <div className="w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center shadow-[0_0_30px_rgba(102,173,228,0.2)] bg-white mb-4">
                     <img src="/logo.png" alt="A" className="w-10 h-10 object-contain p-1" />
                 </div>
@@ -31,7 +31,7 @@ export default function CleanSignInPage() {
             </div>
 
             {/* Clean, Centered Clerk Card */}
-            <div className="w-full max-w-[400px] animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">
+            <div className="w-full max-w-[400px] animate-in fade-in slide-in-from-bottom-8 duration-500 delay-100">
                 <SignIn
                     routing="path"
                     path="/sign-in"

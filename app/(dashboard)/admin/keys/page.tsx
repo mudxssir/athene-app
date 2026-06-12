@@ -19,7 +19,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-type ProviderID = 'anthropic' | 'openai' | 'google' | 'deepseek'
+type ProviderID = 'openai' | 'google' | 'deepseek'
 
 interface LLMKey {
   id: string
@@ -39,15 +39,13 @@ const PROVIDERS: Array<{
   models: Array<{ id: string; name: string }>
 }> = [
   {
-    id: 'anthropic',
-    name: 'Anthropic',
-    icon: 'https://cdn.brandfetch.io/id_2W7X4W0/theme/dark/logo.svg',
-    gatewayUrl: 'https://api.anthropic.com/v1',
+    id: 'deepseek',
+    name: 'DeepSeek',
+    icon: 'https://cdn.brandfetch.io/id_deepseek/theme/dark/logo.svg',
+    gatewayUrl: 'https://api.deepseek.com/v1',
     models: [
-      { id: 'claude-3-7-sonnet', name: 'Claude 3.7 Sonnet' },
-      { id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet' },
-      { id: 'claude-3-opus', name: 'Claude 3 Opus' },
-      { id: 'claude-3-haiku', name: 'Claude 3 Haiku' }
+      { id: 'deepseek-chat', name: 'DeepSeek V3 (Chat)' },
+      { id: 'deepseek-reasoner', name: 'DeepSeek R1 (Reasoner)' }
     ]
   },
   {
@@ -73,16 +71,6 @@ const PROVIDERS: Array<{
       { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' }
     ]
   },
-  {
-    id: 'deepseek',
-    name: 'DeepSeek',
-    icon: 'https://cdn.brandfetch.io/id_deepseek/theme/dark/logo.svg',
-    gatewayUrl: 'https://api.deepseek.com/v1',
-    models: [
-      { id: 'deepseek-chat', name: 'DeepSeek V3 (Chat)' },
-      { id: 'deepseek-reasoner', name: 'DeepSeek R1 (Reasoner)' },
-    ]
-  },
 ]
 
 export default function KeysPage() {
@@ -100,8 +88,8 @@ export default function KeysPage() {
 
   
   const [newKey, setNewKey] = useState<{ provider: ProviderID; model: string; key: string; label: string }>({
-    provider: 'anthropic',
-    model: 'claude-3-7-sonnet',
+    provider: 'deepseek',
+    model: 'deepseek-chat',
     key: '',
     label: '',
   })
@@ -164,7 +152,7 @@ export default function KeysPage() {
       }
       
       toast.success(`${newKey.provider} key added successfully`)
-      setNewKey({ provider: 'anthropic', model: 'claude-3-7-sonnet', key: '', label: '' })
+      setNewKey({ provider: 'deepseek', model: 'deepseek-chat', key: '', label: '' })
       setIsAdding(false)
       fetchKeys()
     } catch (err: any) {
@@ -226,7 +214,7 @@ export default function KeysPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Add Key Form */}
         <section className="lg:col-span-1 space-y-6">
-          <div className="p-8 rounded-[2.5rem] border border-border bg-card/50 backdrop-blur-xl shadow-2xl transition-colors duration-300">
+          <div className="p-8 rounded-3xl border border-border bg-card/50 backdrop-blur-xl shadow-2xl transition-colors duration-300">
             <h2 className="text-lg font-black mb-6 flex items-center gap-3 uppercase tracking-tight text-foreground">
               <Plus className="w-5 h-5 text-primary" />
               Register Provider
@@ -322,7 +310,7 @@ export default function KeysPage() {
 
         {/* Keys Table */}
         <section className="lg:col-span-2 space-y-6">
-          <div className="rounded-[2.5rem] bg-card/50 border border-border overflow-hidden backdrop-blur-xl shadow-2xl transition-colors duration-300">
+          <div className="rounded-3xl bg-card/50 border border-border overflow-hidden backdrop-blur-xl shadow-2xl transition-colors duration-300">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-muted/30 border-b border-border">
@@ -395,7 +383,7 @@ export default function KeysPage() {
                                 const matchedProvider = PROVIDERS.find(p => p.id === k.provider)
                                 setNewKey({
                                   provider: k.provider,
-                                  model: matchedProvider?.models?.[0]?.id || 'claude-3-7-sonnet',
+                                  model: matchedProvider?.models?.[0]?.id || 'deepseek-chat',
                                   key: '',
                                   label: k.label,
                                 })

@@ -38,8 +38,8 @@ export function useNavigate(): (href: string) => void {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type Tone = "primary" | "amber" | "honey" | "success" | "warn";
-export type ChipKind = "primary" | "amber" | "honey" | "outline" | "success";
+export type Tone = "primary" | "amber" | "honey" | "success" | "warn" | "lavender";
+export type ChipKind = "primary" | "amber" | "honey" | "outline" | "success" | "lavender";
 export type TransitionType = "cascade" | "converge" | "loop" | "fold" | "diverge";
 export type TransitionPhase = "idle" | "exiting" | "entering";
 
@@ -100,7 +100,8 @@ export const TRANSITION_FOR: Record<string, TransitionType> = Object.fromEntries
 
 function radialFor(i: number) {
   const ang = ((i * 137.5) % 360) * (Math.PI / 180);
-  const radius = 520 + ((i * 91) % 200);
+  // Shorter travel distance reads faster at the retimed 480ms converge.
+  const radius = 280 + ((i * 91) % 120);
   return {
     x: Math.cos(ang) * radius,
     y: Math.sin(ang) * radius,
@@ -111,11 +112,11 @@ function radialFor(i: number) {
 // ─── TCard ────────────────────────────────────────────────────────────────────
 
 const STAGGER: Record<TransitionType, number> = {
-  cascade:  65,
-  converge: 55,
-  loop:     70,
-  fold:     55,
-  diverge:  50,
+  cascade:  40,
+  converge: 32,
+  loop:     40,
+  fold:     35,
+  diverge:  30,
 };
 
 interface TCardProps {
@@ -201,6 +202,11 @@ const TONE_STYLES: Record<Tone, { bg: string; border: string; color: string }> =
     border: "rgba(178,58,26,0.25)",
     color:  "var(--danger)",
   },
+  lavender: {
+    bg:     "var(--accent-lav-bg)",
+    border: "var(--accent-lav-border)",
+    color:  "var(--accent-lav)",
+  },
 };
 
 interface IconTileProps {
@@ -251,6 +257,7 @@ const CHIP_STYLES: Record<ChipKind, CSSProperties> = {
   honey:   { background: "rgba(230,185,40,0.18)", color: "var(--honey-600)",          border: "1px solid rgba(230,185,40,0.32)" },
   outline: { background: "transparent",           color: "var(--fg-muted)",  border: "1px solid var(--border-strong)" },
   success: { background: "rgba(79,122,46,0.12)",  color: "#4F7A2E",          border: "1px solid rgba(79,122,46,0.25)" },
+  lavender:{ background: "var(--accent-lav-bg)",  color: "var(--accent-lav)", border: "1px solid var(--accent-lav-border)" },
 };
 
 interface ChipProps {
@@ -327,7 +334,8 @@ export function MetricCard({
     tone === "primary" ? "primary" :
     tone === "amber"   ? "amber"   :
     tone === "success" ? "success" :
-    tone === "honey"   ? "honey"   : "outline";
+    tone === "honey"   ? "honey"   :
+    tone === "lavender" ? "lavender" : "outline";
 
   return (
     <div
@@ -336,7 +344,7 @@ export function MetricCard({
       style={{
         background: "var(--bg-elevated)",
         border: "1px solid var(--border)",
-        borderRadius: 22,
+        borderRadius: "var(--r-lg)",
         padding: 22,
         transition: "all .25s var(--ease-out)",
         cursor: onClick ? "pointer" : "default",

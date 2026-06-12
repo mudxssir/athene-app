@@ -152,8 +152,8 @@ function ThreadItem({
       onClick={onSelect}
       style={{
         position: "relative",
-        padding: "9px 8px",
-        borderRadius: 10,
+        padding: "10px",
+        borderRadius: 12,
         marginBottom: 2,
         cursor: "pointer",
         background: isActive
@@ -200,29 +200,44 @@ function ThreadItem({
   );
 }
 
-// ─── RefCard ──────────────────────────────────────────────────────────────────
+// ─── IntelPill ────────────────────────────────────────────────────────────────
+// Compact horizontal card for the intelligence strip above the messages.
+// Whole pill is the click target — clicking prefills the composer with the
+// card's query (tooltip carries the full body text).
 
-function RefCard({ card, onQuery }: { card: IntelCard; onQuery: (q: string) => void }) {
+const QUICK_PROMPTS = [
+  "Summarise this week's top decisions from Slack",
+  "Which KPIs are trending down vs last quarter?",
+  "Show open Jira blockers for engineering",
+];
+
+function IntelPill({ card, onQuery }: { card: IntelCard; onQuery: (q: string) => void }) {
   const IconComponent = CARD_ICONS[card.id] ?? Sparkles;
   const [hov, setHov] = useState(false);
   return (
-    <div
+    <button
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
-      style={{ borderRadius: 20, padding: "16px 18px", background: "var(--bg-elevated)", border: `1px solid ${hov ? "var(--border-strong)" : "var(--border)"}`, display: "flex", flexDirection: "column", gap: 10, transition: "all .2s var(--ease-out)", boxShadow: hov ? "var(--shadow-2)" : "none" }}
+      onClick={() => onQuery(card.query)}
+      title={card.body}
+      style={{
+        display: "flex", alignItems: "center", gap: 10, height: 48,
+        minWidth: 220, maxWidth: 300, flexShrink: 0,
+        padding: "8px 14px 8px 8px", borderRadius: "var(--r-md)",
+        background: "var(--bg-elevated)",
+        border: `1px solid ${hov ? "var(--border-strong)" : "var(--border)"}`,
+        boxShadow: hov ? "var(--shadow-2)" : "none",
+        cursor: "pointer", textAlign: "left",
+        transition: "all .18s var(--ease-out)",
+      }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <IconTile icon={IconComponent} size={32} tone={card.tone as any} />
-        <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--fg)" }}>{card.title}</span>
-      </div>
-      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.55, fontWeight: 500, color: "var(--fg-muted)" }}>{card.body}</p>
-      <button
-        onClick={() => onQuery(card.query)}
-        style={{ alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 8, background: "var(--bg-muted)", border: "1px solid var(--border)", fontSize: 9, fontWeight: 800, letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--fg-muted)", cursor: "pointer", transition: "all .15s ease" }}
-        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "var(--primary)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(160,74,27,.3)"; }}
-        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "var(--fg-muted)"; (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"; }}
-      >Ask <ArrowRight size={9} /></button>
-    </div>
+      <IconTile icon={IconComponent} size={30} tone={card.tone as any} />
+      <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+        <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--fg)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{card.title}</span>
+        <span style={{ fontSize: 11, fontWeight: 500, color: "var(--fg-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{card.body}</span>
+      </span>
+      <ArrowRight size={11} style={{ flexShrink: 0, color: hov ? "var(--accent-lav)" : "var(--fg-subtle)", transition: "color .15s ease" }} />
+    </button>
   );
 }
 
@@ -723,8 +738,59 @@ export default function ChatPage() {
 
         {/* Messages + Composer ─────────────────────────────────────────── */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+
+          {/* Intelligence strip — replaces the old 288px right sidebar.
+              Horizontal scroll, ~68px tall, frees the full width for chat. */}
+          <div className="hidden md:block" style={{ flexShrink: 0, borderBottom: "1px solid var(--border)", padding: "10px 20px", background: "var(--bg)" }}>
+            <div
+              className="scrollbar-hide"
+              style={{
+                display: "flex", gap: 8, overflowX: "auto", alignItems: "stretch",
+                maskImage: "linear-gradient(90deg, black 94%, transparent)",
+                WebkitMaskImage: "linear-gradient(90deg, black 94%, transparent)",
+              }}
+            >
+              {/* Label cell */}
+              <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 3, flexShrink: 0, paddingRight: 14, borderRight: "1px solid var(--border)" }}>
+                <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--accent-lav)", whiteSpace: "nowrap" }}>Intel</span>
+                <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--fg-subtle)", whiteSpace: "nowrap" }}>Live</span>
+              </div>
+
+              {intelCards.map((card, i) => (
+                <TCard key={card.id} i={i + 1} style={{ flexShrink: 0 }}>
+                  <IntelPill card={card} onQuery={sendQuery} />
+                </TCard>
+              ))}
+
+              {intelCards.length === 0 && noConnections && (
+                <a
+                  href="/admin/integrations"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6, alignSelf: "center", padding: "8px 16px", borderRadius: 999, background: "rgba(160,74,27,.08)", border: "1px solid rgba(160,74,27,.25)", fontSize: 10, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--primary)", textDecoration: "none", whiteSpace: "nowrap", flexShrink: 0 }}
+                >
+                  Connect a source to unlock live intelligence <ArrowRight size={10} />
+                </a>
+              )}
+
+              {/* Divider between intel and quick prompts */}
+              <div style={{ width: 1, background: "var(--border)", flexShrink: 0, margin: "6px 4px" }} />
+
+              {QUICK_PROMPTS.map((q, i) => (
+                <button
+                  key={i}
+                  onClick={() => sendQuery(q)}
+                  title={q}
+                  style={{ alignSelf: "center", padding: "9px 16px", borderRadius: 999, background: "var(--bg-muted)", border: "1px solid var(--border)", fontSize: 11, fontWeight: 600, color: "var(--fg-muted)", whiteSpace: "nowrap", cursor: "pointer", flexShrink: 0, transition: "all .15s ease" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "var(--primary)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(160,74,27,.35)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "var(--fg-muted)"; (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"; }}
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div ref={scrollRef} className="custom-scrollbar" style={{ flex: 1, overflowY: "auto", padding: "32px 40px" }}>
-            <div style={{ maxWidth: 880, margin: "0 auto", display: "flex", flexDirection: "column", gap: 28 }}>
+            <div style={{ maxWidth: 960, margin: "0 auto", display: "flex", flexDirection: "column", gap: 28 }}>
 
               {/* Thread restore loading indicator */}
               {restoringThread && (
@@ -820,7 +886,7 @@ export default function ChatPage() {
                                   {/* Past step badges */}
                                   <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
                                     {(msg.content ? msg.steps : msg.steps.slice(0, -1)).map((step, si) => (
-                                      <span key={si} style={{ display: "inline-flex", alignItems: "center", padding: "2px 8px", borderRadius: 6, background: "rgba(160,74,27,0.06)", border: "1px solid rgba(160,74,27,0.12)", fontSize: 9, fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(245,237,216,0.35)" }}>
+                                      <span key={si} style={{ display: "inline-flex", alignItems: "center", padding: "2px 8px", borderRadius: 6, background: "rgba(160,74,27,0.06)", border: "1px solid rgba(160,74,27,0.12)", fontSize: 9, fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--fg-subtle)" }}>
                                         {step}
                                       </span>
                                     ))}
@@ -890,32 +956,6 @@ export default function ChatPage() {
           />
         </div>
 
-        {/* Intelligence sidebar (RIGHT) ────────────────────────────────── */}
-        <aside className="custom-scrollbar hidden lg:flex" style={{ width: 288, flexShrink: 0, borderLeft: "1px solid var(--border)", overflowY: "auto", padding: "20px 16px 32px", flexDirection: "column", gap: 12 }}>
-          <div className="eyebrow" style={{ marginBottom: 4 }}>Intelligence · live</div>
-          {intelCards.map((card, i) => (
-            <TCard key={card.id} i={i + 1}>
-              <RefCard card={card} onQuery={sendQuery} />
-            </TCard>
-          ))}
-          <div style={{ marginTop: 8 }}>
-            <div className="eyebrow" style={{ marginBottom: 10 }}>Quick prompts</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-              {[
-                "Summarise this week's top decisions from Slack",
-                "Which KPIs are trending down vs last quarter?",
-                "Show open Jira blockers for engineering",
-              ].map((q, i) => (
-                <button key={i} onClick={() => sendQuery(q)}
-                  style={{ textAlign: "left", padding: "9px 12px", borderRadius: 10, background: "var(--bg-muted)", border: "1px solid var(--border)", fontSize: 11, fontWeight: 500, color: "var(--fg-muted)", lineHeight: 1.45, cursor: "pointer", transition: "all .15s ease" }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "var(--fg)"; (e.currentTarget as HTMLElement).style.borderColor = "var(--border-strong)"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "var(--fg-muted)"; (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"; }}>
-                  {q}
-                </button>
-              ))}
-            </div>
-          </div>
-        </aside>
       </div>
 
       <HitlModal

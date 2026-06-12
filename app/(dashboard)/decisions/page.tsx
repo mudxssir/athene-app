@@ -60,7 +60,7 @@ function formatDate(isoString?: string): string {
 function DecisionCard({ decision }: { decision: Decision }) {
   const tm = decision.metadata ?? decision.temporal_metadata;
   return (
-    <Card className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-2xl space-y-4 hover:border-white/20 transition-all">
+    <Card className="bg-muted backdrop-blur-xl border border-border p-8 rounded-2xl space-y-4 hover:border-[var(--border-strong)] transition-all">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-xl bg-secondary/10 flex items-center justify-center shrink-0">
@@ -74,29 +74,29 @@ function DecisionCard({ decision }: { decision: Decision }) {
       </div>
 
       {decision.description && (
-        <p className="text-[13px] text-slate-400 font-medium leading-relaxed pl-12">
+        <p className="text-[13px] text-muted-foreground font-medium leading-relaxed pl-12">
           {decision.description}
         </p>
       )}
 
       <div className="flex flex-wrap items-center gap-4 pl-12">
         {tm?.occurred_at && (
-          <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-widest">
+          <span className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
             <Calendar className="w-3.5 h-3.5" />
             {formatDate(tm.occurred_at)}
             {tm.confidence_of_date !== undefined && tm.confidence_of_date < 1 && (
-              <span className="text-slate-600">(~{Math.round(tm.confidence_of_date * 100)}% confidence)</span>
+              <span className="text-muted-foreground">(~{Math.round(tm.confidence_of_date * 100)}% confidence)</span>
             )}
           </span>
         )}
         {tm?.decision_maker && (
-          <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-widest">
+          <span className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
             <User className="w-3.5 h-3.5" />
             {tm.decision_maker}
           </span>
         )}
         {!tm?.occurred_at && (
-          <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 uppercase tracking-widest">
+          <span className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
             <Clock className="w-3.5 h-3.5" />
             Indexed {formatDate(decision.created_at)}
           </span>
@@ -105,13 +105,13 @@ function DecisionCard({ decision }: { decision: Decision }) {
 
       {tm?.alternatives_considered && tm.alternatives_considered.length > 0 && (
         <div className="pl-12 flex flex-wrap gap-2">
-          <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest self-center">
+          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest self-center">
             Alternatives:
           </span>
           {tm.alternatives_considered.map((alt) => (
             <Badge
               key={alt}
-              className="bg-white/5 text-slate-500 border-none text-[10px] font-bold"
+              className="bg-muted text-muted-foreground border-none text-[10px] font-bold"
             >
               {alt}
             </Badge>
@@ -121,8 +121,8 @@ function DecisionCard({ decision }: { decision: Decision }) {
 
       {tm?.outcome && (
         <div className="pl-12">
-          <p className="text-[11px] text-slate-500 font-medium">
-            <span className="font-bold text-slate-400 uppercase tracking-widest text-[9px]">Outcome: </span>
+          <p className="text-[11px] text-muted-foreground font-medium">
+            <span className="font-bold text-muted-foreground uppercase tracking-widest text-[9px]">Outcome: </span>
             {tm.outcome}
           </p>
         </div>
@@ -134,8 +134,8 @@ function DecisionCard({ decision }: { decision: Decision }) {
 function EmptyState({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-24 gap-4">
-      <GitBranch className="w-10 h-10 text-slate-600" />
-      <p className="text-slate-500 text-[13px] font-bold uppercase tracking-widest">{message}</p>
+      <GitBranch className="w-10 h-10 text-muted-foreground" />
+      <p className="text-muted-foreground text-[13px] font-bold uppercase tracking-widest">{message}</p>
     </div>
   );
 }
@@ -232,13 +232,13 @@ export default function DecisionsPage() {
         <h1 className="text-4xl lg:text-5xl font-black tracking-tight text-white">
           Decision <span className="text-secondary">Timeline</span>
         </h1>
-        <p className="text-slate-400 text-lg max-w-xl font-medium leading-relaxed">
+        <p className="text-muted-foreground text-lg max-w-xl font-medium leading-relaxed">
           Every resolved choice extracted from your documents — who decided, when, and what alternatives were considered.
         </p>
       </TCard>
 
       {/* View switcher */}
-      <div className="flex items-center gap-2 p-1.5 bg-white/5 rounded-2xl w-fit border border-white/10">
+      <div className="flex items-center gap-2 p-1.5 bg-muted rounded-2xl w-fit border border-border">
         {VIEWS.map((v) => (
           <button
             key={v}
@@ -247,7 +247,7 @@ export default function DecisionsPage() {
               "px-6 py-3 rounded-xl text-[11px] font-bold uppercase tracking-widest transition-all",
               view === v
                 ? "bg-secondary text-white shadow-lg shadow-[var(--shadow-2)]"
-                : "text-slate-400 hover:text-white hover:bg-white/5"
+                : "text-muted-foreground hover:text-white hover:bg-muted"
             )}
           >
             {v}
@@ -261,27 +261,27 @@ export default function DecisionsPage() {
           {/* Filters */}
           <div className="flex flex-wrap gap-4">
             <div className="flex items-center gap-2">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Since</label>
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Since</label>
               <Input
                 type="date"
                 value={sinceFilter}
                 onChange={(e) => setSinceFilter(e.target.value)}
-                className="h-10 w-44 bg-white/5 border-white/10 text-slate-300 text-[12px] rounded-xl"
+                className="h-10 w-44 bg-muted border-border text-foreground/80 text-[12px] rounded-xl"
               />
             </div>
             <div className="flex items-center gap-2">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Entity</label>
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Entity</label>
               <Input
                 placeholder="Filter by entity…"
                 value={entityFilter}
                 onChange={(e) => setEntityFilter(e.target.value)}
-                className="h-10 w-48 bg-white/5 border-white/10 text-slate-300 text-[12px] rounded-xl placeholder:text-slate-600"
+                className="h-10 w-48 bg-muted border-border text-foreground/80 text-[12px] rounded-xl placeholder:text-muted-foreground"
               />
             </div>
             <Button
               onClick={fetchTimeline}
               variant="outline"
-              className="h-10 px-5 rounded-xl border-white/10 text-slate-300 text-[11px] font-bold uppercase tracking-widest hover:bg-white/5"
+              className="h-10 px-5 rounded-xl border-border text-foreground/80 text-[11px] font-bold uppercase tracking-widest hover:bg-muted"
             >
               Apply
             </Button>
@@ -326,7 +326,7 @@ export default function DecisionsPage() {
               value={entityQuery}
               onChange={(e) => setEntityQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && fetchEntityTimeline()}
-              className="h-12 bg-white/5 border-white/10 text-slate-300 text-[13px] rounded-2xl placeholder:text-slate-600 flex-1"
+              className="h-12 bg-muted border-border text-foreground/80 text-[13px] rounded-2xl placeholder:text-muted-foreground flex-1"
             />
             <Button
               onClick={fetchEntityTimeline}
@@ -347,13 +347,13 @@ export default function DecisionsPage() {
           {timeline && (
             <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <h2 className="text-[13px] font-bold text-slate-300 uppercase tracking-widest">
+                <h2 className="text-[13px] font-bold text-foreground/80 uppercase tracking-widest">
                   Decisions applied to
                 </h2>
                 <Badge className="bg-secondary/10 text-secondary border-none text-[12px] font-bold">
                   {entityName}
                 </Badge>
-                <span className="text-[11px] text-slate-600 font-bold">
+                <span className="text-[11px] text-muted-foreground font-bold">
                   {decisionsList.length} found
                 </span>
               </div>
@@ -376,13 +376,13 @@ export default function DecisionsPage() {
         <div className="space-y-6">
           <div className="flex gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Search decisions by keyword…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && fetchSearch()}
-                className="h-12 pl-12 bg-white/5 border-white/10 text-slate-300 text-[13px] rounded-2xl placeholder:text-slate-600"
+                className="h-12 pl-12 bg-muted border-border text-foreground/80 text-[13px] rounded-2xl placeholder:text-muted-foreground"
               />
             </div>
             <Button
@@ -403,7 +403,7 @@ export default function DecisionsPage() {
 
           {searchResults.length > 0 && (
             <div className="space-y-4">
-              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
+              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
                 {searchResults.length} result{searchResults.length !== 1 ? "s" : ""}
               </p>
               {searchResults.map((d) => <DecisionCard key={d.id} decision={d} />)}

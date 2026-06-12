@@ -88,7 +88,7 @@ export default function AuditPage() {
         case 'deactivate_user': return <UserMinus className="w-4 h-4 text-red-400" />;
         case 'reactivate_user': return <UserCheck className="w-4 h-4 text-blue-400" />;
         case 'change_role': return <Shield className="w-4 h-4 text-primary" />;
-        default: return <Settings className="w-4 h-4 text-slate-400" />;
+        default: return <Settings className="w-4 h-4 text-muted-foreground" />;
       }
     };
 
@@ -160,7 +160,7 @@ export default function AuditPage() {
               </div>
 
               <TabsContent value="admin" className="mt-0 outline-none">
-                <div className="rounded-[2.5rem] bg-card/50 border border-border overflow-hidden backdrop-blur-xl shadow-2xl transition-colors duration-300">
+                <div className="rounded-3xl bg-card/50 border border-border overflow-hidden backdrop-blur-xl shadow-2xl transition-colors duration-300">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left">
                       <thead className="bg-muted/30 border-b border-border">
@@ -249,7 +249,7 @@ export default function AuditPage() {
               </TabsContent>
 
               <TabsContent value="bi" className="mt-0 outline-none">
-                <div className="rounded-[2.5rem] bg-card/50 border border-border overflow-hidden backdrop-blur-xl shadow-2xl transition-colors duration-300">
+                <div className="rounded-3xl bg-card/50 border border-border overflow-hidden backdrop-blur-xl shadow-2xl transition-colors duration-300">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left">
                       <thead className="bg-muted/30 border-b border-border">

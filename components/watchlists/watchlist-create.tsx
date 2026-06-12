@@ -71,12 +71,13 @@ export function WatchlistCreate({ onCreated, initialName, initialQuery, trigger 
       {trigger ? (
         <span onClick={handleOpen} style={{ cursor: "pointer" }}>{trigger}</span>
       ) : (
+        // Lavender disruptor — generative action
         <button
           onClick={handleOpen}
           className={cn(
-            "inline-flex items-center gap-2 h-11 px-6 rounded-2xl",
-            "bg-primary text-white text-[11px] font-extrabold uppercase tracking-[0.22em]",
-            "hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
+            "btn-lav inline-flex items-center gap-2 h-11 px-6 rounded-2xl",
+            "text-[11px] font-extrabold uppercase tracking-[0.22em]",
+            "shadow-lg shadow-[rgba(124,91,166,0.25)]"
           )}
         >
           <Plus size={14} />

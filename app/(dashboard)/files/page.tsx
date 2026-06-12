@@ -74,12 +74,12 @@ function DeleteConfirmDialog({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="bg-card border border-white/10 shadow-2xl p-8 max-w-sm w-full mx-4 rounded-[2rem] animate-in zoom-in-95 duration-300">
+      <div className="bg-card border border-border shadow-2xl p-8 max-w-sm w-full mx-4 rounded-3xl animate-in zoom-in-95 duration-300">
         <div className="flex items-start justify-between mb-6">
           <div className="w-12 h-12 rounded-2xl bg-destructive/10 flex items-center justify-center border border-destructive/20">
             <WifiOff className="w-6 h-6 text-destructive" />
           </div>
-          <Button variant="ghost" size="icon" onClick={onCancel} className="rounded-full hover:bg-white/5">
+          <Button variant="ghost" size="icon" onClick={onCancel} className="rounded-full hover:bg-muted">
             <X className="w-5 h-5 text-muted-foreground" />
           </Button>
         </div>
@@ -91,7 +91,7 @@ function DeleteConfirmDialog({
           This will permanently remove the file and all its indexed content from the Knowledge Graph. This action cannot be undone.
         </p>
         <div className="flex gap-3">
-          <Button variant="outline" onClick={onCancel} className="flex-1 h-12 rounded-xl border-white/10 hover:bg-white/5 font-bold">
+          <Button variant="outline" onClick={onCancel} className="flex-1 h-12 rounded-xl border-border hover:bg-muted font-bold">
             Cancel
           </Button>
           <Button
@@ -364,7 +364,7 @@ export default function FilesPage() {
           <h1 className="text-4xl lg:text-5xl font-black tracking-tight text-white">
             Enterprise <span className="text-secondary">Files</span>
           </h1>
-          <p className="text-slate-400 text-lg max-w-xl font-medium leading-relaxed">
+          <p className="text-muted-foreground text-lg max-w-xl font-medium leading-relaxed">
             Secure, centralized management of your organization's unstructured data repository.
           </p>
         </div>
@@ -373,7 +373,7 @@ export default function FilesPage() {
           <Button
             onClick={handleUpload}
             variant="outline"
-            className="h-14 px-8 rounded-2xl border-white/10 text-slate-300 font-bold uppercase tracking-widest text-[10px] gap-3 hover:bg-white/5 transition-all"
+            className="h-14 px-8 rounded-2xl border-border text-foreground/80 font-bold uppercase tracking-widest text-[10px] gap-3 hover:bg-muted transition-all"
           >
             <Upload className="w-5 h-5 text-secondary" />
             Upload Data
@@ -394,27 +394,27 @@ export default function FilesPage() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
         {/* Sidebar Analytics */}
         <div className="space-y-10">
-          <Card className="bg-white/5 backdrop-blur-xl border border-white/10 p-10 space-y-8 rounded-[2rem]">
-            <h3 className="text-[11px] uppercase tracking-[0.2em] font-bold text-slate-500">Storage Load</h3>
+          <Card className="bg-muted backdrop-blur-xl border border-border p-10 space-y-8 rounded-3xl">
+            <h3 className="text-[11px] uppercase tracking-[0.2em] font-bold text-muted-foreground">Storage Load</h3>
             <div className="space-y-8">
               <div className="space-y-4">
                 <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-widest">
-                  <span className="flex items-center gap-2 text-slate-300"><HardDrive className="w-4 h-4 text-secondary" /> Capacity</span>
+                  <span className="flex items-center gap-2 text-foreground/80"><HardDrive className="w-4 h-4 text-secondary" /> Capacity</span>
                   <span className="text-secondary">{totalSizeLabel}</span>
                 </div>
-                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
                   <div className="h-full bg-secondary transition-all duration-500" style={{ width: `${capacityPct}%` }} />
                 </div>
-                <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">
+                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
                   {files.length} file{files.length !== 1 ? 's' : ''} · soft cap 5 GB
                 </p>
               </div>
               <div className="space-y-4">
                 <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-widest">
-                  <span className="flex items-center gap-2 text-slate-300"><Cloud className="w-4 h-4 text-secondary" /> AI Sync</span>
+                  <span className="flex items-center gap-2 text-foreground/80"><Cloud className="w-4 h-4 text-secondary" /> AI Sync</span>
                   <span className="text-emerald-500">Stable</span>
                 </div>
-                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
                   <div className="h-full bg-emerald-500" style={{ width: '100%' }} />
                 </div>
               </div>
@@ -422,7 +422,7 @@ export default function FilesPage() {
           </Card>
 
           <div className="space-y-4 px-2">
-            <h3 className="text-[11px] uppercase tracking-[0.2em] font-bold text-slate-500">Intelligence Layers</h3>
+            <h3 className="text-[11px] uppercase tracking-[0.2em] font-bold text-muted-foreground">Intelligence Layers</h3>
             <div className="space-y-2">
               {INTELLIGENCE_LAYERS.map((cat) => {
                 const isSelected = selectedLayer === cat.label;
@@ -431,14 +431,14 @@ export default function FilesPage() {
                     key={cat.label}
                     onClick={() => setSelectedLayer(isSelected ? null : cat.label)}
                     className={`w-full flex items-center justify-between p-3.5 rounded-xl border transition-all group text-left ${
-                      isSelected ? "bg-white/10 border-secondary/30" : "border-transparent hover:bg-white/5 hover:border-white/10"
+                      isSelected ? "bg-muted border-secondary/30" : "border-transparent hover:bg-muted hover:border-border"
                     }`}
                   >
-                    <span className={`text-[13px] font-bold flex items-center gap-3 ${isSelected ? "text-white" : "text-slate-400 group-hover:text-white"}`}>
+                    <span className={`text-[13px] font-bold flex items-center gap-3 ${isSelected ? "text-white" : "text-muted-foreground group-hover:text-white"}`}>
                       <Layers className={`w-4 h-4 ${cat.color}`} />
                       {cat.label}
                     </span>
-                    <Badge className="bg-white/5 text-slate-500 border-none text-[10px] font-bold group-hover:text-secondary transition-colors">
+                    <Badge className="bg-muted text-muted-foreground border-none text-[10px] font-bold group-hover:text-secondary transition-colors">
                       {layerCounts[cat.label]}
                     </Badge>
                   </button>
@@ -464,26 +464,26 @@ export default function FilesPage() {
             </div>
           )}
 
-          <div className="flex items-center justify-between bg-white/5 backdrop-blur-xl border border-white/10 p-5 rounded-2xl shadow-sm">
+          <div className="flex items-center justify-between bg-muted backdrop-blur-xl border border-border p-5 rounded-2xl shadow-sm">
             <div className="relative group w-80">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-500 group-focus-within:text-secondary transition-colors" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-muted-foreground group-focus-within:text-secondary transition-colors" />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search organizational data..."
-                className="h-12 pl-12 rounded-xl bg-black/20 border-white/5 text-[13px] text-white focus:ring-secondary/20 placeholder:text-slate-600"
+                className="h-12 pl-12 rounded-xl bg-black/20 border-border text-[13px] text-white focus:ring-secondary/20 placeholder:text-muted-foreground"
               />
             </div>
             <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
                 onClick={() => setSelectedLayer(null)}
-                className="h-12 px-6 rounded-xl text-slate-400 font-bold uppercase tracking-widest text-[10px] gap-2 hover:bg-white/5 hover:text-white"
+                className="h-12 px-6 rounded-xl text-muted-foreground font-bold uppercase tracking-widest text-[10px] gap-2 hover:bg-muted hover:text-white"
               >
                 <Filter className="w-4 h-4" />
                 {selectedLayer ?? "Filters"}
               </Button>
-              <div className="h-8 w-px bg-white/10" />
+              <div className="h-8 w-px bg-muted" />
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -495,50 +495,50 @@ export default function FilesPage() {
                     <Download className="w-5 h-5" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent className="bg-black text-white border-white/10 text-xs">
+                <TooltipContent className="bg-black text-white border-border text-xs">
                   Export file manifest (JSON metadata)
                 </TooltipContent>
               </Tooltip>
             </div>
           </div>
 
-          <Card className="bg-white/5 backdrop-blur-xl border border-white/10 overflow-hidden rounded-[2rem]">
+          <Card className="bg-muted backdrop-blur-xl border border-border overflow-hidden rounded-3xl">
             <Table>
-              <TableHeader className="bg-white/[0.02]">
-                <TableRow className="border-white/5">
-                  <TableHead className="px-10 py-6 text-[11px] font-bold uppercase tracking-widest text-slate-500">Asset Name</TableHead>
-                  <TableHead className="py-6 text-[11px] font-bold uppercase tracking-widest text-slate-500">Size</TableHead>
-                  <TableHead className="py-6 text-[11px] font-bold uppercase tracking-widest text-slate-500">Status</TableHead>
-                  <TableHead className="py-6 text-[11px] font-bold uppercase tracking-widest text-slate-500">Risk Profile</TableHead>
-                  <TableHead className="py-6 text-[11px] font-bold uppercase tracking-widest text-slate-500 text-right pr-10">Actions</TableHead>
+              <TableHeader className="bg-muted/40">
+                <TableRow className="border-border">
+                  <TableHead className="px-10 py-6 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Asset Name</TableHead>
+                  <TableHead className="py-6 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Size</TableHead>
+                  <TableHead className="py-6 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Status</TableHead>
+                  <TableHead className="py-6 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Risk Profile</TableHead>
+                  <TableHead className="py-6 text-[11px] font-bold uppercase tracking-widest text-muted-foreground text-right pr-10">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loadingFiles ? (
                   [...Array(3)].map((_, i) => (
-                    <TableRow key={`skeleton-${i}`} className="border-white/5">
+                    <TableRow key={`skeleton-${i}`} className="border-border">
                       <TableCell className="px-10 py-6">
                         <div className="flex items-center gap-4">
-                          <div className="h-11 w-11 rounded-xl bg-white/5 animate-pulse" />
+                          <div className="h-11 w-11 rounded-xl bg-muted animate-pulse" />
                           <div className="space-y-2">
-                            <div className="h-3 w-40 bg-white/5 rounded-full animate-pulse" />
-                            <div className="h-2 w-20 bg-white/5 rounded-full animate-pulse" />
+                            <div className="h-3 w-40 bg-muted rounded-full animate-pulse" />
+                            <div className="h-2 w-20 bg-muted rounded-full animate-pulse" />
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell><div className="h-3 w-12 bg-white/5 rounded-full animate-pulse" /></TableCell>
-                      <TableCell><div className="h-5 w-16 bg-white/5 rounded-full animate-pulse" /></TableCell>
-                      <TableCell><div className="h-3 w-20 bg-white/5 rounded-full animate-pulse" /></TableCell>
+                      <TableCell><div className="h-3 w-12 bg-muted rounded-full animate-pulse" /></TableCell>
+                      <TableCell><div className="h-5 w-16 bg-muted rounded-full animate-pulse" /></TableCell>
+                      <TableCell><div className="h-3 w-20 bg-muted rounded-full animate-pulse" /></TableCell>
                       <TableCell />
                     </TableRow>
                   ))
                 ) : filteredFiles.length === 0 ? (
-                  <TableRow className="border-white/5">
+                  <TableRow className="border-border">
                     <TableCell colSpan={5} className="py-24 text-center">
                       <div className="flex flex-col items-center justify-center space-y-3">
-                        <Search className="w-10 h-10 text-slate-600" />
+                        <Search className="w-10 h-10 text-muted-foreground" />
                         <p className="text-[14px] font-bold text-white">No results found</p>
-                        <p className="text-[12px] font-medium text-slate-500">We couldn't find any files matching your search.</p>
+                        <p className="text-[12px] font-medium text-muted-foreground">We couldn't find any files matching your search.</p>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -549,11 +549,11 @@ export default function FilesPage() {
                     return (
                       <TableRow
                         key={fileKey}
-                        className={`border-white/5 hover:bg-white/[0.02] transition-all group ${isDeleting ? "opacity-40 pointer-events-none" : ""}`}
+                        className={`border-border hover:bg-muted/40 transition-all group ${isDeleting ? "opacity-40 pointer-events-none" : ""}`}
                       >
                         <TableCell className="px-10 py-6">
                           <div className="flex items-center gap-4">
-                            <div className="h-11 w-11 rounded-xl bg-black/20 flex items-center justify-center border border-white/5 shadow-sm group-hover:scale-105 transition-transform">
+                            <div className="h-11 w-11 rounded-xl bg-black/20 flex items-center justify-center border border-border shadow-sm group-hover:scale-105 transition-transform">
                               <FileText className={`w-5 h-5 ${
                                 file.type === 'PDF' ? 'text-secondary' :
                                 file.type === 'XLSX' || file.type === 'XLS' ? 'text-emerald-500' :
@@ -562,16 +562,16 @@ export default function FilesPage() {
                             </div>
                             <div className="flex flex-col">
                               <span className="text-[14px] font-bold text-white group-hover:text-secondary transition-colors">{file.name}</span>
-                              <span className="text-[11px] font-medium text-slate-500 mt-0.5">{file.date}</span>
+                              <span className="text-[11px] font-medium text-muted-foreground mt-0.5">{file.date}</span>
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="text-[13px] font-bold text-slate-300">{file.size}</TableCell>
+                        <TableCell className="text-[13px] font-bold text-foreground/80">{file.size}</TableCell>
                         <TableCell>
                           <Badge className={`text-[10px] font-bold tracking-widest px-3 py-1 h-6 border-none ${
                             file.status === 'Indexed'   ? 'bg-emerald-500/10 text-emerald-400' :
                             file.status === 'Indexing'  ? 'bg-secondary/10 text-secondary animate-pulse' :
-                            file.status === 'Uploading' ? 'bg-white/10 text-white animate-pulse' :
+                            file.status === 'Uploading' ? 'bg-muted text-white animate-pulse' :
                             'bg-rose-500/10 text-rose-400'
                           }`}>
                             {file.status}
@@ -584,7 +584,7 @@ export default function FilesPage() {
                               file.risk === 'Medium' ? 'bg-amber-500  shadow-[0_0_8px_#f59e0b]' :
                                                        'bg-rose-600   shadow-[0_0_8px_#e11d48]'
                             }`} />
-                            <span className="text-[12px] font-bold text-slate-400">{file.risk} Profile</span>
+                            <span className="text-[12px] font-bold text-muted-foreground">{file.risk} Profile</span>
                           </div>
                         </TableCell>
                         <TableCell className="text-right pr-10">
@@ -604,7 +604,7 @@ export default function FilesPage() {
                               onClick={() => handleDownload(file)}
                               variant="ghost"
                               size="icon"
-                              className="h-10 w-10 rounded-xl hover:bg-white/5 text-slate-400"
+                              className="h-10 w-10 rounded-xl hover:bg-muted text-muted-foreground"
                               title="Download file"
                             >
                               <Download className="w-4 h-4" />
@@ -630,7 +630,7 @@ export default function FilesPage() {
           </Card>
 
           <div className="flex items-center justify-center py-10">
-            <p className="text-slate-500 text-[11px] font-bold uppercase tracking-widest">
+            <p className="text-muted-foreground text-[11px] font-bold uppercase tracking-widest">
               Showing {filteredFiles.length} of {totalFiles} file{totalFiles !== 1 ? 's' : ''}
               {totalFiles > 200 && <span className="text-amber-500"> · 200 shown — use search to find more</span>}
             </p>

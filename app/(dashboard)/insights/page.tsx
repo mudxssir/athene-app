@@ -26,7 +26,7 @@ function AddDialog({ open, onClose, onSubmit, submitting }: { open: boolean; onC
   if (!open) return null;
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.4)", backdropFilter: "blur(8px)" }} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 28, padding: 36, width: "100%", maxWidth: 520, boxShadow: "var(--shadow-4)" }}>
+      <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "var(--r-xl)", padding: 36, width: "100%", maxWidth: 520, boxShadow: "var(--shadow-4)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 28 }}>
           <IconTile icon={BarChart3} size={44} tone="primary" />
           <div>
@@ -37,11 +37,11 @@ function AddDialog({ open, onClose, onSubmit, submitting }: { open: boolean; onC
         <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 24 }}>
           <div>
             <label className="eyebrow" style={{ display: "block", marginBottom: 8 }}>Title</label>
-            <input ref={inputRef} value={title} onChange={e => setTitle(e.target.value)} placeholder="Q1 enterprise renewal risk" style={{ width: "100%", padding: "12px 16px", borderRadius: 14, border: "1px solid var(--border)", background: "var(--bg-muted)", color: "var(--fg)", fontSize: 14, fontWeight: 500, outline: "none", fontFamily: "var(--font-sans)", boxSizing: "border-box" }} />
+            <input ref={inputRef} value={title} onChange={e => setTitle(e.target.value)} placeholder="Q1 enterprise renewal risk" style={{ width: "100%", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg-muted)", color: "var(--fg)", fontSize: 14, fontWeight: 500, outline: "none", fontFamily: "var(--font-sans)", boxSizing: "border-box" }} />
           </div>
           <div>
             <label className="eyebrow" style={{ display: "block", marginBottom: 8 }}>Query</label>
-            <textarea value={query} onChange={e => setQuery(e.target.value)} placeholder="Which enterprise accounts are at renewal risk this quarter?" rows={3} style={{ width: "100%", padding: "12px 16px", borderRadius: 14, border: "1px solid var(--border)", background: "var(--bg-muted)", color: "var(--fg)", fontSize: 14, fontWeight: 500, outline: "none", fontFamily: "var(--font-sans)", resize: "vertical", boxSizing: "border-box" }} />
+            <textarea value={query} onChange={e => setQuery(e.target.value)} placeholder="Which enterprise accounts are at renewal risk this quarter?" rows={3} style={{ width: "100%", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg-muted)", color: "var(--fg)", fontSize: 14, fontWeight: 500, outline: "none", fontFamily: "var(--font-sans)", resize: "vertical", boxSizing: "border-box" }} />
           </div>
         </div>
         <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
@@ -68,7 +68,7 @@ function InsightCard({ card, idx, onRefresh, onDelete, confirmDeleteId, setConfi
 
   return (
     <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{ position: "relative", borderRadius: 28, padding: 26, background: "var(--bg-elevated)", border: `1px solid ${hov ? "var(--border-strong)" : "var(--border)"}`, display: "flex", flexDirection: "column", gap: 16, transition: "all .25s var(--ease-out)", boxShadow: hov ? "var(--shadow-3)" : "none" }}>
+      style={{ position: "relative", borderRadius: "var(--r-xl)", padding: 26, background: "var(--bg-elevated)", border: `1px solid ${hov ? "var(--border-strong)" : "var(--border)"}`, display: "flex", flexDirection: "column", gap: 16, transition: "all .25s var(--ease-out)", boxShadow: hov ? "var(--shadow-3)" : "none" }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
@@ -90,7 +90,7 @@ function InsightCard({ card, idx, onRefresh, onDelete, confirmDeleteId, setConfi
       </div>
 
       {/* Query */}
-      <div style={{ padding: 14, background: "var(--bg-muted)", borderRadius: 16, border: "1px solid var(--border)" }}>
+      <div style={{ padding: 14, background: "var(--bg-muted)", borderRadius: "var(--r-md)", border: "1px solid var(--border)" }}>
         <div className="eyebrow" style={{ marginBottom: 6 }}>Query</div>
         <div style={{ fontSize: 12, color: "var(--fg-muted)", fontWeight: 500 }}>{card.query}</div>
       </div>
@@ -99,12 +99,12 @@ function InsightCard({ card, idx, onRefresh, onDelete, confirmDeleteId, setConfi
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 8, borderTop: "1px dashed var(--border)" }}>
         <span className="eyebrow">{ageStr}</span>
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => onRefresh(card.id)} title="Refresh" style={{ width: 30, height: 30, borderRadius: 9, background: "var(--bg-muted)", border: "1px solid var(--border)", color: "var(--fg-muted)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+          <button onClick={() => onRefresh(card.id)} title="Refresh" style={{ width: 30, height: 30, borderRadius: 12, background: "var(--bg-muted)", border: "1px solid var(--border)", color: "var(--fg-muted)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
             <RefreshCw size={13} />
           </button>
           <button onClick={() => { if (confirmDeleteId === card.id) onDelete(card.id); else setConfirmDeleteId(card.id); }}
             title={confirmDeleteId === card.id ? "Confirm delete" : "Delete"}
-            style={{ width: 30, height: 30, borderRadius: 9, background: confirmDeleteId === card.id ? "rgba(178,58,26,.15)" : "var(--bg-muted)", border: `1px solid ${confirmDeleteId === card.id ? "rgba(178,58,26,.3)" : "var(--border)"}`, color: confirmDeleteId === card.id ? "var(--danger)" : "var(--fg-muted)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+            style={{ width: 30, height: 30, borderRadius: 12, background: confirmDeleteId === card.id ? "rgba(178,58,26,.15)" : "var(--bg-muted)", border: `1px solid ${confirmDeleteId === card.id ? "rgba(178,58,26,.3)" : "var(--border)"}`, color: confirmDeleteId === card.id ? "var(--danger)" : "var(--fg-muted)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
             <Trash2 size={13} />
           </button>
         </div>
@@ -117,7 +117,7 @@ function InsightCard({ card, idx, onRefresh, onDelete, confirmDeleteId, setConfi
 function Toast({ msg, type, onClose }: { msg: string; type: "success" | "error"; onClose: () => void }) {
   const ok = type === "success";
   return (
-    <div style={{ position: "fixed", bottom: 40, right: 40, zIndex: 100, display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", borderRadius: 16, border: `1px solid ${ok ? "rgba(79,122,46,.3)" : "rgba(178,58,26,.3)"}`, background: ok ? "rgba(79,122,46,.12)" : "rgba(178,58,26,.10)", color: ok ? "#4F7A2E" : "var(--danger)", boxShadow: "var(--shadow-4)" }}>
+    <div style={{ position: "fixed", bottom: 40, right: 40, zIndex: 100, display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", borderRadius: "var(--r-md)", border: `1px solid ${ok ? "rgba(79,122,46,.3)" : "rgba(178,58,26,.3)"}`, background: ok ? "rgba(79,122,46,.12)" : "rgba(178,58,26,.10)", color: ok ? "#4F7A2E" : "var(--danger)", boxShadow: "var(--shadow-4)" }}>
       {ok ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
       <span style={{ fontSize: 13, fontWeight: 700 }}>{msg}</span>
       <button onClick={onClose} style={{ marginLeft: 8, background: "none", border: "none", cursor: "pointer", color: "inherit", opacity: 0.5 }}><X size={14} /></button>
@@ -210,15 +210,16 @@ export default function InsightsPage() {
             Saved intelligence cards with synthesized answers from your connected knowledge sources.
           </p>
         </div>
-        <button onClick={() => setShowAdd(true)}
-          style={{ height: 42, padding: "0 20px", borderRadius: 14, background: "var(--primary)", border: "none", color: "#fff", fontSize: 11, fontWeight: 800, letterSpacing: "0.2em", textTransform: "uppercase", display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", boxShadow: "0 10px 24px -10px rgba(160,74,27,.55)" }}>
+        {/* Lavender disruptor — generative action */}
+        <button onClick={() => setShowAdd(true)} className="btn-lav"
+          style={{ height: 42, padding: "0 20px", borderRadius: 12, fontSize: 11, fontWeight: 800, letterSpacing: "0.2em", textTransform: "uppercase", display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", boxShadow: "0 10px 24px -10px rgba(124,91,166,.5)" }}>
           <Plus size={14} /> New insight
         </button>
       </TCard>
 
       {/* Error */}
       {error && (
-        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", borderRadius: 16, background: "rgba(178,58,26,.10)", border: "1px solid rgba(178,58,26,.25)", color: "var(--danger)", marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", borderRadius: "var(--r-md)", background: "rgba(178,58,26,.10)", border: "1px solid rgba(178,58,26,.25)", color: "var(--danger)", marginBottom: 24 }}>
           <AlertCircle size={16} />
           <span style={{ fontSize: 13, fontWeight: 700 }}>{error}</span>
           <button onClick={fetchInsights} style={{ marginLeft: "auto", fontSize: 11, fontWeight: 800, background: "none", border: "none", color: "var(--danger)", cursor: "pointer", letterSpacing: "0.2em", textTransform: "uppercase" }}>Retry</button>
@@ -228,15 +229,15 @@ export default function InsightsPage() {
       {/* Grid */}
       {loading ? (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 18 }}>
-          {[...Array(4)].map((_, i) => <div key={i} style={{ height: 280, borderRadius: 28, background: "var(--bg-muted)", opacity: 0.4 }} />)}
+          {[...Array(4)].map((_, i) => <div key={i} style={{ height: 280, borderRadius: "var(--r-xl)", background: "var(--bg-muted)", opacity: 0.4 }} />)}
         </div>
       ) : insights.length === 0 ? (
-        <div style={{ padding: "64px 40px", textAlign: "center", border: "1px dashed var(--border-strong)", borderRadius: 36, background: "var(--bg-elevated)" }}>
+        <div style={{ padding: "64px 40px", textAlign: "center", border: "1px dashed var(--border-strong)", borderRadius: "var(--r-2xl)", background: "var(--bg-elevated)" }}>
           <IconTile icon={Sparkles} size={80} tone="primary" />
           <h3 style={{ fontSize: 36, fontWeight: 800, letterSpacing: "-0.04em", textTransform: "uppercase", marginTop: 24, color: "var(--fg)" }}>No insight cards yet</h3>
           <p style={{ color: "var(--fg-muted)", fontSize: 15, fontWeight: 500, maxWidth: 380, margin: "14px auto 28px" }}>Save a BI query and Athene will synthesize an answer from your connected sources.</p>
           <button onClick={() => setShowAdd(true)}
-            style={{ height: 52, padding: "0 28px", borderRadius: 16, background: "var(--primary)", border: "none", color: "#fff", fontSize: 11, fontWeight: 800, letterSpacing: "0.28em", textTransform: "uppercase", display: "inline-flex", alignItems: "center", gap: 10, cursor: "pointer", boxShadow: "0 14px 30px -10px rgba(160,74,27,.55)" }}>
+            style={{ height: 52, padding: "0 28px", borderRadius: "var(--r-md)", background: "var(--primary)", border: "none", color: "#fff", fontSize: 11, fontWeight: 800, letterSpacing: "0.28em", textTransform: "uppercase", display: "inline-flex", alignItems: "center", gap: 10, cursor: "pointer", boxShadow: "0 14px 30px -10px rgba(160,74,27,.55)" }}>
             <Sparkles size={14} /> Create first card
           </button>
         </div>

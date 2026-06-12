@@ -100,7 +100,7 @@ export default function WatchlistsPage() {
         </div>
       ) : watchlists.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-          <div className="h-16 w-16 rounded-[1.5rem] bg-muted flex items-center justify-center">
+          <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center">
             <Info size={28} className="text-muted-foreground" />
           </div>
           <div>

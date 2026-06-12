@@ -137,7 +137,7 @@ export default function GrantsPage() {
 
             <div className="grid grid-cols-1 gap-10">
                 {/* Grant BI Access Form */}
-                <Card className="bg-card/50 border-border rounded-[2.5rem] p-10 overflow-hidden relative shadow-2xl backdrop-blur-xl">
+                <Card className="bg-card/50 border-border rounded-3xl p-10 overflow-hidden relative shadow-2xl backdrop-blur-xl">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[100px] -z-10" />
                     
                     <div className="flex items-center gap-4 mb-10">
@@ -188,7 +188,7 @@ export default function GrantsPage() {
                 </Card>
 
                 {/* Active BI Grants */}
-                <div className="rounded-[2.5rem] bg-card/50 border border-border overflow-hidden backdrop-blur-xl shadow-2xl transition-colors duration-300">
+                <div className="rounded-3xl bg-card/50 border border-border overflow-hidden backdrop-blur-xl shadow-2xl transition-colors duration-300">
                     <div className="px-10 py-8 border-b border-border flex items-center justify-between bg-muted/30">
                         <div className="flex items-center gap-4">
                             <div className="p-3 rounded-xl bg-secondary/10 text-secondary border border-secondary/10 shadow-sm">

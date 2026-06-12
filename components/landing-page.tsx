@@ -51,7 +51,7 @@ function Reveal({
         visible ? "opacity-100 translate-y-0 translate-x-0 scale-100" : hidden,
         className,
       )}
-      style={{ transitionDuration: "680ms", transitionDelay: visible ? `${delay}ms` : "0ms" }}
+      style={{ transitionDuration: "450ms", transitionDelay: visible ? `${delay}ms` : "0ms" }}
     >
       {children}
     </div>
@@ -144,11 +144,11 @@ export function LandingPage() {
 
         <div className="flex items-center gap-4">
           <ThemeToggle />
-          <Link href="https://athene-app.vercel.app/sign-in" className="hidden sm:block text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground hover:text-foreground transition-colors duration-200">
+          <Link href="/sign-in" className="hidden sm:block text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground hover:text-foreground transition-colors duration-200">
             Sign In
           </Link>
           <Link
-            href="https://athene-app.vercel.app/sign-up"
+            href="/sign-up"
             className="h-11 px-7 rounded-2xl bg-primary text-white text-[11px] font-black uppercase tracking-[0.2em] hover:opacity-90 transition-all active:scale-95 flex items-center shadow-lg shadow-primary/20"
           >
             Get Started
@@ -158,7 +158,7 @@ export function LandingPage() {
 
       {/* ── Hero ───────────────────────────────────────────────────────── */}
       <section className="relative min-h-screen flex flex-col items-center justify-center pt-24 pb-32 px-6">
-        <div className="max-w-5xl w-full text-center space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-1000 relative z-10">
+        <div className="max-w-5xl w-full text-center space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-500 relative z-10">
 
           <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full border border-primary/20 bg-primary/5 text-primary text-[10px] font-black uppercase tracking-[0.42em]">
             <Sparkles className="w-3.5 h-3.5 animate-pulse" />
@@ -177,14 +177,14 @@ export function LandingPage() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-5 pt-4">
             <Link
-              href="https://athene-app.vercel.app/sign-up"
+              href="/sign-up"
               className="relative group h-16 px-12 rounded-[2rem] bg-primary text-[11px] font-black uppercase tracking-widest flex items-center gap-4 transition-all active:scale-95 shadow-2xl shadow-primary/25 hover:opacity-90"
             >
               <span className="text-white">Start for free</span>
               <ArrowRight className="w-5 h-5 text-white group-hover:translate-x-1 transition-transform" />
             </Link>
             <Link
-              href="https://athene-app.vercel.app/sign-in"
+              href="/sign-in"
               className="h-16 px-12 rounded-[2rem] border border-border bg-muted/30 text-muted-foreground text-[11px] font-black uppercase tracking-widest flex items-center gap-4 hover:border-primary/40 hover:text-foreground hover:bg-muted/60 transition-all active:scale-95"
             >
               View demo
@@ -408,14 +408,14 @@ export function LandingPage() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
             <Link
-              href="https://athene-app.vercel.app/sign-up"
+              href="/sign-up"
               className="group h-16 px-12 rounded-[2rem] bg-primary text-[11px] font-black uppercase tracking-widest flex items-center gap-4 transition-all active:scale-95 shadow-2xl shadow-primary/30 hover:opacity-90"
             >
               <span className="text-white">Get started free</span>
               <ArrowRight className="w-5 h-5 text-white group-hover:translate-x-1 transition-transform" />
             </Link>
             <Link
-              href="https://athene-app.vercel.app/sign-in"
+              href="/sign-in"
               className="h-16 px-12 rounded-[2rem] border border-border bg-muted/30 text-muted-foreground text-[11px] font-black uppercase tracking-widest flex items-center gap-4 hover:border-primary/40 hover:text-foreground hover:bg-muted/60 transition-all active:scale-95"
             >
               Sign in

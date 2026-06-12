@@ -58,6 +58,13 @@
   --honey-300:  #E8C12F; --honey-400:  #E6B928; --honey-500:  #C99B16;
   --honey-600:  #9E780E; --honey-700:  #6F540A;
 
+  /* Lavender — visual disruptor accent ("yellow shoes"). Dusty, warm-leaning
+     so it harmonizes with sienna. Used ONLY via the semantic vars below on a
+     few curated generative-action buttons + KG identity. */
+  --lavender-50:  #F3EEF9; --lavender-100: #E7DEF3; --lavender-200: #D2C2E7;
+  --lavender-300: #B69CD6; --lavender-400: #9A78C0; --lavender-500: #8460AC;
+  --lavender-600: #6B4C8F;
+
   --cream-50:   #FFFCF5; --cream-100:  #FAF3E6; --cream-200:  #F2E7D0;
   --cream-300:  #E6D4AE; --cream-400:  #C9B286;
   --coffee-300: #8B6D45; --coffee-500: #5A4225; --coffee-700: #2E1F0F; --coffee-900: #140A04;
@@ -89,6 +96,11 @@
   --danger:  #B23A1A;
   --warning: #D97A2E;   /* amber-500 */
   --info:    #5A4225;   /* coffee-500 */
+
+  --accent-lav:        #7C5BA6;                   /* icon/text — ~5.6:1 on cream */
+  --accent-lav-strong: #6B4C8F;                   /* body-size text — ~7:1 */
+  --accent-lav-bg:     rgba(132, 96, 172, 0.10);
+  --accent-lav-border: rgba(132, 96, 172, 0.24);
 
   /* ── Tailwind semantic bridge ──────────────────────────── */
   --background:              var(--bg);
@@ -184,6 +196,12 @@
   --danger:  #DC5436;
   --warning: #E07A2F;
   --info:    #B89464;
+
+  /* Lavender brightened for the coffee background */
+  --accent-lav:        #B9A0E0;
+  --accent-lav-strong: #C9B4E9;
+  --accent-lav-bg:     rgba(185, 160, 224, 0.10);
+  --accent-lav-border: rgba(185, 160, 224, 0.26);
 
   /* Tailwind bridge dark */
   --background:         var(--bg);
@@ -284,91 +302,91 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 .reveal {
-  animation: sectionReveal 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: sectionReveal 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .reveal-1 { animation-delay: 0ms; }
-.reveal-2 { animation-delay: 80ms; }
-.reveal-3 { animation-delay: 160ms; }
-.reveal-4 { animation-delay: 240ms; }
-.reveal-5 { animation-delay: 320ms; }
-.reveal-6 { animation-delay: 400ms; }
+.reveal-2 { animation-delay: 50ms; }
+.reveal-3 { animation-delay: 100ms; }
+.reveal-4 { animation-delay: 150ms; }
+.reveal-5 { animation-delay: 200ms; }
+.reveal-6 { animation-delay: 250ms; }
 
 /* ============================================================
    TCARD PAGE TRANSITIONS (5 types from design system)
    Each page maps to one type — see TransitionCtx in kit.tsx
    ============================================================ */
 
-/* cascade — drop from above, stagger 65ms/card (Today / Dashboard) */
+/* cascade — drop from above, stagger 40ms/card (Today / Dashboard) */
 @keyframes enter-cascade {
-  from { transform: translateY(-50px) scale(0.96); opacity: 0; }
+  from { transform: translateY(-24px) scale(0.97); opacity: 0; }
   to   { transform: none; opacity: 1; }
 }
 @keyframes exit-cascade {
   from { transform: none; opacity: 1; }
-  to   { transform: translateY(40px) scale(0.96); opacity: 0; }
+  to   { transform: translateY(24px) scale(0.97); opacity: 0; }
 }
-.tcard.enter-cascade { animation: enter-cascade 620ms cubic-bezier(0.2,0.8,0.2,1) both; }
-.tcard.exit-cascade  { animation: exit-cascade  420ms cubic-bezier(0.2,0.8,0.2,1) both; }
+.tcard.enter-cascade { animation: enter-cascade 380ms var(--ease-out) both; }
+.tcard.exit-cascade  { animation: exit-cascade  220ms var(--ease-out) both; }
 
 /* converge — fly in from scatter positions (Ask / Chat) */
 @keyframes enter-converge {
-  from { transform: translate(var(--rad-x,0px), var(--rad-y,0px)) scale(0.7) rotate(var(--rad-r,0deg)); opacity: 0; filter: blur(8px); }
+  from { transform: translate(var(--rad-x,0px), var(--rad-y,0px)) scale(0.85) rotate(var(--rad-r,0deg)); opacity: 0; filter: blur(4px); }
   60%  { opacity: 1; filter: blur(0); }
   to   { transform: none; opacity: 1; filter: blur(0); }
 }
 @keyframes exit-converge {
   from { transform: none; opacity: 1; }
-  to   { transform: translate(calc(var(--rad-x,0px) * 0.4), calc(var(--rad-y,0px) * 0.4)) scale(0.9); opacity: 0; }
+  to   { transform: translate(calc(var(--rad-x,0px) * 0.4), calc(var(--rad-y,0px) * 0.4)) scale(0.92); opacity: 0; }
 }
 /* will-change promotes each card to its own GPU layer, preventing blur-filter
    repaint from cascading through other cards during the converge animation. */
 .tcard.enter-converge {
-  animation: enter-converge 820ms cubic-bezier(0.2,0.8,0.2,1) both;
+  animation: enter-converge 480ms var(--ease-out) both;
   will-change: transform, opacity, filter;
 }
-.tcard.exit-converge  { animation: exit-converge  420ms cubic-bezier(0.2,0.8,0.2,1) both; }
+.tcard.exit-converge  { animation: exit-converge  240ms var(--ease-out) both; }
 
 /* loop — spiral in (Graph) */
 @keyframes enter-loop {
-  from { transform: rotate(-440deg) translateX(-240px) scale(0.4); opacity: 0; }
+  from { transform: rotate(-180deg) translateX(-120px) scale(0.5); opacity: 0; }
   to   { transform: rotate(0deg) translateX(0) scale(1); opacity: 1; }
 }
 @keyframes exit-loop {
   from { transform: none; opacity: 1; }
-  to   { transform: rotate(360deg) translateX(180px) scale(0.4); opacity: 0; }
+  to   { transform: rotate(120deg) translateX(90px) scale(0.5); opacity: 0; }
 }
-.tcard.enter-loop { animation: enter-loop 900ms cubic-bezier(0.2,0.8,0.2,1) both; }
-.tcard.exit-loop  { animation: exit-loop  520ms cubic-bezier(0.2,0.8,0.2,1) both; }
+.tcard.enter-loop { animation: enter-loop 520ms var(--ease-out) both; }
+.tcard.exit-loop  { animation: exit-loop  260ms var(--ease-out) both; }
 
 /* fold — origami flip (Briefings) */
 @keyframes enter-fold {
-  from { transform: perspective(1000px) rotateX(-95deg) translateY(-40px); opacity: 0; }
+  from { transform: perspective(1000px) rotateX(-70deg) translateY(-24px); opacity: 0; }
   to   { transform: perspective(1000px) rotateX(0deg) translateY(0); opacity: 1; }
 }
 @keyframes exit-fold {
   from { transform: perspective(1000px) rotateX(0deg); opacity: 1; }
-  to   { transform: perspective(1000px) rotateX(95deg) translateY(30px); opacity: 0; }
+  to   { transform: perspective(1000px) rotateX(70deg) translateY(20px); opacity: 0; }
 }
-.tcard.enter-fold { animation: enter-fold 760ms cubic-bezier(0.2,0.8,0.2,1) both; transform-origin: top center; }
-.tcard.exit-fold  { animation: exit-fold  480ms cubic-bezier(0.2,0.8,0.2,1) both; transform-origin: bottom center; }
+.tcard.enter-fold { animation: enter-fold 440ms var(--ease-out) both; transform-origin: top center; }
+.tcard.exit-fold  { animation: exit-fold  240ms var(--ease-out) both; transform-origin: bottom center; }
 
 /* diverge — erupt from center (Sources / Integrations) */
 @keyframes enter-diverge {
-  from { transform: translate(calc(var(--cx,0px) - 50%), calc(var(--cy,0px) - 50%)) scale(0.2) rotate(180deg); opacity: 0; }
+  from { transform: translate(calc(var(--cx,0px) - 50%), calc(var(--cy,0px) - 50%)) scale(0.5) rotate(90deg); opacity: 0; }
   to   { transform: none; opacity: 1; }
 }
 @keyframes exit-diverge {
   from { transform: none; opacity: 1; }
-  to   { transform: translate(var(--rad-x,0px), var(--rad-y,0px)) scale(0.4) rotate(var(--rad-r,0deg)); opacity: 0; }
+  to   { transform: translate(var(--rad-x,0px), var(--rad-y,0px)) scale(0.6) rotate(var(--rad-r,0deg)); opacity: 0; }
 }
-.tcard.enter-diverge { animation: enter-diverge 800ms cubic-bezier(0.2,0.8,0.2,1) both; }
-.tcard.exit-diverge  { animation: exit-diverge  500ms cubic-bezier(0.2,0.8,0.2,1) both; }
+.tcard.enter-diverge { animation: enter-diverge 460ms var(--ease-out) both; }
+.tcard.exit-diverge  { animation: exit-diverge  240ms var(--ease-out) both; }
 
 /* idle — no animation */
 .tcard { position: relative; }
 
 /* page heading animates with cascade on any page transition */
-.page-transitioning .page-head { animation: enter-cascade 600ms cubic-bezier(0.2,0.8,0.2,1) both; }
+.page-transitioning .page-head { animation: enter-cascade 380ms var(--ease-out) both; }
 
 /* block clicks during transitions */
 .shell-busy          { pointer-events: none; }
@@ -379,12 +397,12 @@
   from { opacity: 0; transform: translateY(20px) scale(0.96); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
-.pin-live:nth-child(1) { animation: pin-arrive 480ms cubic-bezier(0.2,0.8,0.2,1) 0ms   both; }
-.pin-live:nth-child(2) { animation: pin-arrive 480ms cubic-bezier(0.2,0.8,0.2,1) 80ms  both; }
-.pin-live:nth-child(3) { animation: pin-arrive 480ms cubic-bezier(0.2,0.8,0.2,1) 160ms both; }
-.pin-live:nth-child(4) { animation: pin-arrive 480ms cubic-bezier(0.2,0.8,0.2,1) 240ms both; }
-.pin-live:nth-child(5) { animation: pin-arrive 480ms cubic-bezier(0.2,0.8,0.2,1) 320ms both; }
-.pin-live:nth-child(6) { animation: pin-arrive 480ms cubic-bezier(0.2,0.8,0.2,1) 400ms both; }
+.pin-live:nth-child(1) { animation: pin-arrive 320ms var(--ease-out) 0ms   both; }
+.pin-live:nth-child(2) { animation: pin-arrive 320ms var(--ease-out) 50ms  both; }
+.pin-live:nth-child(3) { animation: pin-arrive 320ms var(--ease-out) 100ms both; }
+.pin-live:nth-child(4) { animation: pin-arrive 320ms var(--ease-out) 150ms both; }
+.pin-live:nth-child(5) { animation: pin-arrive 320ms var(--ease-out) 200ms both; }
+.pin-live:nth-child(6) { animation: pin-arrive 320ms var(--ease-out) 250ms both; }
 
 @keyframes shimmer {
   0%,100% { opacity: 0.5; }
@@ -408,6 +426,40 @@
 @keyframes briefing-fill {
   from { width: 0%; }
   to   { width: 100%; }
+}
+
+/* ── Skeleton shimmer (gradient sweep + sibling stagger) ────
+   Replaces the synced animate-pulse: a light band sweeps across each
+   skeleton, offset per sibling so loading screens read as a cascade.
+   color-mix with --fg keeps the band visible in light AND dark mode. */
+@keyframes skeleton-sweep { to { transform: translateX(200%); } }
+[data-slot="skeleton"] {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-muted);
+}
+[data-slot="skeleton"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(100deg, transparent 20%,
+    color-mix(in oklab, var(--fg) 7%, transparent) 50%, transparent 80%);
+  animation: skeleton-sweep 1.3s var(--ease-out) infinite;
+}
+[data-slot="skeleton"]:nth-of-type(2)::after  { animation-delay: 90ms; }
+[data-slot="skeleton"]:nth-of-type(3)::after  { animation-delay: 180ms; }
+[data-slot="skeleton"]:nth-of-type(4)::after  { animation-delay: 270ms; }
+[data-slot="skeleton"]:nth-of-type(5n)::after { animation-delay: 360ms; }
+
+/* ── Reduced motion: collapse decorative animation ────────── */
+@media (prefers-reduced-motion: reduce) {
+  .tcard, .reveal, .page-cube-in, .page-spin-in, .pin-live,
+  .page-transitioning .page-head {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+  }
+  [data-slot="skeleton"]::after { animation: none; }
 }
 
 /* ============================================================
@@ -456,6 +508,31 @@
   .text-brand        { color: var(--primary); }
   .text-brand-amber  { color: var(--secondary); }
   .text-brand-honey  { color: var(--tertiary); }
+  .text-brand-lav    { color: var(--accent-lav); }
+
+  /* ── Lavender disruptor button ("yellow shoes") ───────────
+     The ONLY solid-lavender surface in the app. Reserved for a few
+     curated generative-action CTAs: chat send, briefing generate,
+     insights add, watchlists new. Do not spread further. */
+  .btn-lav {
+    background: var(--lavender-500);
+    color: #FFFFFF;
+    border: 1px solid transparent;
+    transition: background .18s var(--ease-out), box-shadow .18s var(--ease-out);
+  }
+  .btn-lav:hover:not(:disabled)  { background: var(--lavender-600); box-shadow: var(--shadow-2); }
+  .btn-lav:focus-visible { outline: 2px solid var(--accent-lav-border); outline-offset: 2px; }
+  .btn-lav:disabled      { opacity: 0.5; }
+  .dark .btn-lav                      { background: var(--lavender-400); color: #16091F; }
+  .dark .btn-lav:hover:not(:disabled) { background: var(--lavender-300); }
+
+  /* ── Card surface utilities (radius/padding normalization) ─
+     panel = surface; card-* = radius+padding tiers mapped to --r-* tokens.
+     Inline styles still override for one-off needs. */
+  .panel   { background: var(--bg-elevated); border: 1px solid var(--border); }
+  .card-xl { border-radius: var(--r-xl); padding: 28px; }
+  .card-lg { border-radius: var(--r-lg); padding: 22px; }
+  .card-md { border-radius: var(--r-md); padding: 18px; }
 
   .shadow-warm-1 { box-shadow: var(--shadow-1); }
   .shadow-warm-2 { box-shadow: var(--shadow-2); }

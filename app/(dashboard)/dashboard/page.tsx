@@ -90,7 +90,7 @@ export default function DashboardPage() {
             <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.36em", textTransform: "uppercase", color: "var(--fg-muted)", marginBottom: 8 }}>
               {dateStamp}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 6 }}>
               <IconTile icon={Zap} size={48} tone="primary" />
               <h1 style={{ fontFamily: "var(--font-sans)", fontSize: 44, fontWeight: 800, letterSpacing: "-0.04em", textTransform: "uppercase", margin: 0, color: "var(--fg)" }}>
                 Command <span style={{ color: "var(--primary)" }}>Center</span>
@@ -152,7 +152,7 @@ export default function DashboardPage() {
       )}
 
       {/* ── 4-col metric grid ─────────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 18, marginBottom: 32 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 32 }}>
         <TCard i={1}>
           <MetricCard icon={Database}  label="Indexed Documents"  value={loading ? "—" : String(stats.documents)}       tone="primary" status="Indexed" />
         </TCard>
@@ -168,10 +168,10 @@ export default function DashboardPage() {
       </div>
 
       {/* ── 2-col detail grid ─────────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16 }}>
 
         {/* Recent agent decisions */}
-        <TCard i={5} style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 28, padding: 28 }}>
+        <TCard i={5} style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "var(--r-xl)", padding: 28 }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 22 }}>
             <span className="eyebrow">Recent agent decisions</span>
             <button
@@ -184,10 +184,10 @@ export default function DashboardPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {loading ? (
               [...Array(3)].map((_, i) => (
-                <div key={i} className="shimmer" style={{ height: 64, borderRadius: 18 }} />
+                <div key={i} className="shimmer" style={{ height: 64, borderRadius: "var(--r-md)" }} />
               ))
             ) : orchestrations.length === 0 ? (
-              <div style={{ padding: "48px 0", textAlign: "center", border: "1px dashed var(--border-strong)", borderRadius: 22 }}>
+              <div style={{ padding: "48px 0", textAlign: "center", border: "1px dashed var(--border-strong)", borderRadius: "var(--r-lg)" }}>
                 <p style={{ fontSize: 13, fontWeight: 700, color: "var(--fg-muted)" }}>No agent decisions yet.</p>
                 <p style={{ fontSize: 11, fontWeight: 500, color: "var(--fg-subtle)", marginTop: 4 }}>HITL approvals and rejections will appear here.</p>
               </div>
@@ -196,11 +196,11 @@ export default function DashboardPage() {
                 <div
                   key={i}
                   onClick={() => router.push("/admin/audit")}
-                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderRadius: 18, background: "var(--bg-muted)", border: "1px solid var(--border)", cursor: "pointer", transition: "all .2s var(--ease-out)" }}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderRadius: "var(--r-md)", background: "var(--bg-muted)", border: "1px solid var(--border)", cursor: "pointer", transition: "all .2s var(--ease-out)" }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--border-strong)"; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"; }}
                 >
-                  <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
                     <IconTile icon={Activity} size={36} tone="primary" />
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: "-0.01em", color: "var(--fg)" }}>{item.label}</div>
@@ -220,10 +220,10 @@ export default function DashboardPage() {
         </TCard>
 
         {/* Right column */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
           {/* Quick actions */}
-          <TCard i={6} style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 28, padding: 28 }}>
+          <TCard i={6} style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "var(--r-xl)", padding: 28 }}>
             <div className="eyebrow" style={{ marginBottom: 18 }}>Quick actions</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {[
@@ -234,7 +234,7 @@ export default function DashboardPage() {
                 <button
                   key={a.href}
                   onClick={() => router.push(a.href)}
-                  style={{ display: "flex", alignItems: "center", gap: 12, padding: 14, borderRadius: 18, background: "var(--bg-muted)", border: "1px solid var(--border)", cursor: "pointer", textAlign: "left", transition: "all .2s var(--ease-out)", width: "100%" }}
+                  style={{ display: "flex", alignItems: "center", gap: 12, padding: 14, borderRadius: "var(--r-md)", background: "var(--bg-muted)", border: "1px solid var(--border)", cursor: "pointer", textAlign: "left", transition: "all .2s var(--ease-out)", width: "100%" }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--border-strong)"; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"; }}
                 >
@@ -250,7 +250,7 @@ export default function DashboardPage() {
           </TCard>
 
           {/* Pipeline status */}
-          <TCard i={7} style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 28, padding: 28 }}>
+          <TCard i={7} style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "var(--r-xl)", padding: 28 }}>
             <div className="eyebrow" style={{ marginBottom: 18 }}>Pipeline status</div>
             {[
               { label: "Document index",  ok: stats.documents > 0,       detail: stats.documents > 0 ? `${stats.documents} docs` : "No docs yet" },

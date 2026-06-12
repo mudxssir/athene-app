@@ -248,7 +248,7 @@ export default function UsersPage() {
       case "super_user":
         return <Badge className="bg-secondary/20 text-secondary border-secondary/30 px-3 py-1 rounded-lg gap-1.5"><ShieldCheck className="w-3 h-3" /> BI Analyst</Badge>;
       default:
-        return <Badge className="bg-white/5 text-slate-400 border-white/10 px-3 py-1 rounded-lg gap-1.5"><Shield className="w-3 h-3" /> Member</Badge>;
+        return <Badge className="bg-muted text-muted-foreground border-border px-3 py-1 rounded-lg gap-1.5"><Shield className="w-3 h-3" /> Member</Badge>;
     }
   };
 
@@ -325,7 +325,7 @@ export default function UsersPage() {
       </div>
 
       {/* Users Table */}
-      <div className="rounded-[2.5rem] bg-card/50 border border-border overflow-hidden backdrop-blur-xl shadow-2xl transition-colors duration-300">
+      <div className="rounded-3xl bg-card/50 border border-border overflow-hidden backdrop-blur-xl shadow-2xl transition-colors duration-300">
         <Table>
           <TableHeader className="bg-muted/30 border-b border-border">
             <TableRow className="hover:bg-transparent border-none">

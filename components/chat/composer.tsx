@@ -148,15 +148,16 @@ export function Composer({
           />
 
           <div className="flex items-center gap-3 pr-2 shrink-0">
+            {/* Lavender disruptor — the one "yellow shoes" button on this page */}
             <Button
               onClick={sendMessage}
               disabled={isLoading || !input.trim()}
-              className="h-11 w-11 rounded-full bg-primary text-white hover:bg-[var(--primary-hover)] disabled:bg-muted disabled:text-muted-foreground shadow-[var(--shadow-2)] transition-all active:scale-95 flex items-center justify-center"
+              className="btn-lav h-11 w-11 rounded-full disabled:bg-muted disabled:text-muted-foreground shadow-[var(--shadow-2)] transition-all active:scale-95 flex items-center justify-center"
             >
               {isLoading ? (
                 <Loader2 className="w-6 h-6 animate-spin" />
               ) : (
-                <Send className="w-6 h-6 fill-white" />
+                <Send className="w-6 h-6" />
               )}
             </Button>
           </div>

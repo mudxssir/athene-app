@@ -131,7 +131,7 @@ function MobileGraphList() {
           <p className="text-sm text-destructive mb-3">{fetchError}</p>
           <button
             onClick={() => { setFetchError(null); setPage(1); }}
-            className="text-xs font-black uppercase tracking-widest text-purple-400 hover:text-purple-300"
+            className="text-xs font-black uppercase tracking-widest text-brand-lav hover:opacity-80"
           >
             Retry
           </button>
@@ -172,7 +172,7 @@ function MobileGraphList() {
             <button
               onClick={() => setPage((p) => p + 1)}
               disabled={isLoadingMore}
-              className="mt-6 w-full h-14 rounded-2xl border border-white/5 bg-card hover:bg-white/5 active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest text-purple-400 disabled:opacity-50"
+              className="mt-6 w-full h-14 rounded-2xl border border-[var(--border)] bg-card hover:bg-muted active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest text-brand-lav disabled:opacity-50"
             >
               {isLoadingMore ? (
                 <>

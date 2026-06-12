@@ -44,7 +44,7 @@ function StatCard({
   bg?: string;
 }) {
   return (
-    <div className="rounded-3xl bg-card border border-white/5 p-6 flex flex-col gap-4">
+    <div className="rounded-3xl bg-card border border-border p-6 flex flex-col gap-4">
       <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center", bg)}>
         <Icon className={cn("w-5 h-5", color)} />
       </div>
@@ -100,7 +100,7 @@ export default function UsagePage() {
         <button
           onClick={fetchUsage}
           disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest border border-white/10 hover:border-white/20 transition-all disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest border border-border hover:border-[var(--border-strong)] transition-all disabled:opacity-50"
         >
           <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
           Refresh
@@ -166,7 +166,7 @@ export default function UsagePage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Docs by source */}
-            <div className="rounded-3xl bg-card border border-white/5 p-6">
+            <div className="rounded-3xl bg-card border border-border p-6">
               <h2 className="font-black text-sm uppercase tracking-widest text-muted-foreground/60 mb-5">
                 Documents by Source
               </h2>
@@ -184,7 +184,7 @@ export default function UsagePage() {
                             <span className="text-xs font-bold capitalize">{source.replace(/_/g, " ")}</span>
                             <span className="text-xs text-muted-foreground/50">{count.toLocaleString()} <span className="text-muted-foreground/30">({pct}%)</span></span>
                           </div>
-                          <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                             <div
                               className="h-full bg-primary rounded-full"
                               style={{ width: `${pct}%` }}
@@ -198,7 +198,7 @@ export default function UsagePage() {
             </div>
 
             {/* Connection status */}
-            <div className="rounded-3xl bg-card border border-white/5 p-6">
+            <div className="rounded-3xl bg-card border border-border p-6">
               <h2 className="font-black text-sm uppercase tracking-widest text-muted-foreground/60 mb-5">
                 Integration Health
               </h2>
@@ -207,7 +207,7 @@ export default function UsagePage() {
               ) : (
                 <div className="space-y-2">
                   {data.connections.list.map((conn, i) => (
-                    <div key={i} className="flex items-center justify-between py-2.5 border-b border-white/5 last:border-0">
+                    <div key={i} className="flex items-center justify-between py-2.5 border-b border-border last:border-0">
                       <div>
                         <p className="text-sm font-bold capitalize">{conn.provider.replace(/_/g, " ")}</p>
                         <p className="text-[10px] text-muted-foreground/40 uppercase tracking-widest">

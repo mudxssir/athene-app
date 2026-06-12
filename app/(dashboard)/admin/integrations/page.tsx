@@ -45,12 +45,12 @@ function ConfirmDialog({
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="bg-card border border-white/10 shadow-2xl p-8 max-w-sm w-full mx-4 rounded-[2rem] animate-in zoom-in-95 duration-300">
+      <div className="bg-card border border-border shadow-2xl p-8 max-w-sm w-full mx-4 rounded-3xl animate-in zoom-in-95 duration-300">
         <div className="flex items-start justify-between mb-6">
           <div className="w-12 h-12 rounded-2xl bg-destructive/10 flex items-center justify-center border border-destructive/20">
             <WifiOff className="w-6 h-6 text-destructive" />
           </div>
-          <Button variant="ghost" size="icon" onClick={onCancel} className="rounded-full hover:bg-white/5">
+          <Button variant="ghost" size="icon" onClick={onCancel} className="rounded-full hover:bg-muted">
             <X className="w-5 h-5 text-muted-foreground" />
           </Button>
         </div>
@@ -65,7 +65,7 @@ function ConfirmDialog({
           <Button
             variant="outline"
             onClick={onCancel}
-            className="flex-1 h-12 rounded-xl border-white/10 hover:bg-white/5 font-bold"
+            className="flex-1 h-12 rounded-xl border-border hover:bg-muted font-bold"
           >
             Cancel
           </Button>
@@ -414,7 +414,7 @@ export default function IntegrationsPage() {
             onClick={handleSyncAll}
             disabled={syncingAll || integrations.length === 0}
             variant="outline"
-            className="h-14 px-8 rounded-2xl border-white/10 font-black uppercase tracking-widest text-[11px] gap-3 hover:bg-white/5"
+            className="h-14 px-8 rounded-2xl border-border font-black uppercase tracking-widest text-[11px] gap-3 hover:bg-muted"
            >
              {syncingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
              Sync All
@@ -444,16 +444,16 @@ export default function IntegrationsPage() {
       <TCard i={2} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {loading ? (
           [...Array(6)].map((_, i) => (
-            <div key={i} className="h-64 rounded-[2.5rem] bg-muted/20 border border-border animate-pulse" />
+            <div key={i} className="h-64 rounded-3xl bg-muted/20 border border-border animate-pulse" />
           ))
         ) : error ? (
-          <div className="col-span-full py-20 text-center space-y-4 bg-muted/10 rounded-[3rem] border border-border">
+          <div className="col-span-full py-20 text-center space-y-4 bg-muted/10 rounded-3xl border border-border">
              <AlertCircle className="w-12 h-12 text-destructive mx-auto opacity-20" />
              <p className="text-muted-foreground font-bold">{error}</p>
              <Button variant="outline" onClick={fetchIntegrations} className="rounded-xl border-border">Try Again</Button>
           </div>
         ) : filteredIntegrations.length === 0 ? (
-          <div className="col-span-full py-32 flex flex-col items-center justify-center bg-muted/5 rounded-[3rem] border-2 border-dashed border-border text-center">
+          <div className="col-span-full py-32 flex flex-col items-center justify-center bg-muted/5 rounded-3xl border-2 border-dashed border-border text-center">
             <div className="w-20 h-20 rounded-3xl bg-muted/10 flex items-center justify-center mb-6">
               <Blocks className="w-10 h-10 text-muted-foreground/20" />
             </div>
@@ -520,10 +520,10 @@ export default function IntegrationsPage() {
               {available.map((provider) => (
                 <div
                   key={provider.key}
-                  className="group flex items-center gap-4 p-4 rounded-[1.5rem] bg-muted/5 border border-border hover:border-primary/20 hover:bg-muted/10 transition-all duration-300 cursor-pointer"
+                  className="group flex items-center gap-4 p-4 rounded-2xl bg-muted/5 border border-border hover:border-primary/20 hover:bg-muted/10 transition-all duration-300 cursor-pointer"
                   onClick={() => handleConnect(provider)}
                 >
-                  <div className="relative h-10 w-10 flex-shrink-0 rounded-xl bg-white/5 border border-white/10 p-1.5 overflow-hidden">
+                  <div className="relative h-10 w-10 flex-shrink-0 rounded-xl bg-muted border border-border p-1.5 overflow-hidden">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={provider.icon}
@@ -570,7 +570,7 @@ export default function IntegrationsPage() {
               <Card
                 key={mod.id}
                 className={cn(
-                  "bg-muted/10 border rounded-[2rem] p-8 space-y-4 transition-all",
+                  "bg-muted/10 border rounded-3xl p-8 space-y-4 transition-all",
                   active ? "border-primary/30 shadow-lg shadow-primary/5" : "border-border opacity-60"
                 )}
               >
@@ -594,13 +594,13 @@ export default function IntegrationsPage() {
                   {mod.entity_types.slice(0, 6).map((et) => (
                     <Badge
                       key={et}
-                      className="bg-white/5 text-muted-foreground/60 border-none text-[9px] font-bold"
+                      className="bg-muted text-muted-foreground/60 border-none text-[9px] font-bold"
                     >
                       {et}
                     </Badge>
                   ))}
                   {mod.entity_types.length > 6 && (
-                    <Badge className="bg-white/5 text-muted-foreground/40 border-none text-[9px] font-bold">
+                    <Badge className="bg-muted text-muted-foreground/40 border-none text-[9px] font-bold">
                       +{mod.entity_types.length - 6} more
                     </Badge>
                   )}

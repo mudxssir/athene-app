@@ -170,7 +170,7 @@ function BlockerRow({ blocker, depth = 0 }: { blocker: BlockerCard; depth?: numb
     <div className={cn(depth > 0 && "ml-6 mt-2")}>
       <div
         className={cn(
-          "rounded-[14px] border p-4 space-y-2",
+          "rounded-xl border p-4 space-y-2",
           uncertain
             ? "border-dashed border-amber-500/40 bg-amber-500/[0.04]"
             : "border-[var(--border-soft)] bg-[var(--bg-muted)]"
@@ -448,7 +448,7 @@ export default function MyWorkPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 rounded-[14px] bg-muted/50 border border-[var(--border-soft)] w-fit">
+      <div className="flex gap-1 p-1 rounded-xl bg-muted/50 border border-[var(--border-soft)] w-fit">
         {(
           [
             {
@@ -468,7 +468,7 @@ export default function MyWorkPage() {
             key={key}
             onClick={() => setTab(key)}
             className={cn(
-              "relative flex items-center gap-2 px-4 py-2 rounded-[10px] text-[11px] font-extrabold uppercase tracking-[0.18em] transition-all duration-150",
+              "relative flex items-center gap-2 px-4 py-2 rounded-lg text-[11px] font-extrabold uppercase tracking-[0.18em] transition-all duration-150",
               tab === key
                 ? "bg-card text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"

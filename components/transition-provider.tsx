@@ -28,10 +28,10 @@ interface TransitionProviderProps {
   children: ReactNode;
 }
 
-// Exit animation duration — long enough for the slowest exit (520ms loop exit)
-const EXIT_DURATION = 480;
-// Enter idle reset — worst case: 10 cards × 70ms stagger (loop) + 900ms anim
-const ENTER_IDLE_DELAY = 1600;
+// Exit animation duration — matches the slowest retimed exit (260ms loop exit)
+const EXIT_DURATION = 260;
+// Enter idle reset — worst case: 10 cards × 40ms stagger (loop) + 520ms anim
+const ENTER_IDLE_DELAY = 950;
 
 export function TransitionProvider({ children }: TransitionProviderProps) {
   const pathname = usePathname();
