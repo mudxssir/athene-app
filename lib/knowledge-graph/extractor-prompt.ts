@@ -170,6 +170,87 @@ No prose, no code fences. If no decisions are found, return {"entities":[],"rela
 3. Do not fabricate decision_maker, occurred_at, or alternatives — omit if not stated.
 4. Provenance for all edges from clearly stated decisions: EXTRACTED (confidence 1.0).`;
 
+// ── Blocker/obligation-focused extraction prompt (P2-11, third pass) ──────────
+// Run in parallel with the general (and decision) prompts on work_item sources
+// and gated thread chunks. The general prompt is breadth-first and routinely
+// under-extracts blocker chains and commitments buried in ticket comments and
+// thread replies — this pass extracts ONLY those, with a stricter rubric.
+
+export const BLOCKER_OBLIGATION_PROMPT = `# Blocker & Obligation Extraction Prompt
+
+You are a blocker and obligation extractor for engineering work items (tickets, pull requests) and team conversations. Your ONLY job is to find:
+1. Work that is BLOCKED — and what it is waiting on.
+2. COMMITMENTS people made — who owes what, by when.
+
+Ignore everything else (general entities, technologies, decisions).
+
+## Entity types to extract
+
+- \`obligation\` — a commitment, deliverable, or deadline someone agreed to ("Priya will ship the migration by Friday")
+- \`ticket\` — a work item that is blocking or blocked (use its identifier as label when present, e.g. "ENG-42: Fix login")
+- \`person\` — only when they own a blocker or an obligation
+- \`risk\` — only when a blocker is described as threatening a deadline or launch
+
+## Relationship types to extract
+
+- \`BLOCKS\` — source blocks target (target is waiting on source)
+- \`BLOCKED_BY\` — source cannot progress until target resolves
+- \`OBLIGATES\` — source: obligation, target: person (the obligation binds that person)
+- \`OWNS\` — source: person, target: obligation or ticket they are responsible for
+- \`RISKS\` — source: risk, target: project/process/obligation it threatens
+
+## Required fields per obligation entity
+
+- \`label\`: concise statement of the commitment (≤ 100 chars, e.g. "Ship billing migration")
+- \`entity_type\`: always "obligation"
+- \`description\`: context in ≤ 140 chars
+- \`obligation_metadata\`: object with:
+  - \`due_date\`: ISO date string if a deadline is stated or clearly derivable ("by Friday" relative to a dated message), otherwise omit
+  - \`actor\`: name of the person who owes it, if named
+  - \`status\`: "open" unless the text says it was delivered/cancelled
+
+## What does NOT count
+
+- Vague intentions ("we should look into X") — no obligation.
+- Structural dependencies that are not actively blocking ("the API uses the auth service") — no BLOCKS edge.
+- Past blockers already resolved in the same text — extract only if still open.
+
+## Provenance rules
+
+- Stated verbatim ("blocked by ENG-42", "I'll have it done Friday"): \`EXTRACTED\`, confidence 1.0.
+- Strongly implied ("still waiting on the security review"): \`INFERRED\`, 0.6–0.9.
+- Unsure: \`AMBIGUOUS\`, ≤ 0.5 — or omit entirely.
+
+## Output format
+
+Return a single JSON object:
+{
+  "entities": [ { "label", "entity_type", "description", "obligation_metadata": {...} } ],
+  "relationships": [ { "source", "source_entity_type", "target", "target_entity_type", "relation", "provenance", "confidence" } ]
+}
+
+No prose, no code fences. If nothing qualifies, return {"entities":[],"relationships":[]}.
+
+## Rules
+
+1. Every \`source\` and \`target\` in \`relationships\` MUST also appear in \`entities\`.
+2. Do not fabricate due dates, actors, or ticket identifiers — omit what is not stated.
+3. Deduplicate entities. Each (label, entity_type) pair appears once.
+4. Do not include PII you would not want logged. Anonymize email addresses and phone numbers.`;
+
+/**
+ * Source types that get the blocker/obligation third pass (P2-11):
+ * work_item connectors + Slack (thread chunks only reach the extractor
+ * after the Tier-B regex→GLiNER gate passed, so slack here = gated thread).
+ */
+export const BLOCKER_OBLIGATION_SOURCE_TYPES = new Set([
+  "jira",
+  "linear",
+  "github",
+  "zendesk",
+  "slack",
+]);
+
 /** Source types that warrant decision extraction (documents with meeting notes, decisions, etc.) */
 export const DECISION_SOURCE_TYPES = new Set([
   "notion",

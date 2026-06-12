@@ -15,7 +15,32 @@ _Branch: `pipeline/p2-engineering-depth` · Flags: `KG_OWNER_GRAPH` (default OFF
 | P2-8 | Jira ADF placeholders + sprint-absence tolerance | done | `3843155` |
 | P2-9 | Slack stable windows (10-reply windows, bot allow-list, short-skip) | done | `f831c59` + review fixes |
 | P2-10 | Tier-B chain: regex → sidecar GLiNER confirm → LLM | done | (this commit) |
-| P2-11 | Third extraction pass (blocker/obligation prompt) | todo | — |
+| P2-11 | Third extraction pass (blocker/obligation prompt) | done | (this commit) |
+
+### P2-11 notes
+
+- `BLOCKER_OBLIGATION_PROMPT` (extractor-prompt.ts): focused rubric — only
+  blockers (BLOCKS/BLOCKED_BY), obligations (OBLIGATES/OWNS), and deadline
+  risks (RISKS); explicitly excludes general entities/decisions, vague
+  intentions, structural-but-not-stuck dependencies, and already-resolved
+  blockers. Obligation entities carry `obligation_metadata`
+  { due_date, actor, status }.
+- Gate: `BLOCKER_OBLIGATION_SOURCE_TYPES` = jira/linear/github/zendesk
+  (work_item) + slack — thread chunks only reach the extractor after the
+  P2-10 regex→GLiNER gate, so slack here is always a gated thread.
+- Third parallel pass in `extractFromChunk`; results merge through the
+  existing (org_id, label, entity_type) node dedup and
+  (source, target, relation) edge dedup with strongest-provenance wins —
+  overlap with the general pass is harmless by construction.
+- `obligation_metadata` normalizes to FLAT node.metadata keys
+  (due_date / actor / status-lowercased) — exactly the keys
+  my-obligations.ts parseDueDate/parseActor/parseStatus already read, so
+  extracted obligations surface in My Obligations with due dates without
+  any reader change. The flag is per-pass: the general pass cannot attach
+  obligation metadata.
+- Cost shape: +1 medium-tier LLM call per chunk on the four work_item
+  connectors and on gated Slack threads only (prose/email/record/tabular
+  unchanged).
 
 ### P2-10 notes
 

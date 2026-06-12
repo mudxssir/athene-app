@@ -7,9 +7,11 @@
 // Runs LLM calls over each chunk and returns typed KGNode[] /
 // KGEdge[]. The caller owns persistence.
 //
-// Two extraction passes run in parallel per chunk:
+// Up to three extraction passes run in parallel per chunk:
 //   1. General entity/relation extraction (all source types)
 //   2. Decision record extraction (qualifying source types only)
+//   3. Blocker/obligation extraction (P2-11: work_item sources + gated
+//      thread chunks — slack only reaches the extractor post-gate)
 //
 // Rule #2: chunks arrive in RAM and leave as graph structures.
 // This file never touches Supabase.
@@ -39,6 +41,8 @@ import {
 import {
   DECISION_EXTRACTION_PROMPT,
   DECISION_SOURCE_TYPES,
+  BLOCKER_OBLIGATION_PROMPT,
+  BLOCKER_OBLIGATION_SOURCE_TYPES,
 } from "./extractor-prompt";
 import { resolveExtractionPrompt } from "./modules/resolver";
 
@@ -54,6 +58,7 @@ type RawEntity = {
   entity_type?: unknown;
   description?: unknown;
   temporal_metadata?: unknown;
+  obligation_metadata?: unknown;
 };
 
 type RawRelationship = {
@@ -194,7 +199,8 @@ async function llmExtract(
 function normalizeExtraction(
   parsed: RawExtraction,
   chunk: ExtractorChunk,
-  allowTemporalMetadata = false
+  allowTemporalMetadata = false,
+  allowObligationMetadata = false
 ): ExtractionResult {
   const deptIds = chunk.department_id ? [chunk.department_id] : [];
   const nodes: KGNode[] = [];
@@ -239,6 +245,19 @@ function normalizeExtraction(
       if (Object.keys(temporal).length > 0) {
         node.metadata = node.metadata || {};
         node.metadata.temporal_metadata = temporal;
+      }
+    }
+
+    // P2-11: obligation metadata lands as flat keys (due_date/actor/status) —
+    // exactly the keys my-obligations.ts parseDueDate/parseActor/parseStatus read.
+    if (allowObligationMetadata && entityType === "obligation" && e.obligation_metadata) {
+      const om = e.obligation_metadata as Record<string, unknown>;
+      const meta: Record<string, unknown> = {};
+      if (typeof om.due_date === "string" && om.due_date.trim()) meta.due_date = om.due_date.trim();
+      if (typeof om.actor === "string" && om.actor.trim()) meta.actor = om.actor.trim();
+      if (typeof om.status === "string" && om.status.trim()) meta.status = om.status.trim().toLowerCase();
+      if (Object.keys(meta).length > 0) {
+        node.metadata = { ...(node.metadata ?? {}), ...meta };
       }
     }
 
@@ -309,11 +328,19 @@ async function extractFromChunk(
     DECISION_SOURCE_TYPES.has(sourceKey) &&
     !NON_DECISION_RESOURCE_TYPES.has(resourceType);
 
-  // Run general extraction; optionally run decision extraction in parallel
-  const [generalParsed, decisionParsed] = await Promise.all([
+  // P2-11: blocker/obligation third pass for work_item sources + gated thread
+  // chunks. Slack chunks only reach the extractor after the Tier-B chain
+  // (regex → GLiNER) passed, so slack here is always a gated thread.
+  const runBlockerPass = sourceKey !== "" && BLOCKER_OBLIGATION_SOURCE_TYPES.has(sourceKey);
+
+  // Run general extraction; optionally decision + blocker passes in parallel
+  const [generalParsed, decisionParsed, blockerParsed] = await Promise.all([
     llmExtract(systemPrompt, chunk.text, orgId),
     runDecision
       ? llmExtract(DECISION_EXTRACTION_PROMPT, chunk.text, orgId)
+      : Promise.resolve(null),
+    runBlockerPass
+      ? llmExtract(BLOCKER_OBLIGATION_PROMPT, chunk.text, orgId)
       : Promise.resolve(null),
   ]);
 
@@ -325,12 +352,18 @@ async function extractFromChunk(
     ? normalizeExtraction(decisionParsed, chunk, true)
     : { nodes: [], edges: [] };
 
-  // Merge: decision nodes/edges are additive — they introduce new decision-type nodes
-  // that general extraction may not have captured. The merge in extractEntitiesAndRelations
-  // handles deduplication by (org_id, label, entity_type).
+  const blocker = blockerParsed
+    ? normalizeExtraction(blockerParsed, chunk, false, true)
+    : { nodes: [], edges: [] };
+
+  // Merge: decision and blocker/obligation nodes/edges are additive — they
+  // introduce nodes the general pass may not have captured. The merge in
+  // extractEntitiesAndRelations dedups by (org_id, label, entity_type) for
+  // nodes and (source, target, relation) for edges, keeping the strongest
+  // provenance/confidence — so overlap with the general pass is harmless.
   return {
-    nodes: [...general.nodes, ...decision.nodes],
-    edges: [...general.edges, ...decision.edges],
+    nodes: [...general.nodes, ...decision.nodes, ...blocker.nodes],
+    edges: [...general.edges, ...decision.edges, ...blocker.edges],
   };
 
 }
