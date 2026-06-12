@@ -125,6 +125,17 @@ describe("buildStructuredOwnerGraph", () => {
     expect(edges[0].target_entity_type).toBe("pull_request");
   });
 
+  it("uses org_wide visibility regardless of document visibility", () => {
+    const doc = makeDoc({
+      structured_owners: [
+        { person_label: "Alice", provider_account_id: "acc-1", relation: "OWNS" },
+      ],
+    });
+    const { nodes, edges } = buildStructuredOwnerGraph(doc);
+    nodes.forEach((n) => expect(n.visibility).toBe("org_wide"));
+    edges.forEach((e) => expect(e.visibility).toBe("org_wide"));
+  });
+
   it("sets org_id and department_id on all nodes and edges", () => {
     const doc = makeDoc({
       structured_owners: [

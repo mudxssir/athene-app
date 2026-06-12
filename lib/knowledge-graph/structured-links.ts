@@ -42,7 +42,9 @@ export function buildStructuredLinkGraph(doc: StructuredLinkDoc): ExtractionResu
 
   const selfType =
     (doc.metadata?.resource_type as string) === "pull_request" ? "pull_request" : "ticket";
-  const visibility = (doc.visibility ?? "department") as Visibility;
+  // Blocking/dependency links are org_wide: cross-functional blocker views
+  // require that "ticket A blocks ticket B" is visible across departments.
+  const visibility: Visibility = "org_wide";
   const departmentIds = doc.department_id ? [doc.department_id] : [];
 
   const nodes: KGNode[] = [];

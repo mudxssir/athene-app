@@ -34,7 +34,9 @@ export function buildStructuredOwnerGraph(doc: StructuredOwnerDoc): ExtractionRe
     return { nodes: [], edges: [] };
   }
 
-  const visibility = (doc.visibility ?? "department") as Visibility;
+  // Ownership edges are always org_wide: cross-team coordination requires
+  // that "Alice owns ticket X" is visible regardless of department boundary.
+  const visibility: Visibility = "org_wide";
   const departmentIds = doc.department_id ? [doc.department_id] : [];
   const resourceType = (doc.metadata?.resource_type as string) ?? "ticket";
   const selfEntityType = resourceType === "pull_request" ? "pull_request" : "ticket";
