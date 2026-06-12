@@ -133,14 +133,47 @@ describe('Slack Integration', () => {
       expect(mockFetch).toHaveBeenCalled()
     })
 
-    it('fetches thread replies when thread_ts is present', async () => {
+    // ── P2-9: Slack stable windows ────────────────────────────────────────
+
+    it('parent chunk content is the original message only (stable window)', async () => {
       mockTeamInfo()
-      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, channels: [{ id: 'C1' }] }) })
-      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, has_more: false, messages: [{ ts: '1', text: 'P', thread_ts: '1', reply_count: 1 }] }) })
-      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, messages: [{ ts: '1', text: 'P' }, { ts: '2', text: 'R' }] }) })
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, channels: [{ id: 'C1', name: 'gen', is_archived: false }] }) })
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, has_more: false, messages: [{ ts: '100.000', text: 'Parent message', user: 'U1', thread_ts: '100.000', reply_count: 1 }] }) })
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, messages: [{ ts: '100.000', text: 'Parent message', user: 'U1' }, { ts: '101.000', text: 'Reply one', user: 'U2' }] }) })
 
       const chunks = await fetchSlackMessages('conn-1', 'org-1')
-      expect(chunks[0].content).toContain('R')
+      const parent = chunks.find((c) => c.chunk_id === 'slack-msg-C1-100.000')
+      expect(parent).toBeDefined()
+      // Parent content must NOT include the reply text — it's stable
+      expect(parent!.content).toBe('Parent message')
+      expect(parent!.content).not.toContain('Reply one')
+    })
+
+    it('emits reply as a separate child chunk', async () => {
+      mockTeamInfo()
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, channels: [{ id: 'C1', name: 'gen', is_archived: false }] }) })
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, has_more: false, messages: [{ ts: '100.000', text: 'Parent', user: 'U1', thread_ts: '100.000', reply_count: 1 }] }) })
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, messages: [{ ts: '100.000', text: 'Parent', user: 'U1' }, { ts: '101.000', text: 'Reply one', user: 'U2' }] }) })
+
+      const chunks = await fetchSlackMessages('conn-1', 'org-1')
+      const reply = chunks.find((c) => c.chunk_id === 'slack-reply-C1-101.000')
+      expect(reply).toBeDefined()
+      expect(reply!.content).toBe('Reply one')
+      expect(reply!.metadata.resource_type).toBe('channel_reply')
+      expect(reply!.metadata.parent_chunk_id).toBe('slack-msg-C1-100.000')
+    })
+
+    it('each reply gets its own chunk id — append-only on new reply', async () => {
+      mockTeamInfo()
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, channels: [{ id: 'C1', name: 'gen', is_archived: false }] }) })
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, has_more: false, messages: [{ ts: '200.000', text: 'Q', user: 'U1', thread_ts: '200.000', reply_count: 2 }] }) })
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, messages: [{ ts: '200.000', text: 'Q', user: 'U1' }, { ts: '201.000', text: 'A1', user: 'U2' }, { ts: '202.000', text: 'A2', user: 'U3' }] }) })
+
+      const chunks = await fetchSlackMessages('conn-1', 'org-1')
+      expect(chunks.find((c) => c.chunk_id === 'slack-reply-C1-201.000')).toBeDefined()
+      expect(chunks.find((c) => c.chunk_id === 'slack-reply-C1-202.000')).toBeDefined()
+      // Total: 1 parent + 2 reply chunks
+      expect(chunks).toHaveLength(3)
     })
   })
 })

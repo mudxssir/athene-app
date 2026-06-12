@@ -1,5 +1,5 @@
 import { slackFetch } from './client'
-import { fetchThreadReplies } from './threads-fetcher'
+import { fetchThreadReplyMessages } from './threads-fetcher'
 import type { FetchedChunk } from '@/lib/integrations/base'
 import { type SyncConfig, getSelectedResourceIds, getExcludedResourceIds } from '@/lib/integrations/sync-config'
 
@@ -89,17 +89,18 @@ async function fetchChannelMessages(
     (msg) => msg.text?.trim() && msg.thread_ts && msg.reply_count > 0
   )
 
-  const replyMap = new Map<string, string>()
+  type ReplyMsg = { ts: string; user: string; text: string }
+  const replyMap = new Map<string, ReplyMsg[]>()
   for (let i = 0; i < needReplies.length; i += 20) {
     const batch = needReplies.slice(i, i + 20)
     const results = await Promise.all(
       batch.map((msg) =>
-        fetchThreadReplies(connectionId, orgId, channelId, msg.thread_ts).then(
-          (text) => [msg.thread_ts, text] as [string, string]
+        fetchThreadReplyMessages(connectionId, orgId, channelId, msg.thread_ts).then(
+          (replies) => [msg.thread_ts, replies] as [string, ReplyMsg[]]
         )
       )
     )
-    for (const [ts, text] of results) replyMap.set(ts, text)
+    for (const [ts, replies] of results) replyMap.set(ts, replies)
   }
 
   const chunks: FetchedChunk[] = []
@@ -108,15 +109,14 @@ async function fetchChannelMessages(
     // Skip bot messages — CI alerts, Jira bots, Datadog pings produce noise, not knowledge
     if (msg.subtype === 'bot_message' || msg.bot_id) continue
 
-    let content = msg.text
-    const replyText = msg.thread_ts ? replyMap.get(msg.thread_ts) : undefined
-    if (replyText) content = `${msg.text}\n\nThread replies:\n${replyText}`
-
     const ts: string = msg.ts
+    const parentChunkId = `slack-msg-${channelId}-${ts}`
+
+    // Parent content is the original message only — stable regardless of reply count
     chunks.push({
-      chunk_id: `slack-msg-${channelId}-${ts}`,
+      chunk_id: parentChunkId,
       title: `#${channelName}: ${msg.text.slice(0, 60)}${msg.text.length > 60 ? '...' : ''}`,
-      content,
+      content: msg.text,
       source_url: `https://${workspaceDomain}.slack.com/archives/${channelId}/p${ts.replace('.', '')}`,
       shape: 'thread' as const,
       metadata: {
@@ -128,6 +128,31 @@ async function fetchChannelMessages(
         last_modified: new Date(parseFloat(ts) * 1000).toISOString(),
       },
     })
+
+    // Each reply is its own append-only child chunk — new replies don't mutate the parent
+    const replies = msg.thread_ts ? replyMap.get(msg.thread_ts) : undefined
+    if (replies) {
+      for (const reply of replies) {
+        if (!reply.text?.trim()) continue
+        chunks.push({
+          chunk_id: `slack-reply-${channelId}-${reply.ts}`,
+          title: `#${channelName} (reply): ${reply.text.slice(0, 60)}${reply.text.length > 60 ? '...' : ''}`,
+          content: reply.text,
+          source_url: `https://${workspaceDomain}.slack.com/archives/${channelId}/p${reply.ts.replace('.', '')}`,
+          shape: 'thread' as const,
+          metadata: {
+            provider: 'slack',
+            resource_type: 'channel_reply',
+            channel_id: channelId,
+            channel_name: channelName,
+            author: reply.user,
+            last_modified: new Date(parseFloat(reply.ts) * 1000).toISOString(),
+            parent_chunk_id: parentChunkId,
+            thread_ts: msg.thread_ts as string,
+          },
+        })
+      }
+    }
   }
   return chunks
 }
