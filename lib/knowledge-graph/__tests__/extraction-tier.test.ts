@@ -90,3 +90,21 @@ describe('extractionTier: Tier C shapes', () => {
     expect(extractionTier('code', WITH_SIGNAL)).toBe('C')
   })
 })
+
+describe('extractionTier: record gate targets free-text lines, not whole-record length', () => {
+  it('record of many short field lines totaling >200 chars stays B', () => {
+    // The pre-fix gate checked total chunk length, promoting every CRM record.
+    const fieldOnlyRecord = [
+      Array.from({ length: 20 }, (_, i) => `Field ${i}: value ${i}`).join('\n'),
+    ]
+    expect(fieldOnlyRecord[0].length).toBeGreaterThan(200)
+    expect(extractionTier('record', fieldOnlyRecord)).toBe('B')
+  })
+
+  it('record with a long description line among short fields promotes to A', () => {
+    const withDescription = [
+      ['Stage: Closed Won', 'Amount: 50000', `Description: ${'x'.repeat(250)}`].join('\n'),
+    ]
+    expect(extractionTier('record', withDescription)).toBe('A')
+  })
+})

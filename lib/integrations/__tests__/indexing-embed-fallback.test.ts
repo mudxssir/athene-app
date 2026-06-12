@@ -88,6 +88,9 @@ const mockPlan = {
 vi.mock('@/lib/indexing/chunk-policy', () => ({
   computeSignals: vi.fn(() => ({ tokens: 5000, headingDensity: 2, tableDensity: 0, codeFenceRatio: 0, sentenceLen: 80, listRatio: 0 })),
   selectStrategy: vi.fn(() => ({ ...mockPlan })),
+  truncateAtTokenCap: vi.fn((text: string) => ({ text, truncated: false })),
+  neutralizeMonsterRuns: vi.fn((text: string) => text),
+  countTokens: vi.fn((text: string) => Math.ceil(text.length / 4)),
   MIN_TOKENS: 64,
   MAX_CHUNKS_PER_DOC: 400,
   TRUNCATE_TOKEN_CAP: 200_000,

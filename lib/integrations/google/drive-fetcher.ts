@@ -6,6 +6,7 @@ import { logger } from '@/lib/logger'
 import { type SyncConfig, getSelectedResourceIds, getExcludedResourceIds } from '@/lib/integrations/sync-config'
 import { tabularChunksFromParsed, type ParsedTable } from '@/lib/integrations/tabular-analysis'
 import { parseWithLlamaParse } from '@/lib/integrations/llamaparse-client'
+import { maybeShadowParse } from '@/lib/integrations/sidecar-shadow'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -162,11 +163,19 @@ export async function fetchDriveFileContent(
   }
 
   if (EXTRACTABLE_BINARY[mimeType] === 'pdf') {
-    return extractPdfText(Buffer.from(buffer))
+    const buf = Buffer.from(buffer)
+    const text = await extractPdfText(buf)
+    // P1-12 shadow mode: sampled sidecar parse + structural-diff log; observational
+    // only, never affects the returned text and never throws.
+    void maybeShadowParse(text, buf, `${fileId}.pdf`, orgId)
+    return text
   }
 
   if (EXTRACTABLE_BINARY[mimeType] === 'docx') {
-    return extractDocxText(Buffer.from(buffer))
+    const buf = Buffer.from(buffer)
+    const text = await extractDocxText(buf)
+    void maybeShadowParse(text, buf, `${fileId}.docx`, orgId)
+    return text
   }
 
   if (EXTRACTABLE_BINARY[mimeType] === 'xlsx') {

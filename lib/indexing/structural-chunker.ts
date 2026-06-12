@@ -3,8 +3,9 @@
 // Generalises the section logic from lib/integrations/github/wiki-fetcher.ts
 // with heading-trail breadcrumbs, fence-atomic safety, and table awareness.
 
-import { encode } from 'gpt-tokenizer'
-import { MIN_TOKENS } from './chunk-policy'
+// countTokens (not raw gpt-tokenizer encode): unbroken monster runs hit the
+// tokenizer's quadratic BPE path and would hang the splitters on garbage input.
+import { MIN_TOKENS, countTokens } from './chunk-policy'
 
 export interface StructuredChunk {
   text: string
@@ -91,7 +92,7 @@ export function splitByHeadings(
       continue
     }
     const bufText = buf.lines.join('\n').trim()
-    if (encode(bufText).length < minTokens) {
+    if (countTokens(bufText) < minTokens) {
       // Accumulate: absorb current section into the small buffer
       buf = { trail: buf.trail, lines: [...buf.lines, '', ...section.lines] }
     } else {
@@ -104,7 +105,7 @@ export function splitByHeadings(
   if (buf) {
     const bufText = buf.lines.join('\n').trim()
     if (bufText) {
-      const bufTokens = encode(bufText).length
+      const bufTokens = countTokens(bufText)
       if (bufTokens < minTokens && merged.length > 0) {
         // Merge tiny tail into its predecessor rather than emitting a micro-chunk
         const last = merged[merged.length - 1]
@@ -148,7 +149,7 @@ export function groupIntoParents(
   let groupTokens = 0
 
   for (const section of sections) {
-    const sectionTokens = encode(section.text).length
+    const sectionTokens = countTokens(section.text)
 
     if (groupChildren.length > 0 && groupTokens + sectionTokens > parentTarget) {
       groups.push({
@@ -241,7 +242,7 @@ export function splitFenceAtomic(
   let binTokens = 0
 
   for (const seg of segments) {
-    const segTokens = encode(seg.text).length
+    const segTokens = countTokens(seg.text)
 
     if (seg.isFence) {
       // Atomic: always emits fence as its own chunk; flush current bin first
@@ -255,7 +256,7 @@ export function splitFenceAtomic(
         // Carry overlap from end of current bin
         const overlapChars = Math.floor(bin.length * overlapFraction)
         bin = (overlapChars > 0 ? bin.slice(-overlapChars).trimStart() + '\n' : '') + seg.text
-        binTokens = encode(bin).length
+        binTokens = countTokens(bin)
       } else {
         bin += (bin ? '\n' : '') + seg.text
         binTokens += segTokens

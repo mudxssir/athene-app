@@ -423,20 +423,32 @@ export async function logEmbeddingProviderInfo(orgId?: string): Promise<void> {
 
 // ---- Pinned-model helpers (P1-13) --------------------------------------
 
+// In-process TTL cache: the pinned model is read on every vector search
+// (P1-15 p_model_filter) and changes only via admin action + re-embed, so a
+// short staleness window is safe.
+const _pinnedModelCache = new Map<string, { model: string; fetchedAt: number }>()
+const PINNED_MODEL_TTL_MS = 5 * 60 * 1000
+
 /**
  * Returns the org's pinned embedding model name from the organizations table.
  * Falls back to 'jina-embeddings-v3' if the row is not found or the column
- * is null (pre-migration rows).
+ * is null (pre-migration rows). Cached in-process for 5 minutes.
  */
 export async function fetchOrgPinnedModel(orgId: string): Promise<string> {
+  const cached = _pinnedModelCache.get(orgId)
+  if (cached && Date.now() - cached.fetchedAt < PINNED_MODEL_TTL_MS) {
+    return cached.model
+  }
   try {
     const { data } = await supabaseAdmin
       .from('organizations')
       .select('embedding_model_pinned')
       .eq('id', orgId)
       .single()
-    return (data as { embedding_model_pinned?: string })?.embedding_model_pinned
+    const model = (data as { embedding_model_pinned?: string })?.embedding_model_pinned
       ?? 'jina-embeddings-v3'
+    _pinnedModelCache.set(orgId, { model, fetchedAt: Date.now() })
+    return model
   } catch {
     return 'jina-embeddings-v3'
   }

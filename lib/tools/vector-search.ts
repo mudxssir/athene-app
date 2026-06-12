@@ -1,7 +1,24 @@
 import { withRLS, type RLSContext } from "../supabase/rls-client";
 import { embed } from "../ai/embedder";
+import { fetchOrgPinnedModel } from "../ai/embedding-factory";
+import { PIPELINE_SHAPE_ROUTING } from "@/lib/config/feature-flags";
 import { withVectorSearchSpan } from "../telemetry/spans";
 import { logger } from "@/lib/logger";
+
+/**
+ * P1-15: resolve the org's pinned model for the p_model_filter RPC param.
+ * Flag ON → search only rows embedded with the pinned model (prevents
+ * mixed-model similarity scores mid-re-embed). Flag OFF → null = all models
+ * (pre-P1-15 behavior). Never throws — a lookup failure degrades to no filter.
+ */
+async function resolveModelFilter(orgId: string): Promise<string | null> {
+  if (!PIPELINE_SHAPE_ROUTING) return null;
+  try {
+    return await fetchOrgPinnedModel(orgId);
+  } catch {
+    return null;
+  }
+}
 
 type UserRoleValue = "member" | "super_user" | "admin";
 
@@ -35,7 +52,10 @@ export async function vectorSearch({
   return withVectorSearchSpan(query, orgId, topK, async (span) => {
     // Pass orgId so BYOK embedding key is used — keeps index/query embedding spaces in sync.
     // 'query' hint (P0-2, audit D5): asymmetric-retrieval task type on Google/Jina providers.
-    const embedding = await embed(query, orgId, "query");
+    const [embedding, modelFilter] = await Promise.all([
+      embed(query, orgId, "query"),
+      resolveModelFilter(orgId),
+    ]);
 
     const ctx: RLSContext = {
       org_id: orgId,
@@ -49,6 +69,7 @@ export async function vectorSearch({
         p_embedding: JSON.stringify(embedding),
         p_limit: topK,
         p_min_similarity: minSimilarity,
+        ...(modelFilter ? { p_model_filter: modelFilter } : {}),
       });
 
       if (error) {
@@ -108,7 +129,10 @@ export async function crossDeptVectorSearch(params: Params) {
     span.setAttribute("vector.cross_dept", true);
     // Pass orgId so BYOK embedding key is used — keeps index/query embedding spaces in sync.
     // 'query' hint (P0-2, audit D5): asymmetric-retrieval task type on Google/Jina providers.
-    const embedding = await embed(params.query, params.orgId, "query");
+    const [embedding, modelFilter] = await Promise.all([
+      embed(params.query, params.orgId, "query"),
+      resolveModelFilter(params.orgId),
+    ]);
 
     const ctx: RLSContext = {
       org_id: params.orgId,
@@ -122,6 +146,7 @@ export async function crossDeptVectorSearch(params: Params) {
         p_embedding: JSON.stringify(embedding),
         p_limit: topK,
         p_min_similarity: minSimilarity,
+        ...(modelFilter ? { p_model_filter: modelFilter } : {}),
       });
 
       if (error) throw new Error(`[vector-search] ${error.message}`);

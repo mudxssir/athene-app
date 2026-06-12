@@ -5,6 +5,8 @@
 // ============================================================
 
 import { withRLS, type RLSContext } from "@/lib/supabase/rls-client";
+import { fetchOrgPinnedModel } from "@/lib/ai/embedding-factory";
+import { PIPELINE_SHAPE_ROUTING } from "@/lib/config/feature-flags";
 import type { KGNode } from "./types";
 import { resolveEntity, type EntityCandidate, type ResolveEntityOptions } from "./entity-resolver";
 
@@ -454,12 +456,19 @@ export async function kgGuidedSearch(
   queryText: string,
   topK = 10
 ): Promise<KGGuidedResult> {
+  // P1-15: filter to the org's pinned model when shape routing is on, so a
+  // mid-re-embed org never mixes similarity scores across vector spaces.
+  const modelFilter = PIPELINE_SHAPE_ROUTING
+    ? await fetchOrgPinnedModel(ctx.org_id).catch(() => null)
+    : null;
+
   // Run vector search and KG entity match in parallel
   const [vectorResult, entityResult] = await Promise.all([
     withRLS(ctx, async (supabase) => {
       const { data, error } = await supabase.rpc("vector_search", {
         p_embedding: JSON.stringify(queryEmbedding),
         p_limit: topK,
+        ...(modelFilter ? { p_model_filter: modelFilter } : {}),
       });
       if (error) throw new Error(`[kgGuidedSearch] vector_search failed: ${error.message}`);
       return (data ?? []) as VectorChunk[];

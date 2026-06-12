@@ -239,6 +239,30 @@ New test file `lib/integrations/__tests__/indexing-embed-fallback.test.ts` (8 te
 
 Outstanding from review (not fixed here): #6 embed-retry preview-embedding guard, #7 sync_errors NULL dedup, #8 model-prefix map, fuzz + parent/child integrity tests.
 
+### Gap-closure pass (2026-06-12, post-P2 deep review)
+
+A second review compared P1 against the playbook ticket-by-ticket and found three
+tickets built-but-not-wired plus the deferred review items. All closed in this pass:
+
+| Gap | Fix |
+|-----|-----|
+| P1-8/P1-9 inert on sync path | `indexDocuments` (bulk, the connector sync entry point) now delegates structural-strategy docs to `indexDocument` BEFORE upserting (a pre-stamped content_hash would mark them "unchanged"), giving them parent/child rows; late-chunking-eligible docs (>1 sub-chunks, eligible shape) embed per-document with `late_chunking=true` instead of joining cross-doc hint batches. New tests: `indexing-structural-bulk.test.ts`. |
+| P1-15 TS callers missing | `vector-search.ts` (both RPCs) and `query.ts` `kgGuidedSearch` pass `p_model_filter` = org's pinned model when `PIPELINE_SHAPE_ROUTING` is ON. `fetchOrgPinnedModel` gained a 5-min in-process TTL cache (read on every search). |
+| P1-12 dead code | `maybeShadowParse` wired into `app/api/files/upload/route.ts` (non-tabular path) and `drive-fetcher.ts` (PDF + DOCX extraction). Activation still via `SIDECAR_SHADOW_RATE`. |
+| Review #6 (preview embed) | embed-retry only embeds rows with full `chunk_text` (`hasFullChunkText`); preview-only rows are counted failed → DLQ. Mixed-validity batches now count their invalid rows. |
+| Review #7 (NULL dedup) | Migration `20260612110000_sync_errors_null_dedup.sql`: UNIQUE NULLS NOT DISTINCT + pre-dedup of existing NULL-document rows. |
+| Hard-coded retry hint | embed-retry derives the hint from the row's `source_type` via `resolveEmbeddingHint` (record sources re-embed as 'structured'). |
+| Legacy-routing log noise | Warn now fires only when the flag is ON and a chunk has no shape (the actual gate metric); flag-OFF prod no longer logs per-doc. |
+| 200k-token cap unenforced | `truncateAtTokenCap()` in chunk-policy (two-stage: cheap char bound → exact token slice + decode) applied in `chunkContent` and `indexDocument`'s structural branch, appends `[truncated]`, logs telemetry. |
+| Record Tier-B gate too weak | `extractionTier('record')` gates on longest line >200 chars (free-text description) instead of whole-record length, which promoted every CRM record. |
+| tableDensity false positive | Comma-counting removed (every prose paragraph matched); pipe-tables only. Unused signals documented as reserved for P3/P4. |
+| Mandated tests missing | Fuzz protocol tests added to `chunk-policy.test.ts` + `structural-chunker.test.ts` (unicode, 10 MB single line, emoji, RTL, null bytes — never throw); parent/child integrity test in `indexing-structural-bulk.test.ts`. |
+| **Tokenizer hang (found BY the fuzz test)** | gpt-tokenizer's BPE is quadratic in unbroken-run length (measured: 500k-char run = 175 s; 500k chars of prose = 9 ms). `computeSignals` fed it up to 1M chars since P1-5 — one base64 blob or minified bundle in a synced doc would hang the indexer for ~12 min. Fix: `countTokens()` (runs ≥2048 chars are token-estimated, natural text uses the real tokenizer) now backs `computeSignals`, `truncateAtTokenCap`, and all `structural-chunker` counts; `neutralizeMonsterRuns()` breaks runs before the exact-boundary chunker (`chunker.ts`) in both flag-ON paths. |
+
+Still open (requires live infra, not code): gate measurements (recall@5 vs P0 baseline
+needs Jina keys + pilot org), sidecar shadow diff report (needs deployed sidecar +
+`SIDECAR_SHADOW_RATE` > 0), rollback drill, `docs/plans/phase-reports/P1.md` with numbers.
+
 ### What's NOT in P1
 
 - Sidecar chunk API (P2): separate request to extraction sidecar with structured output

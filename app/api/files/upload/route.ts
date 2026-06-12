@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 import { rateLimit } from "@/lib/redis/client";
 import { parseDocumentStructured, parseDocumentEnhanced } from "@/lib/integrations/microsoft/document-parser";
+import { maybeShadowParse } from "@/lib/integrations/sidecar-shadow";
 import { indexDocument, indexDocuments } from "@/lib/integrations/indexing";
 import { tabularChunksFromParsed } from "@/lib/integrations/tabular-analysis";
 import { classifyFileLayer } from "@/lib/files/classify-layer";
@@ -225,6 +226,10 @@ export async function POST(req: NextRequest) {
           // LlamaParse (PDF/DOCX/PPTX) and returns narrative text + structured tables.
           const { text, tables } = await parseDocumentEnhanced(file.name, buffer);
           if (timedOut) return;
+
+          // P1-12 shadow mode: sampled sidecar parse + structural-diff log;
+          // observational only — indexed content always comes from the inline parser.
+          void maybeShadowParse(text ?? "", buffer, file.name, orgId);
 
           // Index any tables embedded in the document (Hebbia-style structured extraction)
           if (tables.length > 0) {

@@ -21,7 +21,7 @@ import { embedBatchDetailed, embedBatchLateChunking, embedBatchPinned, type Embe
 import { chunk as tokenChunk } from '@/lib/langgraph/tools/chunker'
 import { writeChunkText } from '@/lib/indexing/chunk-text-store'
 import { PIPELINE_SHAPE_ROUTING } from '@/lib/config/feature-flags'
-import { computeSignals, selectStrategy, MIN_TOKENS, MAX_CHUNKS_PER_DOC } from '@/lib/indexing/chunk-policy'
+import { computeSignals, selectStrategy, truncateAtTokenCap, neutralizeMonsterRuns, MIN_TOKENS, MAX_CHUNKS_PER_DOC } from '@/lib/indexing/chunk-policy'
 import { splitByHeadings, splitFenceAtomic, groupIntoParents } from '@/lib/indexing/structural-chunker'
 import { qstash } from '@/lib/qstash/client'
 
@@ -169,6 +169,18 @@ function extractStructuredFields(meta: Record<string, unknown>): Record<string, 
  */
 export function chunkContent(content: string, shape?: DataShape, legacyProvider?: string): string[] {
   if (PIPELINE_SHAPE_ROUTING && shape) {
+    // Playbook P1 item 7: 200k-token hard cap with [truncated] marker.
+    const capped = truncateAtTokenCap(content)
+    if (capped.truncated) {
+      logger.warn(
+        { shape, originalChars: content.length },
+        '[indexing] Document exceeded 200k-token cap — truncated with marker'
+      )
+      content = capped.text
+    }
+    // The exact tokenizer in chunker.ts is quadratic on unbroken monster runs
+    // (garbage input); break them up so the token path can never hang.
+    content = neutralizeMonsterRuns(content)
     const signals = computeSignals(content)
     const plan = selectStrategy(shape, signals)
 
@@ -199,8 +211,11 @@ export function chunkContent(content: string, shape?: DataShape, legacyProvider?
     }
   }
 
-  // Legacy provider-string routing (flag off or no shape on chunk)
-  if (legacyProvider) {
+  // Legacy provider-string routing (flag off or no shape on chunk).
+  // The warn is the P1 gate metric "zero legacy-routing lines on pilot" — it only
+  // means something when the flag is ON and a chunk arrived without a shape.
+  // Flag OFF is the expected prod configuration; logging there is pure noise.
+  if (PIPELINE_SHAPE_ROUTING && legacyProvider) {
     logger.warn({ provider: legacyProvider }, '[indexing] legacy-routing')
   }
   if (!legacyProvider) {
@@ -479,10 +494,25 @@ export async function indexDocument(
   }
 
   // 1. Normalize then split content into type-appropriate chunks
-  const normalizedContent = normalizeContentTracked(chunk.content, chunk.title)
+  let normalizedContent = normalizeContentTracked(chunk.content, chunk.title)
   const isRecord = PIPELINE_SHAPE_ROUTING ? chunk.shape === 'record' : RECORD_SOURCE_TYPES.has(chunk.metadata.provider as string)
   const structuredFields = isRecord ? extractStructuredFields(chunk.metadata) : null
   const hint = resolveEmbeddingHint(chunk.shape, chunk.metadata.provider as string)
+
+  // Playbook P1 item 7: 200k-token hard cap with [truncated] marker. Applied here
+  // (before the structural branch) so both the structural path below and the
+  // chunkContent call see capped input.
+  if (PIPELINE_SHAPE_ROUTING && chunk.shape) {
+    const capped = truncateAtTokenCap(normalizedContent)
+    if (capped.truncated) {
+      logger.warn(
+        { title: chunk.title, shape: chunk.shape, originalChars: normalizedContent.length },
+        '[indexing] Document exceeded 200k-token cap — truncated with marker'
+      )
+      normalizedContent = capped.text
+    }
+    normalizedContent = neutralizeMonsterRuns(normalizedContent)
+  }
 
   // P1-8 + P1-9: structural strategy → parent rows (no embedding) + child rows (embedded,
   // with parent_chunk_index). Late chunking used for eligible shapes when Jina is active.
@@ -726,11 +756,28 @@ export async function indexDocuments(
   }
 
   const prepared: PreparedItem[] = []
+  const structuralDocIds: string[] = []
   let errors = 0
 
   // ---- Phase 1: resolve document rows and split into sub-chunks ----
   for (const chunk of chunks) {
     try {
+      // P1-8 (bulk wiring): structural-strategy documents need parent/child rows,
+      // which only indexDocument builds. Delegate BEFORE upsertDocumentRecord runs
+      // here — indexDocument does its own upsert, and a pre-stamped content_hash
+      // would make it skip the document as "unchanged". Uses untracked
+      // normalizeContent for the routing decision; indexDocument re-normalizes
+      // with telemetry.
+      if (PIPELINE_SHAPE_ROUTING && chunk.shape && !isSkipSentinel(chunk.content)) {
+        const normalized = normalizeContent(chunk.content)
+        const plan = selectStrategy(chunk.shape, computeSignals(normalized))
+        if (plan.strategy === 'structural' && plan.parentTarget !== null) {
+          const docId = await indexDocument(chunk, orgId, connectionId, departmentId, visibility, ownerUserId)
+          structuralDocIds.push(docId)
+          continue
+        }
+      }
+
       const { documentId, contentChanged } = await upsertDocumentRecord(chunk, orgId, connectionId, departmentId, visibility, ownerUserId)
       if (contentChanged && isSkipSentinel(chunk.content)) {
         // Skip-sentinel: doc row kept, no embeddings, telemetry written (P0-5)
@@ -794,8 +841,57 @@ export async function indexDocuments(
   const allEmbeddings: (number[] | null)[] = new Array(allTexts.length).fill(null)
   const allModels: (string | null)[] = new Array(allTexts.length).fill(null)
 
+  // P1-9 (bulk wiring): late chunking conditions each chunk's embedding on its
+  // sibling chunks, so eligible documents must be embedded one-document-per-call —
+  // they cannot join cross-document hint batches. Flat-index offset per item keeps
+  // row alignment with allTexts/allTemplates.
+  const itemOffsets: number[] = []
+  {
+    let offset = 0
+    for (const item of changedItems) {
+      itemOffsets.push(offset)
+      offset += item.subChunks.length
+    }
+  }
+  const lateItemIndices = new Set<number>()
+  if (PIPELINE_SHAPE_ROUTING) {
+    changedItems.forEach((item, i) => {
+      if (item.chunk.shape && LATE_CHUNKING_SHAPES.has(item.chunk.shape) && item.subChunks.length > 1) {
+        lateItemIndices.add(i)
+      }
+    })
+  }
+
+  for (const i of lateItemIndices) {
+    const item = changedItems[i]
+    const hint = resolveEmbeddingHint(item.chunk.shape, item.chunk.metadata.provider as string)
+    try {
+      const { embeddings, model } = await generateEmbeddings(item.subChunks, orgId, hint, true)
+      item.subChunks.forEach((_, j) => {
+        allEmbeddings[itemOffsets[i] + j] = embeddings[j]
+        allModels[itemOffsets[i] + j] = model
+      })
+    } catch (err) {
+      logger.error(
+        { title: item.chunk.title, err: err instanceof Error ? err.message : String(err) },
+        '[indexing] Late-chunking embedding failed for document'
+      )
+      // Leave nulls — Phase 4 writes placeholders + enqueues embed-retry (flag ON)
+      errors += item.subChunks.length
+    }
+  }
+
+  // Flat indices owned by late-chunking items — already embedded above.
+  const lateFlatIndices = new Set<number>()
+  for (const i of lateItemIndices) {
+    for (let j = 0; j < changedItems[i].subChunks.length; j++) {
+      lateFlatIndices.add(itemOffsets[i] + j)
+    }
+  }
+
   const hintGroups = new Map<EmbeddingHint, number[]>()
   flatHints.forEach((hint, idx) => {
+    if (lateFlatIndices.has(idx)) return
     const group = hintGroups.get(hint)
     if (group) group.push(idx)
     else hintGroups.set(hint, [idx])
@@ -898,9 +994,12 @@ export async function indexDocuments(
     // Only count items that actually had new embeddings written — unchanged docs don't count.
     // This ensures graph-build is only enqueued when content actually changed,
     // and a Jina/API failure doesn't look like a successful sync.
-    indexed: changedItems.length - errors,
+    // Structural delegations are counted as indexed: indexDocument handled them
+    // end-to-end (including its own unchanged-content skip; graph-build dedups
+    // by content hash, so the rare over-count is harmless).
+    indexed: changedItems.length + structuralDocIds.length - errors,
     errors,
-    documentIds: [...new Set(changedItems.map(p => p.documentId))]
+    documentIds: [...new Set([...structuralDocIds, ...changedItems.map(p => p.documentId)])]
   }
 }
 

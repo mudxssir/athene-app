@@ -2,7 +2,18 @@
 // All tests run the real tokenizer (gpt-tokenizer) — pure functions, no I/O.
 
 import { describe, it, expect } from 'vitest'
-import { computeSignals, selectStrategy, type ChunkSignals } from '../chunk-policy'
+import {
+  computeSignals,
+  selectStrategy,
+  truncateAtTokenCap,
+  countTokens,
+  neutralizeMonsterRuns,
+  TRUNCATE_TOKEN_CAP,
+  TRUNCATION_MARKER,
+  type ChunkSignals,
+  type ChunkPlan,
+} from '../chunk-policy'
+import type { DataShape } from '@/lib/integrations/base'
 
 // ── computeSignals ────────────────────────────────────────────────────────────
 
@@ -162,5 +173,124 @@ describe('selectStrategy', () => {
   it('prose one token above ceiling (601) → not passthrough', () => {
     const plan = selectStrategy('prose', { ...ABOVE_CEILING, tokens: 601 })
     expect(plan.strategy).not.toBe('passthrough')
+  })
+})
+
+// ── countTokens / neutralizeMonsterRuns (tokenizer-hang guard) ────────────────
+// gpt-tokenizer's BPE is quadratic on unbroken runs (measured: 500k-char run
+// ≈ 3 minutes, 500k chars of prose ≈ 9 ms). These guards keep the indexer
+// linear on garbage input.
+
+describe('countTokens', () => {
+  it('matches the real tokenizer on natural text', () => {
+    const prose = 'The quick brown fox jumps over the lazy dog. '.repeat(100)
+    expect(countTokens(prose)).toBeGreaterThan(0)
+  })
+
+  it('a 1M-char unbroken run is counted in linear time', () => {
+    const t0 = Date.now()
+    const tokens = countTokens('a'.repeat(1_000_000))
+    expect(Date.now() - t0).toBeLessThan(2_000)
+    expect(tokens).toBeGreaterThan(0)
+  })
+
+  it('mixed text with an embedded monster run does not hang', () => {
+    const t0 = Date.now()
+    const tokens = countTokens(`prefix text ${'x'.repeat(100_000)} suffix text`)
+    expect(Date.now() - t0).toBeLessThan(2_000)
+    expect(tokens).toBeGreaterThan(0)
+  })
+})
+
+describe('neutralizeMonsterRuns', () => {
+  it('natural text is returned unchanged', () => {
+    const prose = 'Normal sentence with words. '.repeat(50)
+    expect(neutralizeMonsterRuns(prose)).toBe(prose)
+  })
+
+  it('monster runs are broken into bounded pieces', () => {
+    const out = neutralizeMonsterRuns('b'.repeat(10_000))
+    const longestRun = Math.max(...out.split(/\s+/).map(s => s.length))
+    expect(longestRun).toBeLessThanOrEqual(2048)
+  })
+})
+
+// ── truncateAtTokenCap (playbook P1 item 7) ───────────────────────────────────
+
+describe('truncateAtTokenCap', () => {
+  it('small document passes through untouched', () => {
+    const text = 'word '.repeat(1000)
+    const result = truncateAtTokenCap(text)
+    expect(result.truncated).toBe(false)
+    expect(result.text).toBe(text)
+  })
+
+  it('document over the cap is cut and marked', () => {
+    // 2M chars of prose ≈ 400–500k tokens — well over the 200k cap
+    const text = 'word '.repeat(400_000)
+    const result = truncateAtTokenCap(text)
+    expect(result.truncated).toBe(true)
+    expect(result.text.endsWith(TRUNCATION_MARKER)).toBe(true)
+    expect(result.text.length).toBeLessThan(text.length)
+  })
+
+  it('marker constant matches the playbook spec', () => {
+    expect(TRUNCATION_MARKER).toContain('[truncated]')
+  })
+
+  it('cap constant is 200k tokens', () => {
+    expect(TRUNCATE_TOKEN_CAP).toBe(200_000)
+  })
+})
+
+// ── Fuzz protocol (playbook P1 edge protocol) ─────────────────────────────────
+// "chunk-policy fuzz test (random unicode, 10 MB single-line doc, emoji-only,
+//  RTL text, null bytes) may never throw — worst case returns single truncated
+//  chunk."
+
+const ALL_SHAPES: DataShape[] = [
+  'prose', 'email', 'thread', 'work_item', 'record',
+  'tabular', 'bi_artifact', 'media', 'code',
+]
+
+const FUZZ_INPUTS: Array<[string, string]> = [
+  ['empty string', ''],
+  ['whitespace only', ' \n\t  \n\n  '],
+  ['null bytes', 'before\x00\x00after\x00'],
+  ['emoji-only', '🎉🚀😀🔥💯'.repeat(500)],
+  ['RTL text', 'مرحبا بالعالم هذا نص عربي طويل '.repeat(200)],
+  ['mixed random unicode', 'a‮�​𝕬𝖇𝖈😀間違い'.repeat(300)],
+  ['unclosed code fence', '```js\nlet x = 1\n' + 'line\n'.repeat(100)],
+  ['markdown bomb', ('#'.repeat(4) + ' h\n| a | b |\n- li\n').repeat(500)],
+  ['10 MB single line', 'a'.repeat(10 * 1024 * 1024)],
+]
+
+describe('fuzz protocol — never throws, always a valid plan', () => {
+  for (const [label, input] of FUZZ_INPUTS) {
+    it(`${label}: computeSignals + selectStrategy + truncateAtTokenCap survive`, () => {
+      let signals: ChunkSignals
+      expect(() => { signals = computeSignals(input) }).not.toThrow()
+
+      for (const shape of ALL_SHAPES) {
+        let plan: ChunkPlan
+        expect(() => { plan = selectStrategy(shape, signals!) }).not.toThrow()
+        expect(['passthrough', 'structural', 'fence-atomic', 'token']).toContain(plan!.strategy)
+        expect(plan!.childTarget).toBeGreaterThan(0)
+      }
+
+      let capped: { text: string; truncated: boolean }
+      expect(() => { capped = truncateAtTokenCap(input) }).not.toThrow()
+      expect(typeof capped!.text).toBe('string')
+      if (capped!.truncated) {
+        expect(capped!.text.endsWith(TRUNCATION_MARKER)).toBe(true)
+      }
+    })
+  }
+
+  it('10 MB single line is truncated to a bounded size', () => {
+    const result = truncateAtTokenCap('a'.repeat(10 * 1024 * 1024))
+    expect(result.truncated).toBe(true)
+    // Bounded by the 1M-char analysis slice + marker, never the original 10 MB
+    expect(result.text.length).toBeLessThanOrEqual(TRUNCATE_TOKEN_CAP * 5 + TRUNCATION_MARKER.length)
   })
 })

@@ -27,7 +27,8 @@ import { supabaseAdmin } from '@/lib/supabase/server'
 import { logger } from '@/lib/logger'
 import { parseBody, uuidSchema } from '@/lib/validation'
 import { embedBatchPinned } from '@/lib/ai/embedding-factory'
-import { readChunkText } from '@/lib/indexing/chunk-text-store'
+import { readChunkText, hasFullChunkText } from '@/lib/indexing/chunk-text-store'
+import { resolveEmbeddingHint } from '@/lib/integrations/indexing'
 import type { EmbeddingHint } from '@/lib/ai/embedding-factory'
 
 // ---- Payload schema ----------------------------------------------
@@ -83,9 +84,22 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     logger.info({ org_id, document_id, pendingRows: rows.length }, '[embed-retry] Retrying embeddings')
 
-    // 2. Extract chunk texts from metadata (readChunkText falls back to content_preview)
-    const texts: string[] = rows.map(row => readChunkText(row as Parameters<typeof readChunkText>[0]) ?? '')
-    const hint: EmbeddingHint = 'document'  // re-embed uses document hint (conservative default)
+    // 2. Extract chunk texts — full chunk_text ONLY. readChunkText falls back to
+    // content_preview (200-char cap); embedding a preview would silently produce
+    // a truncated embedding presented as the full chunk, forever. Rows without
+    // full text are skipped and surfaced via the DLQ instead (review fix #6).
+    const texts: string[] = rows.map(row =>
+      hasFullChunkText(row as Parameters<typeof hasFullChunkText>[0])
+        ? readChunkText(row as Parameters<typeof readChunkText>[0]) ?? ''
+        : ''
+    )
+    // Review fix #8 follow-up: derive the hint from the row's source_type so
+    // record-shaped rows (CRM/calendar) re-embed with the same 'structured'
+    // task they were originally indexed with — not a hard-coded 'document'.
+    const hint: EmbeddingHint = resolveEmbeddingHint(
+      undefined,
+      (rows[0] as { source_type?: string }).source_type ?? undefined
+    )
 
     // 3. Re-embed in batches using the org's pinned model
     let retried = 0
@@ -95,13 +109,17 @@ export async function POST(request: Request): Promise<NextResponse> {
       const batchRows = rows.slice(i, i + RETRY_BATCH)
       const batchTexts = texts.slice(i, i + RETRY_BATCH)
 
-      // Skip rows with no recoverable text
+      // Skip rows with no recoverable full text
       const validIndices = batchTexts
         .map((t, j) => (t.trim() ? j : -1))
         .filter(j => j >= 0)
 
+      // Rows without full chunk_text are terminally unrecoverable here — count
+      // them so the DLQ entry below reflects them (previously uncounted when
+      // the batch had a mix of valid and invalid rows).
+      failed += batchRows.length - validIndices.length
+
       if (validIndices.length === 0) {
-        failed += batchRows.length
         continue
       }
 

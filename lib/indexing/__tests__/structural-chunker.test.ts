@@ -248,3 +248,35 @@ describe('groupIntoParents', () => {
     expect(groups[0].parentText).toContain('Second section.')
   })
 })
+
+// ── Fuzz protocol (playbook P1 edge protocol) ─────────────────────────────────
+// Splitters share the never-throw contract with the policy engine: adversarial
+// input must produce a (possibly single-chunk) result, never an exception.
+
+describe('fuzz protocol — splitters never throw', () => {
+  const FUZZ_INPUTS: Array<[string, string]> = [
+    ['empty string', ''],
+    ['whitespace only', ' \n\t  \n\n  '],
+    ['null bytes', 'before\x00\x00after\x00'],
+    ['emoji-only', '🎉🚀😀🔥💯'.repeat(200)],
+    ['RTL text', 'مرحبا بالعالم هذا نص عربي طويل '.repeat(100)],
+    ['mixed random unicode', 'a‮�​𝕬𝖇𝖈😀間違い'.repeat(100)],
+    ['unclosed code fence', '```js\nlet x = 1\n' + 'line\n'.repeat(50)],
+    ['heading inside fence', '```\n# not a heading\n```\n# real heading\nbody'],
+    ['1 MB single line', 'a'.repeat(1024 * 1024)],
+  ]
+
+  for (const [label, input] of FUZZ_INPUTS) {
+    it(`${label}: splitByHeadings returns an array`, () => {
+      let result: unknown
+      expect(() => { result = splitByHeadings(input) }).not.toThrow()
+      expect(Array.isArray(result)).toBe(true)
+    })
+
+    it(`${label}: splitFenceAtomic returns an array`, () => {
+      let result: unknown
+      expect(() => { result = splitFenceAtomic(input, 512, 0.05) }).not.toThrow()
+      expect(Array.isArray(result)).toBe(true)
+    })
+  }
+})

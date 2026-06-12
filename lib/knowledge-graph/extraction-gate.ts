@@ -106,8 +106,13 @@ export function extractionTier(
       return chunkTexts.some((t) => SIGNAL_PATTERNS.some((p) => p.test(t))) ? 'A' : 'B'
 
     case 'record':
-      // Extract only when the record contains a meaningful description (> 200 chars)
-      return chunkTexts.some((t) => t.length > 200) ? 'A' : 'B'
+      // PLAN_A: promote only records with a meaningful description (>200 chars).
+      // A record chunk is the WHOLE formatted record ("Field: value" lines), so
+      // checking total chunk length promoted virtually every CRM/calendar record
+      // to Tier A — recreating the LLM cost this gate exists to prevent. Free-text
+      // descriptions surface as long single lines; field lines stay short. Gate on
+      // the longest line instead.
+      return chunkTexts.some((t) => t.split('\n').some((line) => line.length > 200)) ? 'A' : 'B'
 
     case 'tabular':
     case 'bi_artifact':
