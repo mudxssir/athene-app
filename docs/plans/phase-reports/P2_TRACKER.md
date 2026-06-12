@@ -64,8 +64,24 @@ _Branch: `pipeline/p2-engineering-depth` · Flags: `KG_OWNER_GRAPH` (default OFF
   Tier 'C', so an unpromoted Tier-B thread ran the LLM anyway. Now skips on
   anything !== 'A'.
 - Python tests for the new lane (auth, caps, 503 degrade, stub-model entity
-  shape, per-text isolation) run in the sidecar's own env/CI — pytest is not
-  installed in the app-repo dev environment (same as P1-10).
+  shape, per-text isolation) **executed and passing** (13/13 in a minimal
+  venv — fastapi/pydantic/httpx/pytest; gliner/docling lazy-imports stubbed).
+  `gliner==0.2.13` verified present on PyPI.
+
+### Closure hardening pass (2026-06-12, P2-10/P2-11 close-out)
+
+- **Inert-pass bug found and fixed**: `lib/langgraph/tools/indexer.ts` built
+  `ExtractorChunk[]` WITHOUT `metadata`, so `sourceKey` resolved to "" and
+  both the decision pass (P0-1) and the new blocker/obligation pass silently
+  never fired for documents indexed through that path (builder.ts threads
+  metadata; indexer.ts didn't). Now passes `{ ...metadata, source_type }`.
+  Contract pinned by a test using the `source_type` key specifically.
+- **Blocker-cycle edge protocol covered** (`blocker-cycle.test.ts`, 5 tests):
+  A↔B mutual blocking (cycle through own item — itemIdSet guard), B↔C cycle
+  one hop out (self-guard per hop), structural 2-hop depth cap (hop-3 node
+  never appears), A→A self-loop dropped, dense 3-node cycle mesh returns
+  each blocker exactly once. Directly motivated by P2-11: the blocker pass
+  emits BLOCKS/BLOCKED_BY from LLM output, so cyclic graphs WILL occur.
 
 ## Post-review fix round (2026-06-12)
 

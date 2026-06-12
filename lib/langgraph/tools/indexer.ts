@@ -217,6 +217,9 @@ export async function indexDocument(
       // Shape-aware Tier B/C (flag on) or legacy Tier B gate: skip KG extraction.
       logger.info({ documentId, sourceType, shape: shape ?? null }, "[indexer] Tier B/C — skipping KG extraction");
     } else {
+      // metadata.source_type drives the decision (P0-1) and blocker/obligation
+      // (P2-11) passes inside the extractor — without it both passes silently
+      // never fire on this path (builder.ts threads it; this path must too).
       const extractorChunks: ExtractorChunk[] = chunks.map((c) => ({
         text: c.text,
         chunk_index: c.chunk_index,
@@ -224,6 +227,7 @@ export async function indexDocument(
         document_id: documentId,
         department_id: deptId,
         visibility,
+        metadata: { ...metadata, source_type: sourceType },
       }));
 
       // BUG-02 FIX: Wrap KG pass in try/catch and ensure awaits

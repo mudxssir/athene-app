@@ -127,6 +127,28 @@ describe("P2-11 blocker/obligation pass — gating by source type", () => {
     await extractEntitiesAndRelations([chunk("randomtool")], {} as never);
     expect(capturedPrompts).toHaveLength(1);
   });
+
+  it("indexer path: metadata.source_type (not provider) also gates the pass", async () => {
+    // lib/langgraph/tools/indexer.ts threads { ...metadata, source_type } —
+    // this pins the source_type key so the indexer path can never silently
+    // regress to general-only extraction again.
+    mockResponses = [EMPTY, EMPTY];
+    await extractEntitiesAndRelations(
+      [chunk("ignored", { metadata: { source_type: "linear" } } as never)],
+      {} as never
+    );
+    expect(capturedPrompts).toHaveLength(2);
+    expect(capturedPrompts[1]).toContain("Blocker & Obligation");
+  });
+
+  it("chunk without metadata → general pass only (no crash)", async () => {
+    mockResponses = [EMPTY];
+    await extractEntitiesAndRelations(
+      [chunk("ignored", { metadata: undefined } as never)],
+      {} as never
+    );
+    expect(capturedPrompts).toHaveLength(1);
+  });
 });
 
 describe("P2-11 obligation metadata normalization", () => {
