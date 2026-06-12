@@ -107,24 +107,67 @@ function normalizeBlockerEdge(
   return null;
 }
 
-export async function getMyWork(
+/**
+ * Resolve person node ID via structured identity lookup first, then fall back
+ * to display-name / email-prefix fuzzy match.
+ *
+ * Structured path: reads org_member_identities for this member's external IDs,
+ * then finds kg_nodes whose metadata->>'provider_account_id' matches any of them.
+ * This is deterministic (no fuzzy text matching) and survives name changes.
+ *
+ * Heuristic fallback: displayName fuzzy match, then email-prefix.
+ */
+async function resolvePersonNode(
   ctx: RLSContext,
   identity: { displayName?: string | null; email?: string | null }
-): Promise<MyWorkResult> {
-  // ── 1. Resolve the user's person node ──
+): Promise<string | null> {
+  // ── Path 1: structured identity lookup via org_member_identities ──
+  if (ctx.user_id && ctx.user_id !== 'system') {
+    const { data: identityRows } = await withRLS(ctx, async (supabase) =>
+      supabase
+        .from("org_member_identities")
+        .select("external_id, external_email, provider")
+        .eq("org_id", ctx.org_id)
+        .eq("member_id", ctx.user_id)
+    );
+    const externalIds: string[] = (identityRows ?? []).flatMap((r) =>
+      [r.external_id, r.external_email].filter((v): v is string => !!v)
+    );
+
+    if (externalIds.length > 0) {
+      const { data: nodes } = await withRLS(ctx, async (supabase) =>
+        supabase
+          .from("kg_nodes")
+          .select("id")
+          .eq("org_id", ctx.org_id)
+          .eq("entity_type", "person")
+          .in("metadata->>provider_account_id", externalIds)
+          .limit(1)
+      );
+      if (nodes?.length) return nodes[0].id as string;
+    }
+  }
+
+  // ── Path 2: heuristic fallback (display name, email prefix) ──
   const lookups = [
     identity.displayName?.trim(),
     identity.email?.split("@")[0]?.replace(/[._-]+/g, " ").trim(),
   ].filter((q): q is string => !!q);
 
-  let personId: string | null = null;
   for (const q of lookups) {
     const candidates = await resolveEntity(ctx, q, { entityType: "person", limit: 1 });
-    if (candidates.length > 0) {
-      personId = candidates[0].canonicalNodeId;
-      break;
-    }
+    if (candidates.length > 0) return candidates[0].canonicalNodeId;
   }
+
+  return null;
+}
+
+export async function getMyWork(
+  ctx: RLSContext,
+  identity: { displayName?: string | null; email?: string | null }
+): Promise<MyWorkResult> {
+  // ── 1. Resolve the user's person node ──
+  let personId: string | null = await resolvePersonNode(ctx, identity);
 
   if (!personId) return { person: null, items: [] };
 

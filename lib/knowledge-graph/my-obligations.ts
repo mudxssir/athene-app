@@ -68,23 +68,56 @@ function parseActor(node: GraphNode): string | null {
   return a ? String(a) : null;
 }
 
-export async function getMyObligations(
+/**
+ * Resolve person node — structured identity lookup first (org_member_identities →
+ * kg_nodes.metadata.provider_account_id), then heuristic fallback.
+ */
+async function resolvePersonNode(
   ctx: RLSContext,
   identity: { displayName?: string | null; email?: string | null }
-): Promise<MyObligationsResult> {
+): Promise<string | null> {
+  if (ctx.user_id && ctx.user_id !== 'system') {
+    const { data: identityRows } = await withRLS(ctx, async (supabase) =>
+      supabase
+        .from("org_member_identities")
+        .select("external_id, external_email")
+        .eq("org_id", ctx.org_id)
+        .eq("member_id", ctx.user_id)
+    );
+    const externalIds = (identityRows ?? []).flatMap((r) =>
+      [r.external_id, r.external_email].filter((v): v is string => !!v)
+    );
+    if (externalIds.length > 0) {
+      const { data: nodes } = await withRLS(ctx, async (supabase) =>
+        supabase
+          .from("kg_nodes")
+          .select("id")
+          .eq("org_id", ctx.org_id)
+          .eq("entity_type", "person")
+          .in("metadata->>provider_account_id", externalIds)
+          .limit(1)
+      );
+      if (nodes?.length) return nodes[0].id as string;
+    }
+  }
+
   const lookups = [
     identity.displayName?.trim(),
     identity.email?.split("@")[0]?.replace(/[._-]+/g, " ").trim(),
   ].filter((q): q is string => !!q);
 
-  let personId: string | null = null;
   for (const q of lookups) {
     const candidates = await resolveEntity(ctx, q, { entityType: "person", limit: 1 });
-    if (candidates.length > 0) {
-      personId = candidates[0].canonicalNodeId;
-      break;
-    }
+    if (candidates.length > 0) return candidates[0].canonicalNodeId;
   }
+  return null;
+}
+
+export async function getMyObligations(
+  ctx: RLSContext,
+  identity: { displayName?: string | null; email?: string | null }
+): Promise<MyObligationsResult> {
+  const personId = await resolvePersonNode(ctx, identity);
 
   if (!personId) return { person: null, items: [] };
 
