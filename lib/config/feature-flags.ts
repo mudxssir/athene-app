@@ -82,3 +82,14 @@ export const TABULAR_PII_MASKING = process.env.TABULAR_PII_MASKING === "true";
  * KG_CRM_EDGES=true to activate.
  */
 export const KG_CRM_EDGES = process.env.KG_CRM_EDGES === "true";
+
+/**
+ * P4-2: tabular vocabulary enrichment. One cheap-LLM-tier call per table emits a
+ * business-vocabulary alias line ("columns map to: revenue → amount, region →
+ * geo, …") prepended to the stats-chunk header so natural-language "metric by
+ * dimension" queries match technical column names. Cached by schema hash
+ * (`tabular_vocab_cache`), so it's one call per distinct schema, not per sync.
+ * Default OFF until the P4 gate (rollback: off → no alias line; re-index
+ * removes). Set TABULAR_VOCAB_ENRICHMENT=true to activate.
+ */
+export const TABULAR_VOCAB_ENRICHMENT = process.env.TABULAR_VOCAB_ENRICHMENT === "true";

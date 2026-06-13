@@ -11,6 +11,7 @@ import {
   type AggregationResult,
 } from './bi-chunking'
 import { resolveModelClient } from '@/lib/langgraph/llm-factory'
+import { enrichVocabulary } from './vocab-enrichment'
 import { logger } from '@/lib/logger'
 
 // ---- Types -------------------------------------------------------
@@ -249,6 +250,14 @@ export async function tabularChunksFromParsed(
 
     const statsChunk = buildStatsChunk(tableName, stats, provider, sourceUrl)
     const sampleChunk = buildSampleChunk(tableName, schema, rowRecords, provider, sourceUrl)
+
+    // P4-2: prepend the business-vocabulary alias line to the stats chunk header
+    // (cached by schema hash; one cheap-tier call per distinct schema). Null when
+    // the flag is off or enrichment fails — stats chunk is unchanged then.
+    const aliasLine = await enrichVocabulary(tableName, schema, opts?.orgId)
+    if (aliasLine) {
+      statsChunk.content = `Business vocabulary: ${aliasLine}\n\n${statsChunk.content}`
+    }
 
     // Assign stable chunk_ids so upserts are idempotent on re-index
     chunks.push({ ...statsChunk, chunk_id: `${chunkId}${sheetSuffix}:stats` })

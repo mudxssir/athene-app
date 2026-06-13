@@ -26,7 +26,7 @@ const {
   mediaUpsertCalls: [] as unknown[],
 }))
 
-vi.mock('@/lib/config/feature-flags', () => ({ SIDECAR_PARSING: true, TABULAR_PII_MASKING: false }))
+vi.mock('@/lib/config/feature-flags', () => ({ SIDECAR_PARSING: true, TABULAR_PII_MASKING: false, TABULAR_VOCAB_ENRICHMENT: false }))
 
 vi.mock('@/lib/integrations/sidecar-client', () => ({
   sidecarAvailable: sidecarAvailableMock,

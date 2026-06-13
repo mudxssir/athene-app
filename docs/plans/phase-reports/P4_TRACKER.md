@@ -11,7 +11,7 @@ _Branch: `pipeline/p4-bi-crm-depth` (off `pipeline/p3-docs-email-depth`) · Flag
 | P4-4 | Type-inference hardening: 95th-percentile rule replaces `every()` in `tabular-analysis.ts inferSchema` | done | S | — |
 | P4-1 | D2: builder Tier C path — `extractSchemaEntities` for tabular (0 LLM); bi_artifact deterministic service/metric nodes; media inherits parent | done (tabular schema path; bi_artifact-name nodes folded into P4-5) | M | P4-4 |
 | P4-3 | Wide tables: column-group splits (30 cols) + table-name header re-emit; PII masking flag for sample chunks (stats unaffected) | done (in-chunk grouping; physical multi-chunk split deferred) | M | P4-4 |
-| P4-2 | Vocabulary enrichment: 1 simple-tier call/table → alias line in stats header (cached by schema hash); warehouse column comments | todo | M | P4-1 |
+| P4-2 | Vocabulary enrichment: 1 simple-tier call/table → alias line in stats header (cached by schema hash); warehouse column comments | done (alias line + schema-hash cache; warehouse information_schema fetch deferred) | M | P4-1 |
 
 ## bi_artifact split
 
@@ -39,6 +39,33 @@ _Branch: `pipeline/p4-bi-crm-depth` (off `pipeline/p3-docs-email-depth`) · Flag
 ---
 
 ## Session notes
+
+### P4-2: tabular vocabulary enrichment (2026-06-14)
+
+- **Goal:** a business-vocabulary alias line ("revenue → amount, region → geo, …")
+  prepended to the stats-chunk header so NL "metric by dimension" queries match
+  technical column names. One cheap-tier LLM call per DISTINCT schema.
+- **Migration** `20260614000001_tabular_vocab_cache.sql`: `tabular_vocab_cache`
+  (PK `(org_id, schema_hash)`, `alias_line`, debug `table_name`). Admin-read RLS,
+  service-role write — mirrors sync_skips/media_queue.
+- **`vocab-enrichment.ts`**: `schemaHash` (order/case-insensitive hash of
+  name:type pairs — so tables sharing a schema share one cache entry, stable
+  across re-indexes), cache-first `enrichVocabulary` (miss → 1 simple-tier call →
+  cache write), `sanitizeAliasLine` (single-line, URL-strip, 600-char clamp).
+  Column list is delimited + "treat as data" (injection guard). Fail-open to null
+  on flag-off / no-orgId / empty-schema / LLM or DB error. Behind
+  `TABULAR_VOCAB_ENRICHMENT` (default OFF).
+- **Wired** into `tabularChunksFromParsed`: prepends `Business vocabulary: …` to
+  the stats chunk content when an alias line is produced. Covers all tabular
+  sources (warehouses + uploads + Drive XLSX/Sheets) via the shared builder.
+- **Column comments:** `enrichVocabulary` accepts an optional
+  `columnComments` map and folds it into the prompt as authoritative hints. The
+  per-warehouse `information_schema` *fetch* (3 fetcher changes + SQL) is deferred;
+  the enrichment consumes comments the moment a fetcher supplies them.
+- **Tests:** `vocab-enrichment.test.ts` (8) — schema-hash order/case stability +
+  type sensitivity, sanitize, cache miss→LLM+write, cache hit→no LLM, column
+  comments folded, null guards, fail-open. Fixed `binary-parsing.test.ts` flag
+  mock (`TABULAR_VOCAB_ENRICHMENT`). Full suite 991; tsc + RLS clean.
 
 ### P4-5: bi_artifact fence-atomic for embedded query bodies (2026-06-14)
 
@@ -235,7 +262,7 @@ P4-1 (D2 keystone) → P4-3 → P4-2 → P4-5 → P4-6/7/8._
 | Criterion | Status |
 |---|---|
 | Warehouse fixture: 0 LLM extraction calls, schema entities present | ✅ `builder-tabular-tier-c.test.ts` — tabular doc bypasses the LLM extractor; service/metric/dimension nodes persisted (flag `TABULAR_TIER_C`) |
-| "metric by dimension" golden queries hit enriched stats chunks (≥15% on tabular set) | todo (needs Jina keys + pilot — batched with P1–P3 gates) |
+| "metric by dimension" golden queries hit enriched stats chunks (≥15% on tabular set) | mechanism in place (P4-2 vocab alias line + P4-1 schema entities); measurement needs Jina keys + pilot — batched with P1–P3 gates |
 | Calendar fixtures produce record-shaped rows + obligation-adjacent retrieval | ✅ record shape (P1) + structured_fields/tz/recurring/skip depth (P4-6); attendee edges deferred (not gate-blocking) |
 | CRM OWNS / TIED_TO_ACCOUNT edges EXTRACTED/1.0 | ✅ `structured-records.test.ts` — Salesforce owner→OWNS + record→TIED_TO_ACCOUNT, EXTRACTED/1.0 (flag `KG_CRM_EDGES`); HubSpot owner-id resolution deferred |
 
