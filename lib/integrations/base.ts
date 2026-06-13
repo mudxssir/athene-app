@@ -72,6 +72,13 @@ export interface FetchedChunk {
   structured_owners?: StructuredOwner[]
   /** Context envelope (set by indexing pipeline in Phase 3; fetchers leave unset) */
   context?: ChunkContext
+  /**
+   * P3-6: provenance-only chunk — its content is stored in chunk_text but never
+   * embedded (one row, embedding=null, needs_embedding=false, excluded from
+   * vector search). Used for the stripped quoted tail + signature of an email so
+   * the original stays retrievable without re-embedding the quoted chain.
+   */
+  skip_embedding?: boolean
   /** Lightweight metadata — NO body/content fields allowed */
   metadata: {
     provider: string

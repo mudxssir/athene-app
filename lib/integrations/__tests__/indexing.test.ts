@@ -549,3 +549,51 @@ describe("P0-5 — skip-sentinel handling", () => {
     expect(supabaseState.upsertCalls.some((c) => c.table === "sync_skips")).toBe(false);
   });
 });
+
+// ─── P3-6: skip_embedding provenance chunks ──────────────────────────────────
+
+describe("P3-6 — skip_embedding provenance chunk", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    supabaseState.existingDoc = null;
+    supabaseState.upsertDocReturn = { id: DOC_ID };
+    supabaseState.upsertEmbeddingsError = null;
+    supabaseState.deleteCalls = [];
+    supabaseState.upsertCalls = [];
+    embedBatchMock.mockResolvedValue([Array(768).fill(0.1)]);
+  });
+
+  const provenanceChunk = () =>
+    makeChunk({
+      chunk_id: "gmail:m-1#quoted",
+      content: "On Mon, Alice wrote:\n> the entire quoted thread\n\n-- Bob",
+      metadata: { provider: "google", resource_type: "email_quoted_tail" },
+      skip_embedding: true,
+    } as Partial<FetchedChunk>);
+
+  it("bulk path: writes one embedding=null row, never calls embedBatch", async () => {
+    await indexDocuments([provenanceChunk()], ORG_ID, CONN_ID, null, "org_wide");
+
+    expect(embedBatchMock).not.toHaveBeenCalled();
+    const embRows = supabaseState.upsertCalls
+      .filter((c) => c.table === "document_embeddings")
+      .flatMap((c) => (Array.isArray(c.records) ? c.records : [c.records])) as Array<Record<string, unknown>>;
+    expect(embRows.length).toBe(1);
+    expect(embRows[0].embedding).toBeNull();
+    expect(embRows[0].needs_embedding).toBe(false);
+    // chunk_text retained for provenance (via chunk-text-store metadata).
+    expect((embRows[0].metadata as Record<string, unknown>).chunk_text).toContain("quoted thread");
+  });
+
+  it("single-doc path: writes one embedding=null row, never calls embedBatch", async () => {
+    await indexDocument(provenanceChunk(), ORG_ID, CONN_ID, null, "org_wide");
+
+    expect(embedBatchMock).not.toHaveBeenCalled();
+    const embRows = supabaseState.upsertCalls
+      .filter((c) => c.table === "document_embeddings")
+      .flatMap((c) => (Array.isArray(c.records) ? c.records : [c.records])) as Array<Record<string, unknown>>;
+    expect(embRows.length).toBe(1);
+    expect(embRows[0].embedding).toBeNull();
+    expect(embRows[0].needs_embedding).toBe(false);
+  });
+});

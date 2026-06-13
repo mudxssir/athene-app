@@ -1,6 +1,7 @@
 import { googleFetch, googleFetchRaw } from './api-client'
 import type { FetchedChunk } from '@/lib/integrations/base'
 import { assertSafeMetadata } from '@/lib/integrations/base'
+import { buildEmailChunks } from '@/lib/integrations/email-clean'
 import { type SyncConfig, getSelectedResourceIds } from '@/lib/integrations/sync-config'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -338,14 +339,20 @@ export async function indexEmailChunks(
           }
           assertSafeMetadata(metadata)
 
-          return [{
-            chunk_id: `gmail:${msg.id}`,
-            title: headers.subject || '(no subject)',
-            content: prefix + body,
-            source_url: `https://mail.google.com/mail/u/0/#inbox/${msg.id}`,
-            shape: 'email' as const,
-            metadata,
-          }] satisfies FetchedChunk[]
+          // P3-6: Talon cleaning — embed the reply, keep the quoted tail as a
+          // non-embedded provenance chunk. Fails open to the full body.
+          return await buildEmailChunks(
+            {
+              chunk_id: `gmail:${msg.id}`,
+              title: headers.subject || '(no subject)',
+              source_url: `https://mail.google.com/mail/u/0/#inbox/${msg.id}`,
+              shape: 'email' as const,
+              metadata,
+            },
+            prefix,
+            body,
+            headers.from,
+          )
         } catch {
           return []
         }

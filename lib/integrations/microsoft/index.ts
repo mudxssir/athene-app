@@ -8,6 +8,7 @@ import { graphFetch } from './graph-client'
 import { logger } from '@/lib/logger'
 import { type SyncConfig, getSelectedResourceIds } from '../sync-config'
 import { tabularChunksFromParsed } from '@/lib/integrations/tabular-analysis'
+import { buildEmailChunks } from '@/lib/integrations/email-clean'
 
 /** Strip HTML tags so raw body content is plain text for embeddings. */
 function stripOutlookHtml(html: string): string {
@@ -93,21 +94,28 @@ export async function microsoftFetcher(
               `Date: ${email.receivedDateTime ?? ''}`,
             ].filter(Boolean).join('\n') + '\n\n'
 
-            emailChunks.push({
-              chunk_id: `ms_email_${email.id}`,
-              title: `Email: ${email.subject ?? '(no subject)'}`,
-              content: prefix + body,
-              source_url: email.webLink,
-              shape: 'email' as const,
-              metadata: {
-                provider: 'microsoft',
-                resource_type: 'email',
-                id: email.id,
-                author: from,
-                last_modified: email.receivedDateTime ?? undefined,
-                thread_id: email.conversationId ?? undefined,
+            // P3-6: Talon cleaning — embed the reply, keep the quoted tail as a
+            // non-embedded provenance chunk. Fails open to the full body.
+            const built = await buildEmailChunks(
+              {
+                chunk_id: `ms_email_${email.id}`,
+                title: `Email: ${email.subject ?? '(no subject)'}`,
+                source_url: email.webLink,
+                shape: 'email' as const,
+                metadata: {
+                  provider: 'microsoft',
+                  resource_type: 'email',
+                  id: email.id,
+                  author: from,
+                  last_modified: email.receivedDateTime ?? undefined,
+                  thread_id: email.conversationId ?? undefined,
+                },
               },
-            })
+              prefix,
+              body,
+              email.from?.emailAddress?.address ?? undefined,
+            )
+            emailChunks.push(...built)
           } catch {
             // Fallback to bodyPreview if full body fetch fails
             emailChunks.push({

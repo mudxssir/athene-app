@@ -18,7 +18,7 @@ _Branch: `pipeline/p3-docs-email-depth` · Flags: `SIDECAR_PARSING` (default OFF
 | ID | Title | Status | Size | Depends on |
 |----|-------|--------|------|------------|
 | P3-5 | Gmail + Outlook emit ONE chunk per email (full body, canonical header block); `chunk_id` without `:idx`; Outlook `conversationId` → thread_id | done | M | P1 shape |
-| P3-6 | Sidecar `/email/clean` (Talon): reply text embedded; quoted tail + signature → final non-embedded chunk | todo | M | P3-5, P1-11 |
+| P3-6 | Sidecar `/email/clean` (Talon): reply text embedded; quoted tail + signature → final non-embedded chunk | done | M | P3-5, P1-11 |
 | P3-7 | Migration: delete per-slice email documents + paced mailbox re-index; citation links survive | todo | S | P3-5 |
 | P3-8 | Thread parent rows: synthetic parent per `thread_id` for small-to-big return + cached thread doc-context line | todo | M | P3-5 |
 | P3-9 | `text/calendar` parts → record shape routing; attachments → media queue stub | todo | S | P3-5 |
@@ -47,6 +47,42 @@ _Branch: `pipeline/p3-docs-email-depth` · Flags: `SIDECAR_PARSING` (default OFF
 ---
 
 ## Session notes
+
+### P3-6: Talon email cleaning — `/email/clean` lane (2026-06-13)
+
+- **Sidecar `/email/clean`** (`main.py`): Talon `quotations.extract_from` strips
+  the quoted chain → `reply_text`; `signature.extract` (when `sender` known)
+  detects the signature. Returns `{ reply_text, signature, quoted_tail,
+  stripped_ratio }`. 503 when Talon is unavailable → callers fail open. Lazy
+  `_ensure_talon()` init (loads the ML classifier once). `talon==1.4.4` pinned
+  (validate at sidecar build). Email bodies never logged (lengths/ratio only).
+- **Signature 30% cap** (playbook edge case): a detected signature larger than
+  30% of the body is treated as a misdetection (non-Latin script Talon misreads)
+  and kept in the reply, not stripped.
+- **`cleanEmail()` client** (`sidecar-client.ts`): shares the circuit breaker +
+  120 s timeout; returns null on unavailable/error → caller embeds full body.
+- **`buildEmailChunks` helper** (`email-clean.ts`, shared by Gmail + Outlook):
+  keeps the canonical header verbatim, embeds `header + reply_text`, and emits
+  the stripped quoted tail + signature as a dedicated `skip_embedding` provenance
+  chunk (`chunk_id {id}#quoted`). Fail-open: no sidecar / empty reply → one chunk
+  with the full body.
+- **`skip_embedding` indexer support** (`base.ts` + `indexing.ts`): new
+  `FetchedChunk.skip_embedding` flag. `writeSkipEmbeddingRow` writes ONE row
+  (embedding=null, needs_embedding=false, chunk_text via chunk-text-store,
+  excluded from vector search) and prunes stale chunks — mirrors
+  `dropSentinelChunk`, handled out-of-band in both `indexDocument` and the bulk
+  `indexDocuments` Phase 1 so the embedding-alignment flow is never touched.
+- **Why this honors the spec:** storing content in metadata is forbidden
+  (FORBIDDEN_METADATA_KEYS), so the tail correctly lives in `chunk_text` of a
+  non-embedded chunk, exactly as PLAN_A's email shape requires. Minor deviation:
+  the provenance chunk is its own document (`{id}#quoted`) rather than an extra
+  chunk_index on the email document — functionally identical (retrievable, never
+  embedded) and far lower-risk than threading into the bulk alignment logic.
+- **Tests:** Python +5 (`test_main.py`: auth, empty body, 503 degrade, quoted-
+  chain strip, 30% signature cap = 21 total); TS `email-clean.test.ts` (4:
+  fail-open, reply+provenance split, no-tail, empty-reply fail-open);
+  `indexing.test.ts` +2 (skip_embedding writes one embedding=null row, no
+  embedBatch, in both paths). 300 integration tests green; tsc + RLS clean.
 
 ### P3-5: one chunk per email (Gmail + Outlook) — audit D4 (2026-06-13)
 
@@ -214,8 +250,8 @@ commit 2 (keeps each PR ≤ ~600 lines per the SDLC protocol)._
 | Criterion | Status |
 |---|---|
 | Decision nodes from Drive/Gmail/SharePoint/upload fixtures (D1 closed by shape, string sets deleted) | todo |
-| Email duplicate-text ratio < 2% | todo |
-| Documents-per-email = 1 | todo |
+| Email duplicate-text ratio < 2% | mechanism in place (P3-6 embeds reply only, not quoted chain); measurement needs deployed sidecar + pilot org |
+| Documents-per-email = 1 | ✅ P3-5 — one chunk per email, `chunk_id` without `:idx` (the `#quoted` provenance row is a deliberate separate non-searchable doc, not a content slice) |
 | Prose recall@5 ≥ 20% over P0 baseline | todo (needs Jina keys + pilot org — same infra blocker as P1/P2 gates) |
 | Parser fallback rate < 5% over a week | todo (needs deployed sidecar + telemetry window) |
 | D8 regression green (SQL/code fixture survives byte-identical) | ✅ `normalize-content.test.ts` (8 tests) — fenced code byte-identical, inline `<T>`/`<Component>`/SQL operators survive |

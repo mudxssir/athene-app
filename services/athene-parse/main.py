@@ -403,3 +403,93 @@ async def nlp_gliner(body: GlinerRequest) -> GlinerResponse:
         model_version=GLINER_MODEL_NAME,
         duration_ms=int((time.perf_counter() - t0) * 1000),
     )
+
+
+# ── /email/clean ──────────────────────────────────────────────────────────────
+# P3-6: Talon reply extraction + signature detection. Strips the quoted chain and
+# the sender signature so a reply doesn't re-embed the entire thread (the single
+# largest noise source in email corpora). The TS caller embeds reply_text and
+# stores signature + quoted_tail as a non-embedded provenance chunk.
+
+EMAIL_CLEAN_MAX_CHARS = 200_000
+SIGNATURE_STRIP_CAP = 0.30  # don't strip a "signature" larger than 30% of the body
+                            # (non-Latin signatures Talon misdetects — playbook edge case)
+
+_talon_initialized = False
+
+
+def _ensure_talon() -> Any:
+    """Lazy Talon init (loads the ML signature classifier once)."""
+    global _talon_initialized
+    import talon
+    if not _talon_initialized:
+        talon.init()
+        _talon_initialized = True
+    return talon
+
+
+class EmailCleanRequest(BaseModel):
+    body: str
+    content_type: str = "text/plain"
+    sender: str | None = None     # enables Talon signature.extract when known
+
+
+class EmailCleanResponse(BaseModel):
+    reply_text: str               # quote- and signature-stripped (embed this)
+    signature: str                # detected signature (provenance only)
+    quoted_tail: str              # removed quoted chain (provenance only)
+    stripped_ratio: float         # 1 - len(reply_text)/len(body)
+
+
+@app.post("/email/clean", response_model=EmailCleanResponse, dependencies=[Depends(require_auth)])
+async def email_clean(body: EmailCleanRequest) -> EmailCleanResponse:
+    """
+    Extract the actual reply from a quoted email thread + detect the signature.
+
+    503 when Talon is unavailable — callers fail open and embed the full body
+    (a noisier embedding, never a lost message). Empty body → empty response.
+    """
+    original = body.body or ""
+    if not original.strip():
+        return EmailCleanResponse(reply_text="", signature="", quoted_tail="", stripped_ratio=0.0)
+
+    clipped = original[:EMAIL_CLEAN_MAX_CHARS]
+
+    try:
+        _ensure_talon()
+        from talon import quotations
+    except Exception:
+        raise HTTPException(status_code=503, detail="Talon unavailable")
+
+    # 1. Strip the quoted chain → leading reply.
+    try:
+        reply = quotations.extract_from(clipped, body.content_type)
+    except Exception:
+        reply = clipped
+
+    # 2. Signature detection (only when the sender is known — Talon needs it).
+    sig = ""
+    text = reply
+    if body.sender:
+        try:
+            from talon import signature
+            extracted_text, extracted_sig = signature.extract(reply, sender=body.sender)
+            extracted_sig = extracted_sig or ""
+            # 30% cap: a "signature" bigger than 30% of the body is almost
+            # certainly a misdetection (non-Latin script) — keep it in the reply.
+            if extracted_sig and len(extracted_sig) <= SIGNATURE_STRIP_CAP * len(clipped):
+                text, sig = (extracted_text or reply), extracted_sig
+        except Exception:
+            text, sig = reply, ""
+
+    reply_text = (text or "").strip()
+    # Best-effort quoted tail for provenance: the body with the reply removed once.
+    quoted_tail = clipped.replace(reply, "", 1).strip() if reply and reply != clipped else ""
+    stripped_ratio = round(1 - (len(reply_text) / len(clipped)), 3) if clipped else 0.0
+
+    return EmailCleanResponse(
+        reply_text=reply_text,
+        signature=sig,
+        quoted_tail=quoted_tail,
+        stripped_ratio=stripped_ratio,
+    )

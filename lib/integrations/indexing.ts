@@ -482,6 +482,57 @@ async function dropSentinelChunk(
   }
 }
 
+/**
+ * P3-6: write a provenance-only chunk (skip_embedding). One row holding the
+ * chunk_text, embedding=null, needs_embedding=false (never embedded, never
+ * picked up by embed-retry, excluded from vector search by the embedding-IS-NULL
+ * filter). Stale rows from a previous version are pruned. Mirrors the sentinel
+ * path — handled entirely outside the embedding pipeline so chunk-text alignment
+ * in the bulk path is never affected.
+ */
+async function writeSkipEmbeddingRow(
+  chunk: FetchedChunk,
+  orgId: string,
+  connectionId: string,
+  documentId: string,
+  departmentId: string | null,
+  visibility: VisibilityLevel,
+  ownerUserId: string | null,
+): Promise<void> {
+  const meta = writeChunkText(chunk.metadata, chunk.content)
+  const { error } = await supabaseAdmin.from('document_embeddings').upsert([{
+    org_id: orgId,
+    document_id: documentId,
+    department_id: departmentId,
+    owner_user_id: ownerUserId,
+    source_type: chunk.metadata.provider,
+    visibility,
+    chunk_index: 0,
+    embedding: null,
+    embedding_model: null,
+    pipeline_version: PIPELINE_VERSION,
+    parent_chunk_index: null,
+    needs_embedding: false,
+    content_hash: createHash('sha256').update(chunk.content).digest('hex'),
+    content_preview: chunk.content.slice(0, 200),
+    metadata: meta,
+  }])
+  if (error) {
+    logger.warn({ documentId, err: error.message }, '[indexing] Failed to write skip-embedding row (non-fatal)')
+    return
+  }
+  // Prune any stale chunks beyond index 0 from a previous version of this doc.
+  const { error: pruneErr } = await supabaseAdmin
+    .from('document_embeddings')
+    .delete()
+    .eq('document_id', documentId)
+    .gt('chunk_index', 0)
+  if (pruneErr) {
+    logger.warn({ documentId, err: pruneErr.message }, '[indexing] Failed to prune skip-embedding doc (non-fatal)')
+  }
+  void connectionId
+}
+
 // ---- Main Indexing Function -------------------------------------
 
 /**
@@ -523,6 +574,12 @@ export async function indexDocument(
   // 0b. Skip-sentinels: keep the doc row (flagged), write no embeddings (P0-5)
   if (isSkipSentinel(chunk.content)) {
     await dropSentinelChunk(chunk, orgId, connectionId, documentId)
+    return documentId
+  }
+
+  // 0c. Provenance-only chunk (P3-6): store chunk_text, never embed.
+  if (chunk.skip_embedding) {
+    await writeSkipEmbeddingRow(chunk, orgId, connectionId, documentId, departmentId, visibility, ownerUserId)
     return documentId
   }
 
@@ -821,6 +878,13 @@ export async function indexDocuments(
       if (contentChanged && isSkipSentinel(chunk.content)) {
         // Skip-sentinel: doc row kept, no embeddings, telemetry written (P0-5)
         await dropSentinelChunk(chunk, orgId, connectionId, documentId)
+        prepared.push({ chunk, documentId, subChunks: [] })
+        continue
+      }
+      if (contentChanged && chunk.skip_embedding) {
+        // Provenance-only chunk (P3-6): store chunk_text, never embed. Handled
+        // out-of-band so the embedding-alignment flow below is untouched.
+        await writeSkipEmbeddingRow(chunk, orgId, connectionId, documentId, departmentId, visibility, ownerUserId)
         prepared.push({ chunk, documentId, subChunks: [] })
         continue
       }

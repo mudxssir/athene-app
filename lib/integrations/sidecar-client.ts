@@ -111,6 +111,13 @@ export interface GlinerResult {
   duration_ms: number
 }
 
+export interface EmailCleanResult {
+  reply_text: string      // quote- and signature-stripped (embed this)
+  signature: string       // provenance only
+  quoted_tail: string     // provenance only
+  stripped_ratio: number
+}
+
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
 function isConfigured(): boolean {
@@ -287,6 +294,54 @@ export async function glinerExtract(
     logger.warn(
       { err: err instanceof Error ? err.message : String(err) },
       '[sidecar] gliner failed — caller falls back to regex-only gate'
+    )
+    return null
+  }
+}
+
+/**
+ * Talon email cleaning (P3-6). Strips the quoted chain + signature so a reply
+ * doesn't re-embed the whole thread. Returns null when the sidecar is
+ * unavailable, unconfigured, or errors — callers fail open and embed the full
+ * body (noisier, never lost). Email bodies are never logged (lengths only).
+ */
+export async function cleanEmail(
+  body: string,
+  contentType: 'text/plain' | 'text/html' = 'text/plain',
+  sender?: string,
+): Promise<EmailCleanResult | null> {
+  if (!isConfigured()) return null
+  if (!cbAvailable()) {
+    logger.warn({}, '[sidecar] Circuit breaker open — skipping email clean')
+    return null
+  }
+  if (!body.trim()) {
+    return { reply_text: '', signature: '', quoted_tail: '', stripped_ratio: 0 }
+  }
+
+  try {
+    const res = await fetchWithTimeout(`${getSidecarUrl()}/email/clean`, {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body, content_type: contentType, sender }),
+    })
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`)
+    }
+
+    const data = (await res.json()) as EmailCleanResult
+    cbSuccess()
+    logger.info(
+      { strippedRatio: data.stripped_ratio, replyLen: data.reply_text.length },
+      '[sidecar] email clean OK'
+    )
+    return data
+  } catch (err) {
+    cbFailure()
+    logger.warn(
+      { err: err instanceof Error ? err.message : String(err) },
+      '[sidecar] email clean failed — caller embeds full body'
     )
     return null
   }

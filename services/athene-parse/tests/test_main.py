@@ -217,6 +217,100 @@ def test_gliner_entities_with_stub_model(monkeypatch):
     assert body["duration_ms"] >= 0
 
 
+# ── /email/clean (P3-6) ───────────────────────────────────────────────────────
+
+
+def test_email_clean_rejects_missing_auth():
+    r = client.post("/email/clean", json={"body": "hello"})
+    assert r.status_code == 401
+
+
+def test_email_clean_empty_body():
+    r = client.post("/email/clean", json={"body": "   "}, headers=AUTH)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["reply_text"] == ""
+    assert body["quoted_tail"] == ""
+    assert body["stripped_ratio"] == 0.0
+
+
+def test_email_clean_503_when_talon_unavailable(monkeypatch):
+    import main as main_mod
+
+    def boom():
+        raise RuntimeError("talon missing")
+
+    monkeypatch.setattr(main_mod, "_ensure_talon", boom)
+    r = client.post("/email/clean", json={"body": "Hi there"}, headers=AUTH)
+    assert r.status_code == 503
+
+
+def _install_fake_talon(monkeypatch, *, reply, signature_text=""):
+    """Install a stub `talon` module so the endpoint runs without the real dep."""
+    import sys
+    import types
+
+    talon_mod = types.ModuleType("talon")
+    talon_mod.init = lambda: None
+
+    quotations_mod = types.ModuleType("talon.quotations")
+    quotations_mod.extract_from = lambda text, content_type="text/plain": reply
+
+    signature_mod = types.ModuleType("talon.signature")
+    signature_mod.extract = lambda text, sender=None: (
+        (text[: -len(signature_text)] if signature_text and text.endswith(signature_text) else text),
+        signature_text,
+    )
+
+    talon_mod.quotations = quotations_mod
+    talon_mod.signature = signature_mod
+    monkeypatch.setitem(sys.modules, "talon", talon_mod)
+    monkeypatch.setitem(sys.modules, "talon.quotations", quotations_mod)
+    monkeypatch.setitem(sys.modules, "talon.signature", signature_mod)
+
+    import main as main_mod
+    # Force re-init each call so the stub is used (avoid the global flag short-circuit).
+    monkeypatch.setattr(main_mod, "_talon_initialized", False)
+    monkeypatch.setattr(main_mod, "_ensure_talon", lambda: talon_mod)
+
+
+def test_email_clean_strips_quoted_chain(monkeypatch):
+    full = "Thanks, sounds good!\n\nOn Mon, Bob wrote:\n> the entire quoted thread " * 20
+    reply = "Thanks, sounds good!"
+    _install_fake_talon(monkeypatch, reply=reply)
+
+    r = client.post(
+        "/email/clean",
+        json={"body": full, "content_type": "text/plain"},
+        headers=AUTH,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["reply_text"] == "Thanks, sounds good!"
+    # The quoted chain is captured as the tail, not embedded.
+    assert "quoted thread" in body["quoted_tail"]
+    # stripped_ratio is high — most of the body was quoted history.
+    assert body["stripped_ratio"] > 0.8
+
+
+def test_email_clean_signature_cap_guard(monkeypatch):
+    # A "signature" larger than 30% of the body is a misdetection (non-Latin) —
+    # it must NOT be stripped; reply_text keeps it.
+    reply = "short reply " + ("X" * 100)  # signature would be > 30% of this
+    _install_fake_talon(monkeypatch, reply=reply, signature_text="X" * 100)
+
+    r = client.post(
+        "/email/clean",
+        json={"body": reply, "sender": "bob@example.com"},
+        headers=AUTH,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    # Cap guard kept the oversized "signature" in the reply.
+    assert body["signature"] == ""
+    assert "X" * 100 in body["reply_text"]
+
+
 def test_gliner_per_text_isolation(monkeypatch):
     # One text raising inside the model must not poison the batch.
     import main as main_mod
