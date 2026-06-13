@@ -10,7 +10,7 @@ _Branch: `pipeline/p3-docs-email-depth` · Flags: `SIDECAR_PARSING` (default OFF
 |----|-------|--------|------|------------|
 | P3-1 | Tiered binary parsing: sidecar `/parse` lane 1 → LlamaParse lane 2 (opt-in) → TS lane 3; `parser_used` stamped | todo | M | P1-11 |
 | P3-2 | Docling output adapter: markdown+headings → structural chunker; tables → `tabularChunksFromParsed`; pictures → media queue stub | todo | M | P3-1 |
-| P3-3 | D7: Drive `.xlsx` routes through tabular engine; `extractXlsxText` demoted to lane-3 fallback | todo | S | P1 tabular |
+| P3-3 | D7: Drive `.xlsx` routes through tabular engine; `extractXlsxText` demoted to lane-3 fallback | done | S | P1 tabular |
 | P3-4 | D8: delete global HTML-strip from `normalizeContent`; per-shape converters own sanitization + Gmail HTML-part strip | done | M | — |
 
 ## Email rebuild (D4)
@@ -47,6 +47,35 @@ _Branch: `pipeline/p3-docs-email-depth` · Flags: `SIDECAR_PARSING` (default OFF
 ---
 
 ## Session notes
+
+### P3-3: D7 — Drive .xlsx routes through the tabular engine (2026-06-13)
+
+- **Root cause (audit D7):** `.xlsx` binaries are not in `LLAMAPARSE_BINARY_TYPES`,
+  so `fetchDocumentChunks` fell through to the flat-text fallback
+  (`fetchDriveFileContent` → `extractXlsxText` → CSV text in 200-row windows →
+  `driveFileToChunk` shape `prose` → re-split at 512 tokens). Spreadsheet column
+  structure was destroyed and BI-style queries ("revenue by region") missed.
+- **Fix:** new `parseXlsxBufferToTables(buffer)` (the lane-3 TS parse emitting
+  `ParsedTable[]`, one per sheet) + a dedicated XLSX branch at the top of
+  `fetchDocumentChunks` that routes the in-hand buffer through
+  `tabularChunksFromParsed` (provider `google_drive_tabular`) — the SAME engine
+  native Google Sheets (`fetchSheetChunks`) and uploads already use. Produces
+  stats/sample/agg chunks (Tier C, deterministic, no LLM) with stable chunk_ids
+  (`drive:{id}:stats|sample|agg`) for delta-sync idempotency.
+- **No re-download:** both sync paths (selected-resources + folder-walk) already
+  download the buffer before calling `fetchDocumentChunks`, so the tabular branch
+  reuses it.
+- **`extractXlsxText` out of the indexing flow (D7 requirement):** the sync flow
+  no longer reaches it — degenerate workbooks (no header+data sheet) emit a
+  `sync_skips` record ("[Spreadsheet contains no parseable tables]") instead of
+  re-routing to prose. `extractXlsxText` + the `fetchDriveFileContent` xlsx branch
+  remain only as a defensive string path for any direct caller (there are none
+  today); `parseXlsxBufferToTables` is the kept lane-3 TS parse.
+- **Tests:** `drive-xlsx-tabular.test.ts` (5) — multi-sheet → one ParsedTable per
+  sheet; header-only/empty sheets skipped; blank header cells → `col_N`, all-blank
+  rows dropped; corrupt buffer → `[]`; end-to-end xlsx buffer →
+  `tabularChunksFromParsed` yields `:stats`/`:sample` chunks with `shape !== prose`.
+  24 existing Google fetcher tests green; tsc clean.
 
 ### P3-4: D8 — normalizeContent no longer corrupts code-like prose (2026-06-13)
 

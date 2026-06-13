@@ -276,6 +276,49 @@ async function extractXlsxText(buffer: Buffer): Promise<string> {
   }
 }
 
+/**
+ * D7: parse an .xlsx workbook buffer into one ParsedTable per sheet for the
+ * tabular engine (`tabularChunksFromParsed`). This is the lane-3 TS parse that
+ * replaces the prose-emitting `extractXlsxText` in the indexing flow — XLSX rows
+ * become stats/sample/agg chunks (Tier C, deterministic) instead of flat
+ * 200-row windows re-split at 512 tokens. Returns [] when no sheet has a header
+ * row plus at least one populated data row (degenerate workbook → caller skips).
+ */
+export function parseXlsxBufferToTables(buffer: Buffer): ParsedTable[] {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const XLSX = require('xlsx') as typeof import('xlsx')
+    const workbook = XLSX.read(buffer, { type: 'buffer' })
+    const tables: ParsedTable[] = []
+
+    for (const sheetName of workbook.SheetNames) {
+      const rawRows = XLSX.utils.sheet_to_json<string[]>(workbook.Sheets[sheetName], {
+        header: 1,
+        defval: '',
+        raw: false,
+      }) as string[][]
+      if (rawRows.length < 2) continue
+
+      const headers = rawRows[0].map((h, i) => String(h).trim() || `col_${i + 1}`)
+      const rows = rawRows
+        .slice(1)
+        .filter((r) => r.some((v) => String(v).trim() !== ''))
+        .map((r) => r.map(String))
+      if (rows.length === 0) continue
+
+      tables.push({ tableName: sheetName, headers, rows })
+    }
+
+    return tables
+  } catch (err) {
+    logger.warn(
+      { err: err instanceof Error ? err.message : String(err) },
+      '[drive-fetcher] XLSX tabular parse failed',
+    )
+    return []
+  }
+}
+
 // ─── FetchedChunk Builders ──────────────────────────────────────────────────
 
 /**
@@ -332,6 +375,38 @@ async function fetchDocumentChunks(
   const chunkId = `drive:${file.id}`
 
   const chunks: FetchedChunk[] = []
+
+  // D7: .xlsx workbooks route through the tabular engine (stats/sample/agg,
+  // Tier C deterministic) instead of flat 512-token prose windows. One
+  // ParsedTable per sheet; mirrors fetchSheetChunks for native Google Sheets.
+  if (ext === 'xlsx' || EXTRACTABLE_BINARY[file.mimeType] === 'xlsx') {
+    const tables = parseXlsxBufferToTables(buffer)
+    if (tables.length > 0) {
+      const tabularChunks = await tabularChunksFromParsed(
+        tables,
+        chunkId,
+        file.name,
+        sourceUrl,
+        { withLlmAnalysis: false, provider: 'google_drive_tabular' },
+      )
+      for (const chunk of tabularChunks) {
+        chunk.metadata.last_modified = file.modifiedTime
+        chunk.metadata.author = file.owners?.[0]?.displayName
+        chunk.metadata.folder_path = folderPath
+        chunk.metadata.mime_type = file.mimeType
+        if (departmentId) chunk.metadata.department_id = departmentId
+      }
+      if (tabularChunks.length > 0) return tabularChunks
+    }
+    // Degenerate workbook (no header+data sheet) → surface a skip rather than
+    // re-routing to the prose path. Keeps extractXlsxText out of the flow (D7).
+    skips?.set(`drive:${file.id}:xlsx-empty`, {
+      external_id: `drive:${file.id}`,
+      title: file.name,
+      reason: '[Spreadsheet contains no parseable tables]',
+    })
+    return []
+  }
 
   if (LLAMAPARSE_BINARY_TYPES.has(ext)) {
     const parsed = await parseWithLlamaParse(file.name, buffer)
