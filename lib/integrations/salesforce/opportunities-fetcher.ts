@@ -7,6 +7,7 @@
 
 import { salesforceFetch, applySinceTo } from './client'
 import type { FetchedChunk } from '@/lib/integrations/base'
+import { crmStructuredMetadata } from '@/lib/integrations/crm-structured'
 
 const SOQL_BASE = [
   'SELECT',
@@ -73,6 +74,8 @@ export async function fetchSalesforceOpportunities(
           stage:         r.StageName,
           amount:        r.Amount != null ? String(r.Amount) : null,
           last_modified: r.LastModifiedDate ?? undefined,
+          // P4-7: deterministic owner→OWNS + record→TIED_TO_ACCOUNT edges.
+          ...crmStructuredMetadata({ ownerName: r.Owner?.Name, accountName: r.Account?.Name }),
         },
       })
     }

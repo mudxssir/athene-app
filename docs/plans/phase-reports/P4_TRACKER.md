@@ -24,7 +24,7 @@ _Branch: `pipeline/p4-bi-crm-depth` (off `pipeline/p3-docs-email-depth`) · Flag
 | ID | Title | Status | Size | Depends on |
 |----|-------|--------|------|------------|
 | P4-6 | Calendars → record shape (D3): structured_fields (attendees/organizer/start/end/recurrence); attendee WORKS_ON edges gated ≥2 internal; recurring master+next; declined/cancelled extraction-skipped | todo | M | P2 identity |
-| P4-7 | CRM deterministic field edges: SF/HubSpot owner→OWNS (identity), account→TIED_TO_ACCOUNT; oversized field-group split; raw numerics in metadata | todo | M | P2 identity |
+| P4-7 | CRM deterministic field edges: SF/HubSpot owner→OWNS (identity), account→TIED_TO_ACCOUNT; oversized field-group split; raw numerics in metadata | done (Salesforce; HubSpot owner-id resolution deferred) | M | P2 identity |
 | P4-8 | Record Tier B rule: description >200 chars → gated LLM; else deterministic only | done (gate from P1 gap-closure, verified + chained-path tests; "deterministic only" half = P4-7 edges) | S | P4-1 |
 
 ---
@@ -39,6 +39,35 @@ _Branch: `pipeline/p4-bi-crm-depth` (off `pipeline/p3-docs-email-depth`) · Flag
 ---
 
 ## Session notes
+
+### P4-7: CRM deterministic field edges (2026-06-14)
+
+- **`crm-structured.ts`** (`crmStructuredMetadata`): turns the deterministic CRM
+  fields a fetcher already has (owner name/email/id, account name) into the
+  metadata keys the builder consumes — `structured_owners` (owner → OWNS, reusing
+  the P2 shape) + `structured_account`. One-line spread per fetcher.
+- **`structured-records.ts`** (`buildStructuredRecordGraph`): record self node
+  (resource_type → entity_type: opportunity/deal→`deal`, contact→`contact`,
+  account→`account`, case→`ticket`), owner → OWNS → record, record →
+  TIED_TO_ACCOUNT → account. All EXTRACTED/1.0, no LLM. Visibility split mirrors
+  P2-5: record + edges inherit doc visibility; person/account nodes org_wide for
+  cross-dept dedup.
+- **Builder wiring** behind `KG_CRM_EDGES` (default OFF), as an independent
+  deterministic step alongside link/owner/schema graphs — so it runs regardless of
+  the record Tier-B LLM gate (this is P4-8's "else deterministic only" half).
+- **Salesforce wired:** opportunities (owner + account), contacts (owner +
+  account), accounts (owner only — the record IS the account, no self-referential
+  TIED_TO_ACCOUNT). SF cases are `work_item` shape (P2 owner-graph territory), not
+  here.
+- **Deferred (documented):** HubSpot owner→OWNS needs `hubspot_owner_id`→name
+  resolution (owner is an opaque id, not a name) + the associations API for
+  company→TIED_TO_ACCOUNT. Tracked as a follow-up; the mechanism + helper are
+  HubSpot-ready (pass `ownerName`/`ownerAccountId`/`accountName` once resolved).
+- **Tests:** `structured-records.test.ts` (8) — emission helper (owner/email/id/
+  account, blank-omit), opportunity owner+account edges EXTRACTED/1.0, account
+  record owner-only (no self TIED_TO_ACCOUNT), visibility split, empty cases,
+  non-OWNS relations ignored. Fixed `builder-tabular-tier-c.test.ts` flag mock to
+  export `KG_CRM_EDGES`. Full suite 970; tsc + RLS clean.
 
 ### P4-8: record Tier-B gate — verified + chained-path coverage (2026-06-14)
 
@@ -151,7 +180,7 @@ P4-1 (D2 keystone) → P4-3 → P4-2 → P4-5 → P4-6/7/8._
 | Warehouse fixture: 0 LLM extraction calls, schema entities present | ✅ `builder-tabular-tier-c.test.ts` — tabular doc bypasses the LLM extractor; service/metric/dimension nodes persisted (flag `TABULAR_TIER_C`) |
 | "metric by dimension" golden queries hit enriched stats chunks (≥15% on tabular set) | todo (needs Jina keys + pilot — batched with P1–P3 gates) |
 | Calendar fixtures produce record-shaped rows + obligation-adjacent retrieval | todo |
-| CRM OWNS / TIED_TO_ACCOUNT edges EXTRACTED/1.0 | todo |
+| CRM OWNS / TIED_TO_ACCOUNT edges EXTRACTED/1.0 | ✅ `structured-records.test.ts` — Salesforce owner→OWNS + record→TIED_TO_ACCOUNT, EXTRACTED/1.0 (flag `KG_CRM_EDGES`); HubSpot owner-id resolution deferred |
 
 **Rollback:** Tier C behind `TABULAR_TIER_C` flag (off → current LLM-on-everything);
 vocabulary lines are additive content (re-index removes); bi_artifact shape split is

@@ -18,6 +18,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('@/lib/config/feature-flags', () => ({
   TABULAR_TIER_C: true,
   KG_OWNER_GRAPH: false,
+  KG_CRM_EDGES: false,
   PIPELINE_SHAPE_ROUTING: false,
 }))
 

@@ -7,6 +7,7 @@
 
 import { salesforceFetch, applySinceTo } from './client'
 import type { FetchedChunk } from '@/lib/integrations/base'
+import { crmStructuredMetadata } from '@/lib/integrations/crm-structured'
 
 const SOQL_BASE = [
   'SELECT',
@@ -76,6 +77,9 @@ export async function fetchSalesforceAccounts(
           id:            r.Id,
           industry:      r.Industry ?? null,
           last_modified: r.LastModifiedDate ?? undefined,
+          // P4-7: owner→OWNS only. The record IS the account, so no self-referential
+          // TIED_TO_ACCOUNT edge (accountName omitted).
+          ...crmStructuredMetadata({ ownerName: r.Owner?.Name }),
         },
       })
     }

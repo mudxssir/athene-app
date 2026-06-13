@@ -71,3 +71,14 @@ export const TABULAR_TIER_C = process.env.TABULAR_TIER_C === "true";
  * it sets TABULAR_PII_MASKING=true). Rollback: off → raw values (re-index reverts).
  */
 export const TABULAR_PII_MASKING = process.env.TABULAR_PII_MASKING === "true";
+
+/**
+ * P4-7: deterministic CRM field edges in the KG builder. From CRM record chunks
+ * (Salesforce/HubSpot) that carry `structured_owners` (owner → OWNS) and
+ * `structured_account` (record → TIED_TO_ACCOUNT account node), build those
+ * edges with ZERO LLM (EXTRACTED/1.0), mirroring the P2 structured-owner graph.
+ * Default OFF until the P4 gate (rollback: off → no CRM field edges; LLM
+ * extraction over record text still runs per the Tier-B gate). Set
+ * KG_CRM_EDGES=true to activate.
+ */
+export const KG_CRM_EDGES = process.env.KG_CRM_EDGES === "true";

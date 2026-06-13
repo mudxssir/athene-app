@@ -22,8 +22,9 @@ import { extractEntitiesAndRelations } from './extractor'
 import { shouldRunExtractionChained } from './extraction-gate'
 import { buildStructuredLinkGraph } from './structured-links'
 import { buildStructuredOwnerGraph } from './structured-owners'
+import { buildStructuredRecordGraph } from './structured-records'
 import { buildSchemaEntityGraph, TABULAR_RESOURCE_TYPES } from '@/lib/integrations/bi-chunking'
-import { KG_OWNER_GRAPH, TABULAR_TIER_C } from '@/lib/config/feature-flags'
+import { KG_OWNER_GRAPH, TABULAR_TIER_C, KG_CRM_EDGES } from '@/lib/config/feature-flags'
 import { upsertGraph, deleteByDocument } from './storage'
 import { detectCommunities } from './community'
 import { extractAndUpsertEvents } from './event-extractor'
@@ -272,6 +273,15 @@ async function processDocument(
     const ownersGraph = buildStructuredOwnerGraph(docArg)
     nodes.push(...ownersGraph.nodes)
     edges.push(...ownersGraph.edges)
+  }
+
+  // CRM field edges (P4-7): deterministic owner→OWNS + record→TIED_TO_ACCOUNT
+  // from CRM record annotations — no LLM. Behind KG_CRM_EDGES (P4 rollback).
+  // Reads doc.metadata.structured_owners / structured_account.
+  if (KG_CRM_EDGES) {
+    const recordGraph = buildStructuredRecordGraph(docArg)
+    nodes.push(...recordGraph.nodes)
+    edges.push(...recordGraph.edges)
   }
 
   // Schema entities (P4-1 / D2): deterministic service/metric/dimension nodes

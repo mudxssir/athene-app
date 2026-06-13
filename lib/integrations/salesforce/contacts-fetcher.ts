@@ -8,6 +8,7 @@
 
 import { salesforceFetch, applySinceTo } from './client'
 import type { FetchedChunk } from '@/lib/integrations/base'
+import { crmStructuredMetadata } from '@/lib/integrations/crm-structured'
 
 const SOQL_BASE = [
   'SELECT',
@@ -64,6 +65,8 @@ export async function fetchSalesforceContacts(
           id:            r.Id,
           email:         r.Email ?? null,
           last_modified: r.LastModifiedDate ?? undefined,
+          // P4-7: owner→OWNS + contact→TIED_TO_ACCOUNT edges.
+          ...crmStructuredMetadata({ ownerName: r.Owner?.Name, accountName: r.Account?.Name }),
         },
       })
     }
