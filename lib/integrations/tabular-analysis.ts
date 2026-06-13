@@ -23,7 +23,27 @@ export interface ParsedTable {
 
 // ---- Column type inference ----------------------------------------
 
-function inferSchema(headers: string[], rows: string[][]): ColumnSchema[] {
+/**
+ * P4-4: a column is classified by type when ≥95% of its non-empty sampled values
+ * match — replacing the old `every()` (100%) rule. A single stray cell ("N/A", a
+ * footnote, a unit suffix) no longer flips a numeric/date column to varchar and
+ * drops its stats. The 5% tolerance is small enough that genuinely mixed columns
+ * still fall through to varchar.
+ */
+const TYPE_INFERENCE_THRESHOLD = 0.95
+
+function fractionMatching(values: string[], pred: (v: string) => boolean): number {
+  if (values.length === 0) return 0
+  let n = 0
+  for (const v of values) if (pred(v)) n++
+  return n / values.length
+}
+
+const isNumeric = (v: string): boolean => !isNaN(parseFloat(v)) && isFinite(Number(v))
+// length > 4 avoids misclassifying short numeric tokens (zip codes, IDs) as dates
+const isDateLike = (v: string): boolean => v.length > 4 && !isNaN(Date.parse(v))
+
+export function inferSchema(headers: string[], rows: string[][]): ColumnSchema[] {
   const SAMPLE = Math.min(rows.length, 50)
 
   return headers.map((name, colIdx) => {
@@ -35,12 +55,11 @@ function inferSchema(headers: string[], rows: string[][]): ColumnSchema[] {
 
     if (values.length === 0) return { name: colName, type: 'varchar' }
 
-    if (values.every(v => !isNaN(parseFloat(v)) && isFinite(Number(v)))) {
+    if (fractionMatching(values, isNumeric) >= TYPE_INFERENCE_THRESHOLD) {
       return { name: colName, type: 'number' }
     }
 
-    // Avoid misclassifying short numeric-looking tokens (zip codes, IDs) as dates
-    if (values.every(v => v.length > 4 && !isNaN(Date.parse(v)))) {
+    if (fractionMatching(values, isDateLike) >= TYPE_INFERENCE_THRESHOLD) {
       return { name: colName, type: 'date' }
     }
 
