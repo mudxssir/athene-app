@@ -11,11 +11,22 @@ import {
   MarkerType,
   useReactFlow,
   ReactFlowProvider,
+  Handle,
+  Position,
   type Node,
   type Edge,
   type NodeMouseHandler,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import {
+  forceSimulation,
+  forceLink,
+  forceManyBody,
+  forceCollide,
+  forceX,
+  forceY,
+  type SimulationNodeDatum,
+} from "d3-force";
 import { GraphSearch } from "./graph-search";
 import { NodeDetailPanel } from "./node-detail-panel";
 import { Loader2, Network, RefreshCw, Filter } from "lucide-react";
@@ -104,12 +115,6 @@ type GraphEdgeData = Record<string, unknown> & {
 
 type GraphEdge = Edge<GraphEdgeData>;
 
-// ── Edge style by provenance ────────────────────────────────
-const EDGE_STYLES: Record<string, React.CSSProperties> = {
-  EXTRACTED: { stroke: "#6b7280", strokeWidth: 1.5 },
-  INFERRED: { stroke: "#6b7280", strokeWidth: 1, strokeDasharray: "6,3" },
-  AMBIGUOUS: { stroke: "#9ca3af", strokeWidth: 1, strokeDasharray: "2,2" },
-};
 
 // ── Deterministic jitter (FIX #2: replaces Math.random) ─────
 /** Hash-based jitter so node positions are stable across re-renders */
@@ -118,87 +123,187 @@ function jitter(id: string, scale: number): number {
   return ((hash % 100) / 100 - 0.5) * scale;
 }
 
-// ── Layout helpers ──────────────────────────────────────────
+// ── Force-directed layout (vis-network-style physics) ───────
+//
+// Communities gravitate into organic clusters and cross-community
+// edges stretch visibly between them — the layout EMERGES from the
+// topology instead of a rigid grid:
+//   · forceLink     — connected nodes pull together (spring)
+//   · forceManyBody — all nodes repel (charge), spreading clusters
+//   · community gravity — each node is gently pulled toward its
+//     community's anchor on a ring, so sparse communities still
+//     separate into distinct visual groups
+//   · forceCollide  — no overlapping dots
+// The simulation runs synchronously to convergence (deterministic:
+// seeded by hash jitter, no Math.random), then positions are frozen
+// into React Flow nodes — pan/zoom/drag stay fully interactive.
 
-/** Simple grid-based layout grouped by community clusters */
-function layoutNodes(apiNodes: APINode[]): GraphNode[] {
-  const communities = new Map<number | "__none__", APINode[]>();
-  apiNodes.forEach((n) => {
-    const key = n.community ?? "__none__";
-    if (!communities.has(key)) communities.set(key, []);
-    communities.get(key)!.push(n);
-  });
-
-  const rfNodes: GraphNode[] = [];
-  let communityIdx = 0;
-  const cols = Math.ceil(Math.sqrt(communities.size));
-
-  communities.forEach((members) => {
-    const cx = (communityIdx % cols) * 500;
-    const cy = Math.floor(communityIdx / cols) * 500;
-
-    const innerCols = Math.ceil(Math.sqrt(members.length));
-    members.forEach((n, i) => {
-      const ix = i % innerCols;
-      const iy = Math.floor(i / innerCols);
-      const bgColor = resolveNodeColor(n.entity_type);
-
-      rfNodes.push({
-        id: n.id,
-        type: "default",
-        position: {
-          x: cx + ix * 160 + jitter(n.id, 30),
-          y: cy + iy * 120 + jitter(n.id, 30),
-        },
-        data: {
-          label: n.label,
-          entity_type: n.entity_type,
-          description: n.description ?? null,
-          department_ids: n.department_ids ?? [],
-          source_documents: n.source_documents ?? [],
-          visibility: n.visibility ?? "public",
-          community: n.community ?? null,
-          updated_at: n.updated_at ?? null,
-        },
-        style: {
-          backgroundColor: bgColor,
-          color: "#fff",
-          border: "none",
-          borderRadius: "999px",
-          padding: "8px 16px",
-          fontSize: "12px",
-          fontWeight: 600,
-          boxShadow: `0 2px 8px ${bgColor}40`,
-          cursor: "pointer",
-          transition: "all 0.2s ease",
-          minWidth: "40px",
-          textAlign: "center" as const,
-        },
-      });
-    });
-
-    communityIdx++;
-  });
-
-  return rfNodes;
+interface SimNode extends SimulationNodeDatum {
+  id: string;
+  community: number | string;
+  degree: number;
 }
 
+/** Degree-scaled dot radius (vis-network sizes hubs larger). */
+function nodeRadius(degree: number): number {
+  return Math.min(30, 11 + Math.sqrt(degree) * 3.5);
+}
+
+function forceLayout(apiNodes: APINode[], apiEdges: APIEdge[]): GraphNode[] {
+  const idSet = new Set(apiNodes.map((n) => n.id));
+  const degree = new Map<string, number>();
+  apiEdges.forEach((e) => {
+    if (idSet.has(e.source_node)) degree.set(e.source_node, (degree.get(e.source_node) ?? 0) + 1);
+    if (idSet.has(e.target_node)) degree.set(e.target_node, (degree.get(e.target_node) ?? 0) + 1);
+  });
+
+  // Community anchors on a ring — radius grows with community count so
+  // clusters have room. Unassigned nodes share a center anchor.
+  const communityKeys = Array.from(
+    new Set(apiNodes.map((n) => n.community ?? "__none__"))
+  );
+  const ringR = Math.max(380, communityKeys.length * 130);
+  const anchors = new Map<number | string, { x: number; y: number }>();
+  communityKeys.forEach((key, i) => {
+    const ang = (i / Math.max(communityKeys.length, 1)) * 2 * Math.PI;
+    anchors.set(key, { x: Math.cos(ang) * ringR, y: Math.sin(ang) * ringR });
+  });
+
+  const simNodes: SimNode[] = apiNodes.map((n) => {
+    const key = n.community ?? "__none__";
+    const anchor = anchors.get(key)!;
+    return {
+      id: n.id,
+      community: key,
+      degree: degree.get(n.id) ?? 0,
+      // Seed near the community anchor with deterministic jitter
+      x: anchor.x + jitter(n.id, 240),
+      y: anchor.y + jitter(n.id + "y", 240),
+    };
+  });
+
+  const simLinks = apiEdges
+    .filter((e) => idSet.has(e.source_node) && idSet.has(e.target_node))
+    .map((e) => ({ source: e.source_node, target: e.target_node }));
+
+  const sim = forceSimulation<SimNode>(simNodes)
+    .force(
+      "link",
+      forceLink<SimNode, { source: string; target: string }>(simLinks)
+        .id((d) => d.id)
+        .distance(95)
+        .strength(0.5)
+    )
+    .force("charge", forceManyBody<SimNode>().strength(-220))
+    .force("collide", forceCollide<SimNode>((d) => nodeRadius(d.degree) + 14))
+    .force("cx", forceX<SimNode>((d) => anchors.get(d.community)!.x).strength(0.07))
+    .force("cy", forceY<SimNode>((d) => anchors.get(d.community)!.y).strength(0.07))
+    .stop();
+
+  // Synchronous convergence (vis-network "stabilization")
+  const ticks = Math.min(320, Math.max(160, simNodes.length));
+  for (let i = 0; i < ticks; i++) sim.tick();
+
+  const posById = new Map(simNodes.map((s) => [s.id, { x: s.x ?? 0, y: s.y ?? 0 }]));
+
+  return apiNodes.map((n) => {
+    const pos = posById.get(n.id)!;
+    const deg = degree.get(n.id) ?? 0;
+    return {
+      id: n.id,
+      type: "dot",
+      position: { x: pos.x, y: pos.y },
+      data: {
+        label: n.label,
+        entity_type: n.entity_type,
+        degree: deg,
+        description: n.description ?? null,
+        department_ids: n.department_ids ?? [],
+        source_documents: n.source_documents ?? [],
+        visibility: n.visibility ?? "public",
+        community: n.community ?? null,
+        updated_at: n.updated_at ?? null,
+      },
+    };
+  });
+}
+
+// ── Dot node (vis-network look: colored circle, label beneath) ─
+function DotNode({ data, selected }: { data: GraphNodeData; selected?: boolean }) {
+  const color = resolveNodeColor(data.entity_type);
+  const r = nodeRadius((data.degree as number) ?? 0);
+  const dimmed = data.__dimmed === true;
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 5,
+        opacity: dimmed ? 0.12 : 1,
+        transition: "opacity .2s ease",
+        cursor: "pointer",
+      }}
+    >
+      <div
+        style={{
+          position: "relative",
+          width: r * 2,
+          height: r * 2,
+          borderRadius: "50%",
+          background: color,
+          border: "2px solid color-mix(in oklab, #fff 35%, transparent)",
+          boxShadow: selected
+            ? `0 0 0 4px var(--accent-lav-border), 0 4px 16px ${color}66`
+            : `0 2px 10px ${color}55`,
+          transition: "box-shadow .2s ease",
+        }}
+      >
+        {/* Invisible centered handles — edges attach to the dot itself */}
+        <Handle type="target" position={Position.Top} style={{ opacity: 0, top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 1, height: 1, minWidth: 0, minHeight: 0, border: "none" }} />
+        <Handle type="source" position={Position.Bottom} style={{ opacity: 0, top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 1, height: 1, minWidth: 0, minHeight: 0, border: "none" }} />
+      </div>
+      <span
+        style={{
+          fontSize: 10,
+          fontWeight: 700,
+          maxWidth: 130,
+          textAlign: "center",
+          lineHeight: 1.25,
+          color: "var(--fg)",
+          textShadow: "0 1px 3px var(--bg), 0 0 6px var(--bg)",
+          overflow: "hidden",
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+        }}
+      >
+        {data.label}
+      </span>
+    </div>
+  );
+}
+
+const NODE_TYPES = { dot: DotNode };
+
+// vis-network style: thin quiet edges, NO persistent labels (relation text
+// appears only on the edges of the selected node — hundreds of always-on
+// labels were most of the old visual noise).
 function buildEdges(apiEdges: APIEdge[]): GraphEdge[] {
   return apiEdges.map((e): GraphEdge => {
-    const style = EDGE_STYLES[e.provenance] ?? EDGE_STYLES.EXTRACTED;
-    const relationLabel = e.relation.replace(/_/g, " ");
+    const dashed = e.provenance === "INFERRED" || e.provenance === "AMBIGUOUS";
     return {
       id: e.id,
       source: e.source_node,
       target: e.target_node,
-      label: relationLabel,
       type: "default",
-      animated: e.provenance === "INFERRED",
-      style,
-      labelStyle: { fontSize: 10, fill: "#9ca3af", fontWeight: 500 },
-      labelBgStyle: { fill: "#0a0a0f", fillOpacity: 0.8 },
-      markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12, color: "#6b7280" },
-      data: { relation: e.relation },
+      style: {
+        stroke: "var(--border-strong)",
+        strokeWidth: 1.2,
+        ...(dashed ? { strokeDasharray: e.provenance === "INFERRED" ? "6,3" : "2,2" } : {}),
+      },
+      markerEnd: { type: MarkerType.ArrowClosed, width: 11, height: 11, color: "var(--border-strong)" },
+      data: { relation: e.relation, provenance: e.provenance },
     };
   });
 }
@@ -303,14 +408,13 @@ function KnowledgeGraphCanvasInternal({ userRole, focusNodeId }: KnowledgeGraphC
         }
 
         setApiNodes(mergedNodes);
-        setNodes(layoutNodes(mergedNodes));
 
-        // FIX #4: Fetch edges in batches to avoid URL length limits
+        // Edges FIRST, then layout: the force simulation needs the link
+        // topology to pull communities into organic clusters.
         const nodeIds = mergedNodes.map((n) => n.id);
-        if (nodeIds.length > 0) {
-          const allEdges = await fetchEdgesInBatches(nodeIds);
-          setEdges(buildEdges(allEdges));
-        }
+        const allEdges = nodeIds.length > 0 ? await fetchEdgesInBatches(nodeIds) : [];
+        setNodes(forceLayout(mergedNodes, allEdges));
+        setEdges(buildEdges(allEdges));
       } catch (err) {
         console.error("[graph] Fetch error:", err);
       } finally {
@@ -396,13 +500,73 @@ function KnowledgeGraphCanvasInternal({ userRole, focusNodeId }: KnowledgeGraphC
     return map;
   }, [edges, apiNodes]);
 
-  // ── Node click → side panel ───────────────────────────────
+  // ── Node click → neighborhood highlight + side panel ──────
+  // vis-network behavior: clicking a node dims everything outside its
+  // 1-hop neighborhood; connected edges light up in the node's color and
+  // show their relation labels.
+  const applyNeighborhoodHighlight = useCallback(
+    (nodeId: string | null) => {
+      if (nodeId === null) {
+        setNodes((prev) => prev.map((n) => ({ ...n, data: { ...n.data, __dimmed: false } })));
+        setEdges((prev) =>
+          prev.map((e) => ({
+            ...e,
+            label: undefined,
+            animated: false,
+            style: { ...e.style, stroke: "var(--border-strong)", strokeWidth: 1.2, opacity: 1 },
+            markerEnd: { type: MarkerType.ArrowClosed, width: 11, height: 11, color: "var(--border-strong)" },
+          }))
+        );
+        return;
+      }
+
+      const hood = new Set<string>([nodeId]);
+      (adjacencyMap.get(nodeId) ?? []).forEach((nb) => hood.add(nb.id));
+      const focusColor = resolveNodeColor(
+        apiNodesRef.current.find((n) => n.id === nodeId)?.entity_type ?? "concept"
+      );
+
+      setNodes((prev) =>
+        prev.map((n) => ({ ...n, data: { ...n.data, __dimmed: !hood.has(n.id) } }))
+      );
+      setEdges((prev) =>
+        prev.map((e) => {
+          const connected = e.source === nodeId || e.target === nodeId;
+          const relation = ((e.data as GraphEdgeData | undefined)?.relation ?? "").replace(/_/g, " ");
+          return {
+            ...e,
+            label: connected ? relation : undefined,
+            animated: connected,
+            labelStyle: { fontSize: 9, fill: "var(--fg-muted)", fontWeight: 700, letterSpacing: "0.08em" },
+            labelBgStyle: { fill: "var(--bg-elevated)", fillOpacity: 0.9 },
+            labelBgPadding: [4, 2] as [number, number],
+            labelBgBorderRadius: 4,
+            style: {
+              ...e.style,
+              stroke: connected ? focusColor : "var(--border-strong)",
+              strokeWidth: connected ? 1.8 : 1.2,
+              opacity: connected ? 1 : 0.08,
+            },
+            markerEnd: {
+              type: MarkerType.ArrowClosed,
+              width: 11,
+              height: 11,
+              color: connected ? focusColor : "var(--border-strong)",
+            },
+          };
+        })
+      );
+    },
+    [adjacencyMap, setNodes, setEdges]
+  );
+
   const handleNodeClick: NodeMouseHandler<GraphNode> = useCallback(
     (_event, rfNode) => {
       const node = apiNodesRef.current.find((n) => n.id === rfNode.id);
       if (!node) return;
 
       setSelectedNode(node);
+      applyNeighborhoodHighlight(node.id);
       setNeighborsLoading(true);
       setNeighbors([]);
 
@@ -412,32 +576,23 @@ function KnowledgeGraphCanvasInternal({ userRole, focusNodeId }: KnowledgeGraphC
         setNeighborsLoading(false);
       }, 0);
     },
-    [adjacencyMap]
+    [adjacencyMap, applyNeighborhoodHighlight]
   );
+
+  // Click on empty canvas clears the highlight
+  const handlePaneClick = useCallback(() => {
+    setSelectedNode(null);
+    applyNeighborhoodHighlight(null);
+  }, [applyNeighborhoodHighlight]);
 
   // ── Search highlight ──────────────────────────────────────
   const handleSearchResults = useCallback(
     (nodeIds: string[]) => {
-      // Dim non-matching nodes; highlight matches with a ring (no transform —
-      // scale() shifts layout footprint and causes visible node overlap).
+      const matchSet = new Set(nodeIds);
       setNodes((prev) =>
-        prev.map((n) => {
-          const isMatch = nodeIds.includes(n.id);
-          const bgColor = resolveNodeColor(n.data?.entity_type as string ?? "concept");
-          return {
-            ...n,
-            style: {
-              ...n.style,
-              opacity: isMatch ? 1 : 0.15,
-              boxShadow: isMatch
-                ? `0 0 0 3px #a855f7, 0 4px 12px ${bgColor}60`
-                : `0 2px 8px ${bgColor}40`,
-            },
-          };
-        })
+        prev.map((n) => ({ ...n, data: { ...n.data, __dimmed: !matchSet.has(n.id) } }))
       );
-      // Pan the viewport to show matched nodes
-      const matchedRFNodes = nodes.filter((n) => nodeIds.includes(n.id));
+      const matchedRFNodes = nodes.filter((n) => matchSet.has(n.id));
       if (matchedRFNodes.length > 0) {
         setTimeout(() => fitView({ nodes: matchedRFNodes, padding: 0.5, duration: 600 }), 50);
       }
@@ -446,20 +601,8 @@ function KnowledgeGraphCanvasInternal({ userRole, focusNodeId }: KnowledgeGraphC
   );
 
   const handleSearchClear = useCallback(() => {
-    setNodes((prev) =>
-      prev.map((n) => {
-        const bgColor = resolveNodeColor(n.data?.entity_type as string ?? "concept");
-        return {
-          ...n,
-          style: {
-            ...n.style,
-            opacity: 1,
-            boxShadow: `0 2px 8px ${bgColor}40`,
-          },
-        };
-      })
-    );
-  }, [setNodes]);
+    applyNeighborhoodHighlight(null);
+  }, [applyNeighborhoodHighlight]);
 
   // ── Load more communities ─────────────────────────────────
   const handleLoadMore = useCallback(() => {
@@ -633,6 +776,8 @@ function KnowledgeGraphCanvasInternal({ userRole, focusNodeId }: KnowledgeGraphC
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onNodeClick={handleNodeClick}
+          onPaneClick={handlePaneClick}
+          nodeTypes={NODE_TYPES}
           fitView
           minZoom={0.1}
           maxZoom={3}
@@ -641,7 +786,7 @@ function KnowledgeGraphCanvasInternal({ userRole, focusNodeId }: KnowledgeGraphC
             type: "default",
           }}
         >
-          <Background color="#1e1e2e" gap={20} size={1} />
+          <Background color="var(--border)" gap={24} size={1} />
           <Controls
             showInteractive={false}
             position="bottom-left"
