@@ -23,6 +23,7 @@ import {
 } from './client'
 import type { FetchedChunk } from '../base'
 import { type SyncConfig, getSelectedResourceIds, getExcludedResourceIds } from '../sync-config'
+import { fenceCode } from '../bi-artifact'
 import { supabaseAdmin } from '@/lib/supabase/server'
 
 /**
@@ -223,7 +224,9 @@ async function fetchWorkspaceContent(
               `Dataset: ${ds.name}`,
               `Workspace: ${workspaceName}`,
               measure.description ? `Description: ${measure.description}` : null,
-              `DAX Expression: ${measure.expression}`,
+              // P4-5: fence the DAX so it chunks fence-atomically and survives
+              // normalization byte-identical (operators/whitespace preserved).
+              measure.expression ? `DAX Expression:\n${fenceCode('dax', measure.expression)}` : null,
             ].filter(Boolean).join('\n'),
             source_url: `https://app.powerbi.com/groups/${groupId}/datasets/${ds.id}`,
             shape: 'bi_artifact' as const,

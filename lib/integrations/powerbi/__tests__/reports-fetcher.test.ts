@@ -112,7 +112,8 @@ describe("fetchPowerBIContent", () => {
 
     const measureChunk = result.find((c) => c.chunk_id?.includes("powerbi_measure_ds-1_Total_Revenue"));
     expect(measureChunk?.title).toBe("Power BI Measure: Total Revenue (Sales Dataset)");
-    expect(measureChunk?.content).toContain("DAX Expression: SUM(orders[amount])");
+    // P4-5: DAX is now wrapped in a fenced code block (fence-atomic + D8-safe).
+    expect(measureChunk?.content).toContain("```dax\nSUM(orders[amount])\n```");
     expect(measureChunk?.metadata?.resource_type).toBe("powerbi_measure");
   });
 

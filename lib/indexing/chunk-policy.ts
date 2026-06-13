@@ -218,5 +218,11 @@ export function selectStrategy(shape: DataShape, signals: ChunkSignals): ChunkPl
     return { ...base, strategy: 'fence-atomic' }
   }
 
+  // P4-5: a bi_artifact carrying a fenced query body (DAX / LookML / SQL) chunks
+  // fence-atomically so the definition is never split mid-statement.
+  if (shape === 'bi_artifact' && signals.codeFenceRatio > 0.3) {
+    return { ...base, strategy: 'fence-atomic', childTarget: 512, overlap: 0.05 }
+  }
+
   return base
 }

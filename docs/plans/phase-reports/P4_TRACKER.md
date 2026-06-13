@@ -17,7 +17,7 @@ _Branch: `pipeline/p4-bi-crm-depth` (off `pipeline/p3-docs-email-depth`) · Flag
 
 | ID | Title | Status | Size | Depends on |
 |----|-------|--------|------|------------|
-| P4-5 | Looker/Metabase/Tableau/PowerBI/dbt: artifact-metadata → `bi_artifact`; row samples → `tabular`; DAX/LookML/SQL → fence-atomic | todo | M | P4-1 |
+| P4-5 | Looker/Metabase/Tableau/PowerBI/dbt: artifact-metadata → `bi_artifact`; row samples → `tabular`; DAX/LookML/SQL → fence-atomic | done (shape already P1; DAX fenced + fence-atomic policy; row-sample reclassification deferred) | M | P4-1 |
 
 ## Records
 
@@ -39,6 +39,34 @@ _Branch: `pipeline/p4-bi-crm-depth` (off `pipeline/p3-docs-email-depth`) · Flag
 ---
 
 ## Session notes
+
+### P4-5: bi_artifact fence-atomic for embedded query bodies (2026-06-14)
+
+- **Shape already assigned** in P1: all 5 BI fetchers (Looker/Metabase/Tableau/
+  PowerBI/dbt) already emit `shape: 'bi_artifact'`. This ticket adds the
+  query-body refinement.
+- **`bi-artifact.ts`** (`fenceCode`): wraps a query-language body in a labeled
+  markdown fence. Two payoffs — the P1 chunk-policy engine sees a high
+  `codeFenceRatio` → fence-atomic chunking (definition never split mid-statement),
+  and the P3-4 (D8) fence-aware `normalizeContent` preserves it byte-identical.
+- **PowerBI DAX** (the one concrete embedded code body today): `measure.expression`
+  now wrapped via `fenceCode('dax', …)`.
+- **`selectStrategy` extended:** a `bi_artifact` with `codeFenceRatio > 0.3` (and
+  above its no-split ceiling) now routes to fence-atomic — previously bi_artifact
+  fell straight to its base plan and never chunked fence-atomically.
+- **"row samples → tabular":** the BI fetchers emit artifact-metadata, not full
+  tables. Looker/Metabase append a SMALL run-result sample (≤30 rows) as artifact
+  *context*, not a queryable table — reclassifying it to a separate `tabular`
+  chunk would change chunk_ids and double chunk count for marginal benefit, and is
+  gate-neutral. Kept as context; reclassification documented as a deferred
+  refinement.
+- **LookML / dbt-SQL:** not currently fetched as bodies (Looker emits run results,
+  not LookML source; dbt fetches model metadata, not compiled SQL). `fenceCode` is
+  ready for them once those bodies are fetched — tracked as a follow-up.
+- **Tests:** `bi-artifact.test.ts` (5) — fenceCode verbatim wrap + blank handling;
+  fence-heavy bi_artifact above ceiling → fence-atomic; small → passthrough;
+  prose-only bi_artifact not forced fence-atomic. Updated the PowerBI reports test
+  to expect the fenced DAX. Full suite 983; tsc + RLS clean.
 
 ### P4-6: calendar record-shape depth (D3) (2026-06-14)
 
