@@ -7,6 +7,7 @@ import { type SyncConfig, getSelectedResourceIds, getExcludedResourceIds } from 
 import { tabularChunksFromParsed, type ParsedTable } from '@/lib/integrations/tabular-analysis'
 import { parseWithLlamaParse } from '@/lib/integrations/llamaparse-client'
 import { maybeShadowParse } from '@/lib/integrations/sidecar-shadow'
+import { parseBinaryTiered, parsedToChunks, tieredParsingEnabled, type TsFallbackResult } from '@/lib/integrations/binary-parsing'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -408,6 +409,39 @@ async function fetchDocumentChunks(
     return []
   }
 
+  // P3-1: tiered cascade (sidecar Docling → LlamaParse opt-in → in-process TS).
+  // Flag-gated; when off, the legacy LlamaParse-or-TS path below runs unchanged.
+  if (tieredParsingEnabled()) {
+    const parsed = await parseBinaryTiered(buffer, file.name, orgId, () =>
+      driveTsFallback(file, buffer),
+    )
+    if (parsed.text.startsWith('[Unsupported binary format:')) {
+      skips?.set(`drive:${file.id}:${parsed.text.slice(0, 60)}`, {
+        external_id: `drive:${file.id}`,
+        title: file.name,
+        reason: parsed.text,
+      })
+      return []
+    }
+    const baseMetadata: Record<string, unknown> = {
+      last_modified: file.modifiedTime,
+      author: file.owners?.[0]?.displayName,
+      folder_path: folderPath,
+      mime_type: file.mimeType,
+    }
+    if (departmentId) baseMetadata.department_id = departmentId
+    return parsedToChunks(parsed, {
+      chunkId,
+      title: file.name,
+      sourceUrl,
+      provider: 'google',
+      tabularProvider: 'google_drive_tabular',
+      proseResourceType: 'drive_file',
+      baseMetadata,
+      orgId,
+    })
+  }
+
   if (LLAMAPARSE_BINARY_TYPES.has(ext)) {
     const parsed = await parseWithLlamaParse(file.name, buffer)
     if (parsed) {
@@ -454,6 +488,27 @@ async function fetchDocumentChunks(
   const fallbackChunk = driveFileToChunk(file, content, folderPath)
   if (departmentId) fallbackChunk.metadata.department_id = departmentId
   return [fallbackChunk]
+}
+
+/**
+ * Lane-3 TS fallback for the tiered cascade (P3-1): parse the in-hand binary
+ * buffer with the in-process extractors — no re-download. Mirrors the binary
+ * branches of fetchDriveFileContent but buffer-based.
+ */
+async function driveTsFallback(file: DriveFile, buffer: Buffer): Promise<TsFallbackResult> {
+  if (EXTRACTABLE_BINARY[file.mimeType] === 'pdf') {
+    return { text: await extractPdfText(buffer), version: 'pdf-parse' }
+  }
+  if (EXTRACTABLE_BINARY[file.mimeType] === 'docx') {
+    return { text: await extractDocxText(buffer), version: 'mammoth' }
+  }
+  if (file.mimeType.startsWith('text/')) {
+    return { text: new TextDecoder().decode(buffer), version: 'utf8' }
+  }
+  return {
+    text: `[Unsupported binary format: ${file.mimeType}] (${buffer.byteLength} bytes)`,
+    version: 'none',
+  }
 }
 
 // ─── Google Sheets tabular extraction ────────────────────────────────────────

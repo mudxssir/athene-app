@@ -59,6 +59,89 @@ def test_parse_rejects_oversized_file():
     assert r.status_code == 413
 
 
+def test_parse_response_carries_tables_and_pictures_fields():
+    # Plain-text lane returns empty tables/pictures (Docling-only fields), but the
+    # response shape must always include them so the TS adapter can rely on them.
+    txt = b"just text, no tables"
+    r = client.post(
+        "/parse",
+        files={"file": ("doc.txt", txt, "text/plain")},
+        headers=AUTH,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["tables"] == []
+    assert body["pictures"] == []
+
+
+def test_docling_table_extraction(monkeypatch):
+    # Stub a Docling-shaped result so we exercise _parse_with_docling's table +
+    # picture extraction without the real (heavy) Docling dependency.
+    import main as main_mod
+
+    class _Values:
+        # mimic numpy ndarray.tolist() used by _extract_docling_tables
+        def tolist(self):
+            return [["EMEA", "1200"], ["US", "3400"]]
+
+    class _DF:
+        columns = ["region", "amount"]
+        values = _Values()
+
+    class _Table:
+        def export_to_dataframe(self):
+            return _DF()
+
+    class _Prov:
+        page_no = 3
+
+    class _Pic:
+        prov = [_Prov()]
+
+    class _Doc:
+        tables = [_Table()]
+        pictures = [_Pic()]
+
+        def export_to_markdown(self):
+            return "# Report\n\n| region | amount |"
+
+    def fake_docling(content, filename):
+        tables = main_mod._extract_docling_tables(_Doc())
+        pictures = main_mod._extract_docling_pictures(_Doc(), filename)
+        return "# Report\n\n| region | amount |", "2.x-stub", tables, pictures
+
+    monkeypatch.setattr(main_mod, "_parse_with_docling", fake_docling)
+
+    r = client.post(
+        "/parse",
+        files={"file": ("report.pdf", b"%PDF-stub", "application/pdf")},
+        headers=AUTH,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["parser_used"] == "docling"
+    assert len(body["tables"]) == 1
+    assert body["tables"][0]["headers"] == ["region", "amount"]
+    assert body["tables"][0]["rows"] == [["EMEA", "1200"], ["US", "3400"]]
+    assert len(body["pictures"]) == 1
+    assert body["pictures"][0]["ref"] == "report.pdf:pic1"
+    assert body["pictures"][0]["page"] == 3
+
+
+def test_docling_extractors_degrade_on_bad_shape():
+    # API mismatch (missing attrs / raising methods) must yield [] — never raise.
+    import main as main_mod
+
+    class _BadDoc:
+        @property
+        def tables(self):
+            raise RuntimeError("api changed")
+
+    assert main_mod._extract_docling_tables(_BadDoc()) == []
+    assert main_mod._extract_docling_tables(object()) == []
+    assert main_mod._extract_docling_pictures(object(), "x.pdf") == []
+
+
 def test_chunk_semantic():
     text = " ".join(["word"] * 200)
     r = client.post(

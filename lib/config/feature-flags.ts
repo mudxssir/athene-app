@@ -29,3 +29,25 @@ export const PIPELINE_SHAPE_ROUTING = process.env.PIPELINE_SHAPE_ROUTING === "tr
  * Set KG_OWNER_GRAPH=true to activate.
  */
 export const KG_OWNER_GRAPH = process.env.KG_OWNER_GRAPH === "true";
+
+/**
+ * P3: promote binary parsing to the tiered cascade — sidecar `/parse` (Docling)
+ * lane 1 → LlamaParse lane 2 (per-org opt-in via `organizations.external_
+ * parsing_allowed`) → in-process TS parsers lane 3. Default OFF: when off, the
+ * connectors keep their current LlamaParse-or-TS behavior unchanged. When on,
+ * the sidecar is tried first (and its richer Docling output — heading tree,
+ * tables, picture refs — feeds the structural/tabular/media adapters).
+ * Rollback story: flag off → P1 inline-parser behavior. Set SIDECAR_PARSING=true.
+ */
+export const SIDECAR_PARSING = process.env.SIDECAR_PARSING === "true";
+
+/**
+ * P3: the context envelope — every chunk is embedded as
+ * `contextHeader + '\n\n' + chunkText`, where the header layers a deterministic
+ * breadcrumb, a cached per-document context line, and (for prose/email/work_item)
+ * a per-chunk situating line. The raw chunk_text stored for KG/citations is never
+ * changed; the header lives in a separate embedding-row metadata key. Default OFF
+ * until the P3 gate (rollback: off → breadcrumb-only, never blocks indexing).
+ * Set CONTEXT_ENVELOPE=true to activate.
+ */
+export const CONTEXT_ENVELOPE = process.env.CONTEXT_ENVELOPE === "true";

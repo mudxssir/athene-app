@@ -65,12 +65,26 @@ function cbFailure(): void {
 
 // ── Exported types ────────────────────────────────────────────────────────────
 
+export interface SidecarParsedTable {
+  table_name: string
+  headers: string[]
+  rows: string[][]
+}
+
+export interface SidecarParsedPicture {
+  ref: string
+  page?: number | null
+}
+
 export interface ParseResult {
   markdown: string
   parser_used: 'docling' | 'markitdown' | 'plain'
   parser_version: string
   file_size_bytes: number
   duration_ms: number
+  // Docling-only; absent/empty from the markitdown and plain lanes.
+  tables?: SidecarParsedTable[]
+  pictures?: SidecarParsedPicture[]
 }
 
 export interface ChunkItem {

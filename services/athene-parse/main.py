@@ -66,12 +66,23 @@ async def healthz() -> dict[str, str]:
 
 # ── /parse ───────────────────────────────────────────────────────────────────
 
+class ParsedTableModel(BaseModel):
+    table_name: str
+    headers: list[str]
+    rows: list[list[str]]
+
+class ParsedPictureModel(BaseModel):
+    ref: str               # synthetic provenance ref (filename:pic{n}); not bytes
+    page: int | None = None
+
 class ParseResponse(BaseModel):
     markdown: str
     parser_used: str       # "docling" | "markitdown" | "plain"
     parser_version: str
     file_size_bytes: int
     duration_ms: int
+    tables: list[ParsedTableModel] = []     # Docling only; [] for other lanes
+    pictures: list[ParsedPictureModel] = [] # Docling only; [] for other lanes
 
 @app.post("/parse", response_model=ParseResponse, dependencies=[Depends(require_auth)])
 async def parse(
@@ -80,8 +91,10 @@ async def parse(
 ) -> ParseResponse:
     """
     Parse a binary document (PDF, DOCX, PPTX, XLSX, HTML, …) to markdown.
-    Primary parser: Docling (layout-aware, table-precise).
-    Fallback:       MarkItDown (breadth-first, light-weight).
+    Primary parser: Docling (layout-aware, table-precise; also returns extracted
+                    tables and picture references for the structural/tabular/
+                    media adapters).
+    Fallback:       MarkItDown (breadth-first, light-weight; markdown only).
     Last resort:    Read raw bytes as UTF-8 and return as-is (plain text files).
 
     Byte-size cap: 80 MB. Requests exceeding this are rejected 413.
@@ -100,13 +113,15 @@ async def parse(
 
     # Lane 1: Docling ─────────────────────────────────────────────────────────
     try:
-        markdown, version = _parse_with_docling(content, filename)
+        markdown, version, tables, pictures = _parse_with_docling(content, filename)
         return ParseResponse(
             markdown=markdown,
             parser_used="docling",
             parser_version=version,
             file_size_bytes=len(content),
             duration_ms=int((time.perf_counter() - t0) * 1000),
+            tables=tables,
+            pictures=pictures,
         )
     except Exception:
         pass  # fall through to MarkItDown
@@ -139,7 +154,9 @@ async def parse(
     )
 
 
-def _parse_with_docling(content: bytes, filename: str) -> tuple[str, str]:
+def _parse_with_docling(
+    content: bytes, filename: str
+) -> tuple[str, str, list[ParsedTableModel], list[ParsedPictureModel]]:
     from docling.document_converter import DocumentConverter
     import docling
 
@@ -150,10 +167,61 @@ def _parse_with_docling(content: bytes, filename: str) -> tuple[str, str]:
         tmp.flush()
         converter = DocumentConverter()
         result = converter.convert(tmp.name)
-        markdown = result.document.export_to_markdown()
+        doc = result.document
+        markdown = doc.export_to_markdown()
+        tables = _extract_docling_tables(doc)
+        pictures = _extract_docling_pictures(doc, filename)
 
     version = getattr(docling, "__version__", "unknown")
-    return markdown, version
+    return markdown, version, tables, pictures
+
+
+def _extract_docling_tables(doc: Any) -> list[ParsedTableModel]:
+    """
+    Best-effort extraction of Docling tables into header+rows. Any API shape
+    mismatch returns [] — table loss degrades gracefully (the markdown still
+    carries the table text); it never breaks the parse.
+    """
+    out: list[ParsedTableModel] = []
+    try:
+        tables = getattr(doc, "tables", None) or []
+        for i, tbl in enumerate(tables):
+            try:
+                df = tbl.export_to_dataframe()
+            except Exception:
+                continue
+            headers = [str(c) for c in list(df.columns)]
+            rows = [[("" if v is None else str(v)) for v in row] for row in df.values.tolist()]
+            if not headers or not rows:
+                continue
+            out.append(ParsedTableModel(table_name=f"Table {i + 1}", headers=headers, rows=rows))
+    except Exception:
+        return []
+    return out
+
+
+def _extract_docling_pictures(doc: Any, filename: str) -> list[ParsedPictureModel]:
+    """
+    Best-effort extraction of picture provenance refs. We do NOT return image
+    bytes — only a synthetic ref ('{filename}:pic{n}') and page number so the
+    TS side can create a media_queue stub (P5 fetches/caption later). Returns []
+    on any mismatch.
+    """
+    out: list[ParsedPictureModel] = []
+    try:
+        pics = getattr(doc, "pictures", None) or []
+        for i, pic in enumerate(pics):
+            page = None
+            try:
+                prov = getattr(pic, "prov", None) or []
+                if prov:
+                    page = int(getattr(prov[0], "page_no", None))
+            except Exception:
+                page = None
+            out.append(ParsedPictureModel(ref=f"{filename}:pic{i + 1}", page=page))
+    except Exception:
+        return []
+    return out
 
 
 def _parse_with_markitdown(content: bytes, filename: str) -> tuple[str, str]:

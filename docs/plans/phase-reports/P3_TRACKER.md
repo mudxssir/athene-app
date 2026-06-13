@@ -8,8 +8,8 @@ _Branch: `pipeline/p3-docs-email-depth` · Flags: `SIDECAR_PARSING` (default OFF
 
 | ID | Title | Status | Size | Depends on |
 |----|-------|--------|------|------------|
-| P3-1 | Tiered binary parsing: sidecar `/parse` lane 1 → LlamaParse lane 2 (opt-in) → TS lane 3; `parser_used` stamped | todo | M | P1-11 |
-| P3-2 | Docling output adapter: markdown+headings → structural chunker; tables → `tabularChunksFromParsed`; pictures → media queue stub | todo | M | P3-1 |
+| P3-1 | Tiered binary parsing: sidecar `/parse` lane 1 → LlamaParse lane 2 (opt-in) → TS lane 3; `parser_used` stamped | in-progress (Drive done; MS/uploads next) | M | P1-11 |
+| P3-2 | Docling output adapter: markdown+headings → structural chunker; tables → `tabularChunksFromParsed`; pictures → media queue stub | done | M | P3-1 |
 | P3-3 | D7: Drive `.xlsx` routes through tabular engine; `extractXlsxText` demoted to lane-3 fallback | done | S | P1 tabular |
 | P3-4 | D8: delete global HTML-strip from `normalizeContent`; per-shape converters own sanitization + Gmail HTML-part strip | done | M | — |
 
@@ -47,6 +47,55 @@ _Branch: `pipeline/p3-docs-email-depth` · Flags: `SIDECAR_PARSING` (default OFF
 ---
 
 ## Session notes
+
+### P3-1 + P3-2: tiered parsing cascade + Docling adapter — foundations & Drive (2026-06-13)
+
+_Commit 1 of 2 for the parsing-promotion group. Foundations + the adapter +
+Drive wiring land here; Microsoft (SharePoint/OneDrive) + uploads wiring is
+commit 2 (keeps each PR ≤ ~600 lines per the SDLC protocol)._
+
+- **Flags** (`feature-flags.ts`): `SIDECAR_PARSING` (default OFF — when off, every
+  connector keeps its current LlamaParse-or-TS behavior unchanged; rollback is the
+  flag) and `CONTEXT_ENVELOPE` (default OFF, consumed by P3-10→13).
+- **Migration** `20260613000001_p3_parsing_promotion.sql`:
+  - `organizations.external_parsing_allowed boolean DEFAULT false` — per-org opt-in
+    for LlamaParse (lane 2; bytes leave our boundary). Sidecar (lane 1) and TS
+    (lane 3) stay in-boundary so they need no opt-in.
+  - `media_queue` table (P5 spec: org_id, source_doc_id, sha256, origin, bytes_ref,
+    caption, status, attempts, …) — populated as STUBS from P3 onward (audit D12);
+    P5's caption worker consumes it. Admin-read RLS, service-role write (mirrors
+    `sync_skips`). `bytes_ref` is a pointer, never raw bytes (no content at rest).
+- **Sidecar `/parse` extended** (`services/athene-parse/main.py`): the `ParseResponse`
+  now also returns `tables[]` (Docling `export_to_dataframe` → headers/rows) and
+  `pictures[]` (synthetic `{filename}:pic{n}` refs + page — NOT bytes). Extraction
+  is best-effort: `_extract_docling_tables` / `_extract_docling_pictures` return
+  `[]` on any Docling API mismatch so the markdown path never breaks. markitdown /
+  plain lanes return empty lists. Tests stub a Docling-shaped doc (no heavy dep).
+- **`sidecar-client.ts`**: `ParseResult` gains optional `tables` / `pictures`
+  (`SidecarParsedTable` / `SidecarParsedPicture`).
+- **`binary-parsing.ts`** (new, the shared cascade + adapter):
+  - `parseBinaryTiered(buffer, filename, orgId, tsFallback)` — lane 1 sidecar
+    Docling → lane 2 LlamaParse (gated on `orgAllowsExternalParsing`, 5-min cached
+    per-org read) → lane 3 the caller's in-process TS parser. Returns unified
+    `{ text, tables, pictures, parser_used, parser_version }`.
+  - `parsedToChunks(parsed, opts)` — the P3-2 adapter: tables →
+    `tabularChunksFromParsed` (Tier C), markdown → one prose FetchedChunk (the
+    structural chunker runs downstream in `indexing.ts` on the heading tree),
+    pictures → `enqueueMediaStubs` (fire-and-forget). `parser_used`/`parser_version`
+    stamped on every chunk.
+  - `enqueueMediaStubs` — upserts `media_queue` pending rows (idempotent on
+    org/doc/origin/ref); non-fatal.
+- **Drive wired** (`drive-fetcher.ts`): `fetchDocumentChunks` gains a
+  `tieredParsingEnabled()` branch (after the P3-3 XLSX branch, before the legacy
+  LlamaParse path). Lane-3 fallback `driveTsFallback` parses the in-hand buffer
+  (extractPdfText/extractDocxText) — no re-download. Unsupported-format text still
+  routes to `sync_skips`.
+- **Tests:** `binary-parsing.test.ts` (8) — lane selection (sidecar / LlamaParse
+  opt-in / TS), opt-in cache, adapter chunk emission + parser stamping + media
+  stubs; `test_main.py` +3 (tables/pictures fields, Docling extraction with stub,
+  graceful degradation) = 16 Python green. 50 related TS tests green; tsc clean.
+- **Deferred to commit 2:** SharePoint/OneDrive/upload routing through
+  `parseDocumentEnhanced` (thread orgId, capture parser_used + media stubs).
 
 ### P3-3: D7 — Drive .xlsx routes through the tabular engine (2026-06-13)
 
