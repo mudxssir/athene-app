@@ -475,3 +475,45 @@ commit 2 (keeps each PR ≤ ~600 lines per the SDLC protocol)._
 **Rollback:** lane flags per connector (`SIDECAR_PARSING` off → P1 inline parsers); context
 envelope behind `CONTEXT_ENVELOPE` (off → breadcrumb-only, never blocks); email migration
 reversible only by re-index (accepted — drill on staging org first).
+
+---
+
+## Pre-enablement validation checklist (operational — NOT code)
+
+**Status of the P3 code: DONE.** All 13 tickets implemented + reviewed; full suite
+green (940 TS + 21 Python), `tsc` clean, `check-rls` clean. The items below are
+**operational/deployment** steps that cannot be done from a coding session — they
+need a deployed sidecar, Jina keys, a pilot org, and staging DB access. They are
+the gate between "code merged, flags OFF" and "features enabled on a pilot." This
+is the work referenced as "we will work on it next."
+
+Nothing here blocks **P4 code** — P4 (BI+CRM) depends on P1 (shape routing) + P2
+(identity), both done; the roadmap explicitly allows P3/P4 to interleave. These
+validations should be **batched** with the equivalent pending P1/P2 gate
+measurements into one pilot-deployment pass.
+
+| # | Step | Needs | Owner |
+|---|------|-------|-------|
+| V1 | Apply P3 migrations on staging (`20260613000001`, `20260613000002`) + verify rollback | staging DB | infra |
+| V2 | Deploy `athene-parse` sidecar (Docling+Talon image); set `SIDECAR_URL`/`SIDECAR_AUTH_TOKEN`; build-validate `talon==1.4.4` + Docling table/picture API shapes | sidecar host (Fly/Cloud Run) | infra |
+| V3 | Flip `SIDECAR_PARSING=true` on pilot org; measure parser-fallback rate <5% over a week (gate) | deployed sidecar + telemetry window | pilot |
+| V4 | Flip `CONTEXT_ENVELOPE=true` on pilot org; re-embed + measure prose recall@5 ≥20% over P0 baseline (gate) | Jina keys + pilot org | pilot |
+| V5 | Run `delete-per-slice-emails.ts --execute` on a STAGING org first (dry-run drill), then pilot; verify documents-per-email = 1 and email dup-text <2% (gate) | staging + pilot | pilot |
+| V6 | Verify decision nodes appear from Drive/Gmail/SharePoint/upload fixtures on pilot (D1 close confirmation) | pilot data | pilot |
+| V7 | Confirm `media_queue` is accumulating stubs (Docling pictures + Gmail attachments) for P5 to consume | pilot data | pilot |
+
+## Deferred code follow-ups (small, tracked — not gate blockers)
+
+These are completeness gaps documented at implementation time; each is gate-neutral
+and can be picked up independently of P4:
+
+1. **Thread-parent retrieval JOIN** (P3-8) — `vector_search` RPC change to return the
+   synthetic thread-parent for child hits (cross-document, on `thread_id`). The
+   anchor doc is already written; only the search-time JOIN is pending.
+2. **Outlook attachment enumeration** (P3-9) — needs a per-email Graph
+   `/messages/{id}/attachments` call; Gmail attachments already stubbed.
+3. **Notion ancestor-walk / Confluence space-name breadcrumb enrichment** (P3-11) —
+   the builder already consumes a pre-built `breadcrumb_path` when present.
+4. **Structural-path context envelope** (P3-13) — wire headers into the
+   `indexDocument` structural branch (only reachable when BOTH `PIPELINE_SHAPE_ROUTING`
+   and `CONTEXT_ENVELOPE` are on; standard paths — the common config — are wired).
