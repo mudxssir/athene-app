@@ -1,4 +1,4 @@
-import { fetchUnreadEmails, fetchEmailBody, type OutlookEmail } from './outlook-fetcher'
+import { fetchUnreadEmails, fetchEmailBody, formatRecipients, OUTLOOK_EMAIL_SELECT, type OutlookEmail } from './outlook-fetcher'
 import { fetchEvents } from './calendar-fetcher'
 import { listOneDriveDocs, fetchOneDriveDocContent } from './onedrive-fetcher'
 import { listSharePointDocs, fetchDocContent as fetchSharePointDocContent } from './sharepoint-fetcher'
@@ -8,10 +8,6 @@ import { graphFetch } from './graph-client'
 import { logger } from '@/lib/logger'
 import { type SyncConfig, getSelectedResourceIds } from '../sync-config'
 import { tabularChunksFromParsed } from '@/lib/integrations/tabular-analysis'
-
-// ─── Email chunking constants ────────────────────────────────────────────────
-const EMAIL_CHUNK_SIZE = 2000
-const EMAIL_CHUNK_OVERLAP = 200
 
 /** Strip HTML tags so raw body content is plain text for embeddings. */
 function stripOutlookHtml(html: string): string {
@@ -66,7 +62,7 @@ export async function microsoftFetcher(
       ? (await Promise.all(
           selectedFolderIds.map(folderId =>
             graphFetch(connectionId, orgId,
-              `/me/mailFolders/${folderId}/messages?$filter=isRead eq false&$top=50&$select=subject,from,receivedDateTime,bodyPreview,webLink`
+              `/me/mailFolders/${folderId}/messages?$filter=isRead eq false&$top=50&$select=${OUTLOOK_EMAIL_SELECT}`
             ).then(r => r.value ?? []).catch(() => [])
           )
         )).flat() as OutlookEmail[]
@@ -79,48 +75,53 @@ export async function microsoftFetcher(
       const results = await Promise.all(
         batch.map(async (email: OutlookEmail) => {
           const emailChunks: FetchedChunk[] = []
+          const from = email.from?.emailAddress?.name ?? email.from?.emailAddress?.address ?? 'Unknown'
+          // D4 (P3-5): ONE chunk per email. chunk_id = ms_email_{id} (no :idx);
+          // conversationId → thread_id for thread stitching (P3-8). Sub-chunking
+          // happens at index time (email shape policy), not by pre-slicing.
           try {
             const rawBody = await fetchEmailBody(connectionId, orgId, email.id)
             // Graph API returns body as HTML for most emails
             const body = stripOutlookHtml(rawBody)
-            const from = email.from?.emailAddress?.name ?? email.from?.emailAddress?.address ?? 'Unknown'
+            const to = formatRecipients(email.toRecipients)
+            const cc = formatRecipients(email.ccRecipients)
             const prefix = [
               `From: ${from}`,
+              to ? `To: ${to}` : null,
+              cc ? `Cc: ${cc}` : null,
               `Subject: ${email.subject ?? '(no subject)'}`,
               `Date: ${email.receivedDateTime ?? ''}`,
-            ].join('\n') + '\n\n'
+            ].filter(Boolean).join('\n') + '\n\n'
 
-            const fullText = prefix + body
-            let offset = 0
-            let idx = 0
-            while (offset < fullText.length) {
-              const slice = fullText.slice(offset, offset + EMAIL_CHUNK_SIZE)
-              emailChunks.push({
-                chunk_id: `ms_email_${email.id}:${idx}`,
-                title: `Email: ${email.subject ?? '(no subject)'}`,
-                content: slice,
-                source_url: email.webLink,
-                shape: 'email' as const,
-                metadata: {
-                  provider: 'microsoft',
-                  resource_type: 'email',
-                  id: email.id,
-                  author: from,
-                  last_modified: email.receivedDateTime ?? undefined,
-                },
-              })
-              offset += EMAIL_CHUNK_SIZE - EMAIL_CHUNK_OVERLAP
-              idx++
-            }
+            emailChunks.push({
+              chunk_id: `ms_email_${email.id}`,
+              title: `Email: ${email.subject ?? '(no subject)'}`,
+              content: prefix + body,
+              source_url: email.webLink,
+              shape: 'email' as const,
+              metadata: {
+                provider: 'microsoft',
+                resource_type: 'email',
+                id: email.id,
+                author: from,
+                last_modified: email.receivedDateTime ?? undefined,
+                thread_id: email.conversationId ?? undefined,
+              },
+            })
           } catch {
             // Fallback to bodyPreview if full body fetch fails
             emailChunks.push({
-              chunk_id: `ms_email_${email.id}:0`,
+              chunk_id: `ms_email_${email.id}`,
               title: `Email: ${email.subject ?? '(no subject)'}`,
-              content: `From: ${email.from?.emailAddress?.name ?? 'Unknown'}\n\n${email.bodyPreview ?? ''}`,
+              content: `From: ${from}\n\n${email.bodyPreview ?? ''}`,
               source_url: email.webLink,
               shape: 'email' as const,
-              metadata: { provider: 'microsoft', resource_type: 'email', id: email.id },
+              metadata: {
+                provider: 'microsoft',
+                resource_type: 'email',
+                id: email.id,
+                thread_id: email.conversationId ?? undefined,
+              },
             })
           }
           return emailChunks

@@ -25,6 +25,7 @@ import {
   fetchGmailAttachment,
   sendEmail,
   gmailMetadataToChunk,
+  indexEmailChunks,
 } from '@/lib/integrations/google/gmail-fetcher'
 
 import {
@@ -331,6 +332,57 @@ describe('Gmail FetchedChunk Builder', () => {
     expect(chunk.metadata.provider).toBe('google')
     expect(chunk.metadata.resource_type).toBe('email')
     expect(chunk.metadata.author).toBe('bob@example.com')
+  })
+
+  // P3-5 / audit D4: indexEmailChunks emits ONE chunk per email (chunk_id
+  // gmail:{id}, no :idx), with a canonical header block (From/To/Cc/Subject/Date)
+  // and thread_id — instead of pre-slicing into overlapping per-slice documents.
+  it('indexEmailChunks emits one chunk per email with canonical header + thread_id', async () => {
+    // base64url body of a long plain-text email (> old 2000-char slice size)
+    const longBody = 'This is the body. '.repeat(200) // ~3600 chars
+    const bodyB64 = Buffer.from(longBody, 'utf-8')
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+
+    mockGoogleFetch.mockImplementation((_c: string, _o: string, url: string) => {
+      if (url.includes('/messages?')) {
+        return Promise.resolve({ messages: [{ id: 'm-1' }] })
+      }
+      // full message fetch
+      return Promise.resolve({
+        id: 'm-1',
+        threadId: 'thread-9',
+        internalDate: '1745123456000',
+        payload: {
+          mimeType: 'text/plain',
+          headers: [
+            { name: 'From', value: 'bob@example.com' },
+            { name: 'To', value: 'alice@example.com' },
+            { name: 'Cc', value: 'carol@example.com' },
+            { name: 'Subject', value: 'Quarterly plan' },
+            { name: 'Date', value: 'Mon, 20 Apr 2026' },
+          ],
+          body: { size: longBody.length, data: bodyB64 },
+        },
+      })
+    })
+
+    const chunks = await indexEmailChunks(CONN, ORG, { limit: 10 })
+
+    // Exactly one chunk for the one email (no per-slice fragmentation).
+    expect(chunks).toHaveLength(1)
+    const c = chunks[0]
+    expect(c.chunk_id).toBe('gmail:m-1') // no :idx suffix
+    expect(c.metadata.thread_id).toBe('thread-9')
+    expect(c.shape).toBe('email')
+    // Canonical header block precedes the body, includes Cc.
+    expect(c.content).toContain('From: bob@example.com')
+    expect(c.content).toContain('To: alice@example.com')
+    expect(c.content).toContain('Cc: carol@example.com')
+    expect(c.content).toContain('Subject: Quarterly plan')
+    // Full body present in the single chunk (not truncated to a 2000-char slice).
+    expect(c.content.length).toBeGreaterThan(3000)
   })
 
   it('gmailMetadataToChunk handles missing subject', () => {

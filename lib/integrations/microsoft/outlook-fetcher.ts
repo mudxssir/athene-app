@@ -23,18 +23,38 @@ export interface EmailDraft {
   }[]
 }
 
+interface OutlookRecipient {
+  emailAddress?: { name?: string; address?: string }
+}
+
 export interface OutlookEmail {
   id: string
   subject: string | null
   bodyPreview: string | null
   receivedDateTime: string | null
   webLink: string
+  conversationId?: string | null
   from?: {
     emailAddress?: {
       name?: string
       address?: string
     }
   }
+  toRecipients?: OutlookRecipient[]
+  ccRecipients?: OutlookRecipient[]
+}
+
+/** $select field list for the canonical header block (P3-5). Shared so the
+ *  per-folder query in index.ts and fetchUnreadEmails stay in sync. */
+export const OUTLOOK_EMAIL_SELECT =
+  'subject,from,toRecipients,ccRecipients,conversationId,receivedDateTime,bodyPreview,webLink'
+
+/** Render a recipient list as "Name <addr>, …" for the header block. */
+export function formatRecipients(recipients?: OutlookRecipient[]): string {
+  return (recipients ?? [])
+    .map((r) => r.emailAddress?.name ?? r.emailAddress?.address)
+    .filter(Boolean)
+    .join(', ')
 }
 
 /**
@@ -42,7 +62,7 @@ export interface OutlookEmail {
  * For background indexing, full bodies are fetched separately via fetchEmailBody.
  */
 export async function fetchUnreadEmails(connectionId: string, orgId: string, limit = 20): Promise<OutlookEmail[]> {
-  const data = await graphFetch(connectionId, orgId, `/me/messages?$filter=isRead eq false&$top=${limit}&$select=subject,from,receivedDateTime,bodyPreview,webLink`)
+  const data = await graphFetch(connectionId, orgId, `/me/messages?$filter=isRead eq false&$top=${limit}&$select=${OUTLOOK_EMAIL_SELECT}`)
   return data.value ?? []
 }
 

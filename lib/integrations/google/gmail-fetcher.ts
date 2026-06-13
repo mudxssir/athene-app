@@ -25,6 +25,7 @@ export interface GmailMessageMetadata {
     subject?: string
     date?: string
     to?: string
+    cc?: string
   }
   internalDate: string
 }
@@ -251,13 +252,11 @@ export async function searchEmailChunks(
 
 // ─── Background Indexing ─────────────────────────────────────────────────────
 
-const CHUNK_SIZE = 2000
-const CHUNK_OVERLAP = 200
-
 /**
- * Background indexing fetcher: fetches full email bodies and returns
- * chunked FetchedChunks for embedding. Called by the nango-fetch worker.
- * Unlike searchEmailChunks (live/agent), this indexes full body text.
+ * Background indexing fetcher: fetches full email bodies and returns one
+ * FetchedChunk per email (sub-chunking happens at index time). Called by the
+ * nango-fetch worker. Unlike searchEmailChunks (live/agent), this indexes full
+ * body text.
  */
 export async function indexEmailChunks(
   connectionId: string,
@@ -317,40 +316,36 @@ export async function indexEmailChunks(
           const full = await googleFetch<GmailMessageFull>(connectionId, orgId, url)
           const headers = extractHeaders(full.payload.headers ?? [])
           const body = extractBodyFromPayload(full.payload)
+          // Canonical header block (From/To/Cc/Subject/Date), then full body.
           const prefix = [
-            headers.from    ? `From: ${headers.from}`    : null,
-            headers.to      ? `To: ${headers.to}`        : null,
+            headers.from    ? `From: ${headers.from}`       : null,
+            headers.to      ? `To: ${headers.to}`           : null,
+            headers.cc      ? `Cc: ${headers.cc}`           : null,
             headers.subject ? `Subject: ${headers.subject}` : null,
-            headers.date    ? `Date: ${headers.date}`    : null,
+            headers.date    ? `Date: ${headers.date}`       : null,
           ].filter(Boolean).join('\n') + '\n\n'
 
-          const fullText = prefix + body
-          const msgChunks: FetchedChunk[] = []
-          let offset = 0
-          let idx = 0
-          while (offset < fullText.length) {
-            const slice = fullText.slice(offset, offset + CHUNK_SIZE)
-            const metadata = {
-              provider: 'google',
-              resource_type: 'email',
-              last_modified: new Date(Number(full.internalDate ?? 0)).toISOString(),
-              author: headers.from,
-              thread_id: full.threadId,
-            }
-            assertSafeMetadata(metadata)
-
-            msgChunks.push({
-              chunk_id: `gmail:${msg.id}:${idx}`,
-              title: headers.subject || '(no subject)',
-              content: slice,
-              source_url: `https://mail.google.com/mail/u/0/#inbox/${msg.id}`,
-              shape: 'email' as const,
-              metadata,
-            })
-            offset += CHUNK_SIZE - CHUNK_OVERLAP
-            idx++
+          // D4 (P3-5): ONE chunk per email. chunk_id = gmail:{id} (no :idx) so a
+          // single documents row holds the whole message; sub-chunking happens at
+          // index time (chunk-policy email shape) with small-to-big, instead of
+          // pre-slicing into overlapping per-slice documents.
+          const metadata = {
+            provider: 'google',
+            resource_type: 'email',
+            last_modified: new Date(Number(full.internalDate ?? 0)).toISOString(),
+            author: headers.from,
+            thread_id: full.threadId,
           }
-          return msgChunks
+          assertSafeMetadata(metadata)
+
+          return [{
+            chunk_id: `gmail:${msg.id}`,
+            title: headers.subject || '(no subject)',
+            content: prefix + body,
+            source_url: `https://mail.google.com/mail/u/0/#inbox/${msg.id}`,
+            shape: 'email' as const,
+            metadata,
+          }] satisfies FetchedChunk[]
         } catch {
           return []
         }
@@ -372,6 +367,7 @@ function extractHeaders(headers: GmailHeader[]): GmailMessageMetadata['headers']
     if (key === 'subject') result.subject = h.value
     if (key === 'date') result.date = h.value
     if (key === 'to') result.to = h.value
+    if (key === 'cc') result.cc = h.value
   }
   return result
 }

@@ -17,7 +17,7 @@ _Branch: `pipeline/p3-docs-email-depth` · Flags: `SIDECAR_PARSING` (default OFF
 
 | ID | Title | Status | Size | Depends on |
 |----|-------|--------|------|------------|
-| P3-5 | Gmail + Outlook emit ONE chunk per email (full body, canonical header block); `chunk_id` without `:idx`; Outlook `conversationId` → thread_id | todo | M | P1 shape |
+| P3-5 | Gmail + Outlook emit ONE chunk per email (full body, canonical header block); `chunk_id` without `:idx`; Outlook `conversationId` → thread_id | done | M | P1 shape |
 | P3-6 | Sidecar `/email/clean` (Talon): reply text embedded; quoted tail + signature → final non-embedded chunk | todo | M | P3-5, P1-11 |
 | P3-7 | Migration: delete per-slice email documents + paced mailbox re-index; citation links survive | todo | S | P3-5 |
 | P3-8 | Thread parent rows: synthetic parent per `thread_id` for small-to-big return + cached thread doc-context line | todo | M | P3-5 |
@@ -47,6 +47,36 @@ _Branch: `pipeline/p3-docs-email-depth` · Flags: `SIDECAR_PARSING` (default OFF
 ---
 
 ## Session notes
+
+### P3-5: one chunk per email (Gmail + Outlook) — audit D4 (2026-06-13)
+
+_First ticket of the email-rebuild group. Interdependency order within the group:
+P3-5 (this) → P3-6 (Talon clean) → P3-9 (calendar/attachment branch) → P3-8
+(thread parents) → **P3-7 migration LAST** (so re-index produces final-form
+chunks after all content changes land)._
+
+- **Root cause (D4):** both `indexEmailChunks` (Gmail) and the Outlook loop in
+  `microsoft/index.ts` pre-sliced each email into 2000/200 overlapping windows
+  with `chunk_id` `gmail:{id}:{idx}` / `ms_email_{id}:{idx}` — one `documents` row
+  per slice, overlap text duplicated across rows.
+- **Fix:** emit ONE FetchedChunk per email, `chunk_id = gmail:{id}` /
+  `ms_email_{id}` (no `:idx`). A single `documents` row now holds the whole
+  message; sub-chunking happens at index time (email-shape chunk policy when
+  `PIPELINE_SHAPE_ROUTING` on, else the legacy `chunkEmail` char-chunker), giving
+  correct chunk_index 0..n within one document instead of N documents.
+- **Canonical header block:** From / To / Cc / Subject / Date prepended to the
+  body. Gmail: added `cc` to `extractHeaders` + the header type. Outlook: extended
+  `OutlookEmail` with `toRecipients`/`ccRecipients`/`conversationId`, a shared
+  `OUTLOOK_EMAIL_SELECT` $select (folder query + `fetchUnreadEmails` stay in sync),
+  and `formatRecipients` helper.
+- **Thread stitching:** Gmail `thread_id` already carried (`full.threadId`);
+  Outlook now maps `conversationId` → `metadata.thread_id` (feeds P3-8 thread
+  parents). The bodyPreview fallback path also stamps thread_id.
+- Removed now-dead per-slice chunk-size constants in both files.
+- **Tests:** `google-fetchers.test.ts` +1 — `indexEmailChunks` emits exactly one
+  chunk for a >3k-char email, `chunk_id` `gmail:m-1` (no `:idx`), canonical header
+  incl. Cc, `thread_id` present, full body retained. 48 google+microsoft tests
+  green; tsc clean.
 
 ### P3-1 + P3-2: tiered parsing cascade + Docling adapter — foundations & Drive (2026-06-13)
 
