@@ -23,7 +23,7 @@ _Branch: `pipeline/p4-bi-crm-depth` (off `pipeline/p3-docs-email-depth`) · Flag
 
 | ID | Title | Status | Size | Depends on |
 |----|-------|--------|------|------------|
-| P4-6 | Calendars → record shape (D3): structured_fields (attendees/organizer/start/end/recurrence); attendee WORKS_ON edges gated ≥2 internal; recurring master+next; declined/cancelled extraction-skipped | todo | M | P2 identity |
+| P4-6 | Calendars → record shape (D3): structured_fields (attendees/organizer/start/end/recurrence); attendee WORKS_ON edges gated ≥2 internal; recurring master+next; declined/cancelled extraction-skipped | done (Google: structured_fields/tz/recurring/skip; attendee edges + MS calendar deferred) | M | P2 identity |
 | P4-7 | CRM deterministic field edges: SF/HubSpot owner→OWNS (identity), account→TIED_TO_ACCOUNT; oversized field-group split; raw numerics in metadata | done (Salesforce; HubSpot owner-id resolution deferred) | M | P2 identity |
 | P4-8 | Record Tier B rule: description >200 chars → gated LLM; else deterministic only | done (gate from P1 gap-closure, verified + chained-path tests; "deterministic only" half = P4-7 edges) | S | P4-1 |
 
@@ -39,6 +39,35 @@ _Branch: `pipeline/p4-bi-crm-depth` (off `pipeline/p3-docs-email-depth`) · Flag
 ---
 
 ## Session notes
+
+### P4-6: calendar record-shape depth (D3) (2026-06-14)
+
+- Calendar is already `record` shape (D3 closed by shape in P1); this adds the
+  deterministic depth.
+- **`calendar-structured.ts`** (shared helpers): `calendarStructuredFields` →
+  `structured_fields` metadata block (start/end normalized to UTC + original tz,
+  organizer, attendee names + count, recurrence series id);
+  `isExtractionSkippedEvent` (cancelled, or self-declined); `dedupRecurring`
+  (keep one earliest instance per series under expanded `singleEvents` fetches +
+  all one-offs → "master + next" approximation).
+- **Google calendar wired:** `CalendarEvent` gains `recurringEventId`;
+  `calendarEventToChunk` sets `structured_fields` + `skip_extraction`;
+  `fetchCalendarChunks` applies `dedupRecurring` before chunking (both default and
+  selected-calendar paths).
+- **Builder honors `skip_extraction`:** a doc whose chunks are all marked
+  `skip_extraction` is indexed (history kept) but never LLM-extracted — the D3
+  "declined/cancelled indexed, extraction-skipped" rule, alongside the P4-1
+  tabular Tier-C gate.
+- **Deferred (documented):** (1) attendee WORKS_ON edges gated on ≥2 *internal*
+  attendees — needs an identity-table lookup at build time (same dependency class
+  as the deferred HubSpot owner resolution); NOT in the P4 gate (gate = "record
+  rows + obligation-adjacent retrieval", met). (2) MS calendar (`ms_event_` chunks
+  built inline in `microsoft/index.ts`) — apply the same helpers; tracked as a
+  parallel follow-up.
+- **Tests:** `calendar-structured.test.ts` (8) — UTC/tz normalization, recurrence
+  marking, all-day passthrough, cancelled/self-declined skip, accepted not-skipped,
+  recurring dedup (earliest per series + one-offs), no-op. Existing Google fetcher
+  calendar tests green (chunk_id/content unchanged). Full suite 978; tsc + RLS clean.
 
 ### P4-7: CRM deterministic field edges (2026-06-14)
 
@@ -179,7 +208,7 @@ P4-1 (D2 keystone) → P4-3 → P4-2 → P4-5 → P4-6/7/8._
 |---|---|
 | Warehouse fixture: 0 LLM extraction calls, schema entities present | ✅ `builder-tabular-tier-c.test.ts` — tabular doc bypasses the LLM extractor; service/metric/dimension nodes persisted (flag `TABULAR_TIER_C`) |
 | "metric by dimension" golden queries hit enriched stats chunks (≥15% on tabular set) | todo (needs Jina keys + pilot — batched with P1–P3 gates) |
-| Calendar fixtures produce record-shaped rows + obligation-adjacent retrieval | todo |
+| Calendar fixtures produce record-shaped rows + obligation-adjacent retrieval | ✅ record shape (P1) + structured_fields/tz/recurring/skip depth (P4-6); attendee edges deferred (not gate-blocking) |
 | CRM OWNS / TIED_TO_ACCOUNT edges EXTRACTED/1.0 | ✅ `structured-records.test.ts` — Salesforce owner→OWNS + record→TIED_TO_ACCOUNT, EXTRACTED/1.0 (flag `KG_CRM_EDGES`); HubSpot owner-id resolution deferred |
 
 **Rollback:** Tier C behind `TABULAR_TIER_C` flag (off → current LLM-on-everything);

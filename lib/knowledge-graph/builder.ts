@@ -237,13 +237,24 @@ async function processDocument(
     extractorChunks.every((c) =>
       TABULAR_RESOURCE_TYPES.has(String((c.metadata as Record<string, unknown> | undefined)?.resource_type ?? '')))
 
+  // P4-6 (D3): a doc whose chunks are ALL marked skip_extraction (cancelled /
+  // self-declined calendar events) is indexed for history but never LLM-extracted.
+  const isSkipExtractionDoc =
+    extractorChunks.length > 0 &&
+    extractorChunks.every((c) => (c.metadata as Record<string, unknown> | undefined)?.skip_extraction === true)
+
   // Tier A/B gate (REFOCUS §5.3 + P2-10 chain): Slack chunks get embeddings
   // only unless they match decision/blocker signal patterns AND GLiNER
   // confirms real person/org/project entities (sidecar down → fail open).
   const chunkTexts = extractorChunks.map((c) => c.text)
-  const runLLM = !isTabularDoc && (await shouldRunExtractionChained(doc.source_type, chunkTexts))
+  const runLLM =
+    !isTabularDoc &&
+    !isSkipExtractionDoc &&
+    (await shouldRunExtractionChained(doc.source_type, chunkTexts))
   if (isTabularDoc) {
     logger.info({ docId, sourceType: doc.source_type }, '[builder] Tier C (tabular) — deterministic schema entities, no LLM')
+  } else if (isSkipExtractionDoc) {
+    logger.info({ docId, sourceType: doc.source_type }, '[builder] skip_extraction (cancelled/declined) — indexed, no LLM')
   } else if (!runLLM) {
     logger.info({ docId, sourceType: doc.source_type }, '[builder] Tier B — gate not passed, skipping LLM extraction')
   }

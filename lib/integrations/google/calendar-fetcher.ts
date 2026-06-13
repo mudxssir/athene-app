@@ -2,6 +2,7 @@ import { googleFetch } from './api-client'
 import type { FetchedChunk } from '@/lib/integrations/base'
 import { assertSafeMetadata } from '@/lib/integrations/base'
 import { type SyncConfig, getSelectedResourceIds } from '@/lib/integrations/sync-config'
+import { calendarStructuredFields, isExtractionSkippedEvent, dedupRecurring } from '@/lib/integrations/calendar-structured'
 import { logger } from '@/lib/logger'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -23,6 +24,8 @@ export interface CalendarEvent {
   status?: string
   created?: string
   updated?: string
+  /** Present on expanded recurring instances (points at the series master). */
+  recurringEventId?: string
 }
 
 export interface CalendarListResponse {
@@ -167,12 +170,17 @@ export function calendarEventToChunk(event: CalendarEvent): FetchedChunk {
     event.status ? `Status: ${event.status}` : null,
   ].filter(Boolean).join('\n')
 
+  // P4-6 (D3 depth): structured_fields block (attendees/organizer/start-end UTC +
+  // tz/recurrence) for faceted retrieval; skip_extraction marks cancelled/declined
+  // events so they are indexed (history) but never sent to the LLM extractor.
   const metadata: FetchedChunk['metadata'] = {
     provider: 'google',
     resource_type: 'calendar_event',
     last_modified: event.updated || event.created,
     author: event.organizer?.displayName || event.organizer?.email,
     event_status: event.status,
+    structured_fields: calendarStructuredFields(event),
+    skip_extraction: isExtractionSkippedEvent(event),
   }
   assertSafeMetadata(metadata)
 
@@ -203,8 +211,9 @@ export async function fetchCalendarChunks(
   const selectedCalendarIds = syncConfig ? getSelectedResourceIds(syncConfig) : null
 
   if (!selectedCalendarIds || selectedCalendarIds.size === 0) {
-    // Default: primary calendar only
-    const events = await fetchCalendarEvents(connectionId, orgId, timeMin, timeMax)
+    // Default: primary calendar only. P4-6: dedup expanded recurring instances
+    // (singleEvents=true) to master + next per series before chunking.
+    const events = dedupRecurring(await fetchCalendarEvents(connectionId, orgId, timeMin, timeMax))
     return events.map(calendarEventToChunk)
   }
 
@@ -212,7 +221,7 @@ export async function fetchCalendarChunks(
   const allChunks: FetchedChunk[] = []
   for (const calId of selectedCalendarIds) {
     try {
-      const events = await fetchCalendarEvents(connectionId, orgId, timeMin, timeMax, 50, calId)
+      const events = dedupRecurring(await fetchCalendarEvents(connectionId, orgId, timeMin, timeMax, 50, calId))
       allChunks.push(...events.map(calendarEventToChunk))
     } catch (err) {
       logger.warn(
