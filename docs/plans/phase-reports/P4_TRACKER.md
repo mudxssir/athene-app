@@ -38,6 +38,43 @@ _Branch: `pipeline/p4-bi-crm-depth` (off `pipeline/p3-docs-email-depth`) · Flag
 
 ---
 
+## Post-implementation review round (2026-06-14)
+
+Full review against the plan, objectives, SDLC rules, and regressions. Ran the
+complete suite (996 TS + 21 Python + tsc + check-rls + check-chunk-text). Findings
++ fixes (all in P4-3 PII masking and P4-6 calendar — the two opt-in surfaces):
+
+1. **Phone regex false-positive on numeric IDs (P4-3).** The phone pattern matched
+   a bare 10-digit run, so an order id / account number / large integer in a
+   sample value was masked as `***` (`1234567890` → `***`), and a longer run was
+   partially consumed and corrupted (`99999999999999` → `***9`). **Fixed:** the
+   phone pattern now REQUIRES a phone-like separator or parens
+   (`415-555-2671`, `(415) 555-2671`, `+1 415 555 2671`), so bare digit runs are
+   never masked and never partially matched. Trade-off (bare-no-separator phone
+   not masked) is acceptable for opt-in PII on structured data where bare runs are
+   far more likely identifiers.
+2. **Aggregation-chunk PII leak (P4-3).** `maskPII` was applied to sample rows and
+   stats categorical top-values but NOT to aggregation dimension values — so
+   "revenue by customer_email" leaked emails in the agg chunk. **Fixed:**
+   `buildAggregationChunk` now masks `dimValue` (the metric number is unaffected).
+3. **Self-declined detection was dead (P4-6).** `isExtractionSkippedEvent(event)`
+   was called without a `selfEmail`, so only cancelled events were skipped —
+   declined-by-me events still ran the LLM. **Fixed:** detection now prefers
+   Google's `self: true` attendee flag (no caller wiring needed); `selfEmail`
+   remains a fallback for other providers. `CalendarEvent`/`CalendarAttendee` gain
+   `self`.
+4. **Tests** added for all three: bare-id / long-int not masked + separator phones
+   still masked; agg-chunk dimension masking; self-declined via the `self` flag +
+   not-skipped when a non-self attendee declined.
+
+Confirmed clean (no change needed): P4-7 metadata flow (CRM `structured_owners`/
+`structured_account` reach the document row via `...chunk.metadata` in
+upsertDocumentRecord, so `buildStructuredRecordGraph` reading `docArg.metadata`
+works); P4-1 schema-entity dedup + the three builder gates (tabular / skip /
+Tier-B) compose correctly and are flag-isolated; vocab-enrichment cache key +
+fail-open; chunk-text-store rule (no new raw `chunk_text` literals); fence-aware
+normalization preserves the P4-5 DAX fence + P4-2 alias line.
+
 ## Session notes
 
 ### P4-2: tabular vocabulary enrichment (2026-06-14)

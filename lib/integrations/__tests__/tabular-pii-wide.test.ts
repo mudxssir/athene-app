@@ -14,7 +14,7 @@ vi.mock('@/lib/logger', () => ({ logger: { warn: vi.fn(), info: vi.fn(), error: 
 // Flag ON for this file so masking is exercised.
 vi.mock('@/lib/config/feature-flags', () => ({ TABULAR_PII_MASKING: true }))
 
-import { maskPII, buildSampleChunk } from '@/lib/integrations/bi-chunking'
+import { maskPII, buildSampleChunk, buildAggregationChunk } from '@/lib/integrations/bi-chunking'
 
 describe('maskPII (P4-3, flag ON)', () => {
   it('masks emails, SSNs, and phone numbers', () => {
@@ -32,6 +32,21 @@ describe('maskPII (P4-3, flag ON)', () => {
 
   it('masks multiple tokens in one value', () => {
     expect(maskPII('a@b.com / 123-45-6789')).toBe('*** / ***')
+  })
+
+  // Review fix: a bare run of digits (order id, account number, large integer)
+  // is NOT a phone — the phone pattern requires a separator/parens. Guards
+  // against masking legitimate numeric identifiers + partial-match corruption.
+  it('does NOT mask bare numeric ids or long integers', () => {
+    expect(maskPII('1234567890')).toBe('1234567890')           // 10-digit id
+    expect(maskPII('order 9876543210')).toBe('order 9876543210')
+    expect(maskPII('99999999999999')).toBe('99999999999999')   // no partial ***9
+  })
+
+  it('still masks separator/parens phone formats', () => {
+    expect(maskPII('415.555.2671')).toBe('***')
+    expect(maskPII('(415) 555-2671')).toBe('***')
+    expect(maskPII('+1 415-555-2671')).toBe('***')
   })
 })
 
@@ -52,6 +67,27 @@ describe('buildSampleChunk — PII masking applied to rendered rows (flag ON)', 
     expect(chunk.content).toContain('***')
     // Non-PII values survive.
     expect(chunk.content).toContain('Alice')
+  })
+})
+
+describe('buildAggregationChunk — PII masking on dimension values (flag ON)', () => {
+  it('masks PII dimension values (e.g. "revenue by customer_email")', () => {
+    const chunk = buildAggregationChunk(
+      'crm.deals',
+      [{
+        dimension: 'customer_email',
+        metric: 'total_revenue',
+        rows: [
+          { dimValue: 'alice@acme.com', metricValue: '50000' },
+          { dimValue: 'bob@acme.com', metricValue: '30000' },
+        ],
+      }],
+      'snowflake',
+      'https://x',
+    )
+    expect(chunk.content).not.toContain('@acme.com')
+    expect(chunk.content).toContain('***: 50000')   // value masked, metric intact
+    expect(chunk.content).toContain('total_revenue by customer_email')
   })
 })
 

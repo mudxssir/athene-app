@@ -15,6 +15,7 @@ export interface CalendarAttendee {
   email?: string | null
   displayName?: string | null
   responseStatus?: string | null // accepted | declined | tentative | needsAction
+  self?: boolean | null          // true on the connected user's own attendee entry (Google)
 }
 
 export interface CalendarStructuredInput {
@@ -64,15 +65,21 @@ export function calendarStructuredFields(ev: CalendarStructuredInput): CalendarS
 
 /**
  * Whether an event should be indexed but NOT sent to the LLM extractor:
- * cancelled events, or events the user themselves declined. History is kept
- * (the record is still indexed) but spending an LLM call on a dead event is waste.
+ * cancelled events, or events the connected user themselves declined. History is
+ * kept (the record is still indexed) but spending an LLM call on a dead event is
+ * waste.
+ *
+ * Self-detection: prefer Google's `self: true` attendee flag (no caller wiring
+ * needed); fall back to matching `selfEmail` when provided (other providers).
  */
 export function isExtractionSkippedEvent(ev: CalendarStructuredInput, selfEmail?: string): boolean {
   if ((ev.status ?? '').toLowerCase() === 'cancelled') return true
-  if (selfEmail) {
-    const self = ev.attendees?.find((a) => (a.email ?? '').toLowerCase() === selfEmail.toLowerCase())
-    if ((self?.responseStatus ?? '').toLowerCase() === 'declined') return true
-  }
+  const selfAttendee =
+    ev.attendees?.find((a) => a.self === true) ??
+    (selfEmail
+      ? ev.attendees?.find((a) => (a.email ?? '').toLowerCase() === selfEmail.toLowerCase())
+      : undefined)
+  if ((selfAttendee?.responseStatus ?? '').toLowerCase() === 'declined') return true
   return false
 }
 

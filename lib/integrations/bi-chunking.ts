@@ -33,9 +33,11 @@ const WIDE_TABLE_COLUMN_GROUP = 30
 const PII_PATTERNS: RegExp[] = [
   /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g,        // email
   /\b\d{3}-\d{2}-\d{4}\b/g,                                  // SSN (3-2-4)
-  // phone: optional country code, optional area-code parens, 3-3-4 with any of
-  // space/dot/dash separators. No leading \b (so `(415) …` parens-form matches).
-  /(?:\+?\d{1,3}[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/g,
+  // phone: REQUIRES a phone-like separator or parens so a bare run of digits (an
+  // order id, account number, large integer) is never masked, and a longer digit
+  // run is never partially consumed. Matches: 415-555-2671, 415.555.2671,
+  // 415 555 2671, (415) 555-2671, +1 415-555-2671. Not matched: 1234567890.
+  /(?:\+\d{1,3}[\s.-]?)?(?:\(\d{3}\)[\s.-]?|\d{3}[\s.-])\d{3}[\s.-]\d{4}\b/g,
 ]
 
 /**
@@ -306,7 +308,9 @@ export function buildAggregationChunk(
   for (const agg of aggResults) {
     const rowsStr = agg.rows
       .slice(0, 10)
-      .map(({ dimValue, metricValue }) => `${dimValue}: ${metricValue}`)
+      // P4-3: dimension values are raw cell values (e.g. "revenue by customer_email")
+      // — mask PII here too. The metric (a number) is unaffected.
+      .map(({ dimValue, metricValue }) => `${maskPII(dimValue)}: ${metricValue}`)
       .join(', ')
     lines.push(`${agg.metric} by ${agg.dimension}: ${rowsStr}`)
   }

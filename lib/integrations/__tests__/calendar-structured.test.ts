@@ -54,9 +54,32 @@ describe('isExtractionSkippedEvent (P4-6)', () => {
     expect(isExtractionSkippedEvent({ status: 'cancelled' })).toBe(true)
   })
 
-  it('skips events the user themselves declined', () => {
+  it('skips events the user themselves declined (via selfEmail)', () => {
     const ev = { status: 'confirmed', attendees: [{ email: 'me@acme.com', responseStatus: 'declined' }] }
     expect(isExtractionSkippedEvent(ev, 'me@acme.com')).toBe(true)
+  })
+
+  it('skips self-declined via the Google `self` flag without needing selfEmail', () => {
+    const ev = {
+      status: 'confirmed',
+      attendees: [
+        { email: 'organizer@acme.com', responseStatus: 'accepted' },
+        { email: 'me@acme.com', responseStatus: 'declined', self: true },
+      ],
+    }
+    // No selfEmail passed — the `self: true` flag drives detection.
+    expect(isExtractionSkippedEvent(ev)).toBe(true)
+  })
+
+  it('does not skip when another attendee (not self) declined', () => {
+    const ev = {
+      status: 'confirmed',
+      attendees: [
+        { email: 'me@acme.com', responseStatus: 'accepted', self: true },
+        { email: 'other@acme.com', responseStatus: 'declined' },
+      ],
+    }
+    expect(isExtractionSkippedEvent(ev)).toBe(false)
   })
 
   it('does not skip confirmed events the user accepted', () => {
