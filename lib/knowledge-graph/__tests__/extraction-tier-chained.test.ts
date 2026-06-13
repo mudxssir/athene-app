@@ -87,6 +87,21 @@ describe('extractionTierChained (thread shape)', () => {
     expect(await extractionTierChained('record', WITH_SIGNAL)).toBe('B')
     expect(h.glinerCalls).toHaveLength(0)
   })
+
+  // P4-8: the record description-length gate is reachable through the chained
+  // entry the indexer uses (not just extractionTier directly). A long-description
+  // record promotes to A; a short one stays B — both without touching GLiNER.
+  it('record with a >200-char description line → A via the chained path', async () => {
+    const longRecord = [`Notes: ${'x'.repeat(250)}`]
+    expect(await extractionTierChained('record', longRecord)).toBe('A')
+    expect(h.glinerCalls).toHaveLength(0)
+  })
+
+  it('record with only short field lines → B via the chained path', async () => {
+    const shortRecord = ['Name: Acme', 'Stage: Won', 'Amount: 50000']
+    expect(await extractionTierChained('record', shortRecord)).toBe('B')
+    expect(h.glinerCalls).toHaveLength(0)
+  })
 })
 
 describe('shouldRunExtractionChained (legacy source-type routing)', () => {

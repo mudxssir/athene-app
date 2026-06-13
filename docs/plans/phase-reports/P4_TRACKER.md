@@ -25,7 +25,7 @@ _Branch: `pipeline/p4-bi-crm-depth` (off `pipeline/p3-docs-email-depth`) · Flag
 |----|-------|--------|------|------------|
 | P4-6 | Calendars → record shape (D3): structured_fields (attendees/organizer/start/end/recurrence); attendee WORKS_ON edges gated ≥2 internal; recurring master+next; declined/cancelled extraction-skipped | todo | M | P2 identity |
 | P4-7 | CRM deterministic field edges: SF/HubSpot owner→OWNS (identity), account→TIED_TO_ACCOUNT; oversized field-group split; raw numerics in metadata | todo | M | P2 identity |
-| P4-8 | Record Tier B rule: description >200 chars → gated LLM; else deterministic only | todo | S | P4-1 |
+| P4-8 | Record Tier B rule: description >200 chars → gated LLM; else deterministic only | done (gate from P1 gap-closure, verified + chained-path tests; "deterministic only" half = P4-7 edges) | S | P4-1 |
 
 ---
 
@@ -39,6 +39,25 @@ _Branch: `pipeline/p4-bi-crm-depth` (off `pipeline/p3-docs-email-depth`) · Flag
 ---
 
 ## Session notes
+
+### P4-8: record Tier-B gate — verified + chained-path coverage (2026-06-14)
+
+- **Already implemented** by the P1 gap-closure: `extractionTier('record')` gates
+  on longest-LINE > 200 chars (not whole-record length, which over-promoted every
+  CRM/calendar record). Free-text descriptions surface as long single lines; field
+  lines stay short — so the gate fires exactly when a record carries a meaningful
+  description. `extractionTierChained` delegates to `extractionTier` for all
+  non-thread shapes, so the indexer path is identical.
+- **Verification done here:** added two `extraction-tier-chained.test.ts` cases
+  proving the record gate is reachable through the chained entry the indexer uses
+  — `>200`-char description → A, short field-only record → B, neither touching
+  GLiNER. (Direct `extractionTier` record cases already existed.)
+- **"else deterministic only" half:** a Tier-B (un-promoted) record still gets its
+  deterministic CRM/calendar field edges — those run as an independent builder step
+  (P4-7), exactly like `buildStructuredLinkGraph`/`buildStructuredOwnerGraph`, not
+  gated on the LLM decision. So "deterministic only" is structurally delivered by
+  P4-7; this ticket owns the LLM gate.
+- 40 tier tests green; tsc clean.
 
 ### P4-3: PII masking + wide-table column grouping (2026-06-14)
 
