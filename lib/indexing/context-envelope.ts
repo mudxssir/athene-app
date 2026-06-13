@@ -98,3 +98,31 @@ export function buildBreadcrumb(chunk: BreadcrumbInput): string {
   ].filter((s): s is string => !!s && s.length > 0)
   return segments.join(SEP)
 }
+
+// ── P3-13: embed-text assembly ───────────────────────────────────────────────
+
+/**
+ * Compose the context header from the three envelope layers (any may be empty):
+ *   breadcrumb (P3-11) · doc-context line (P3-10) · per-chunk situating (P3-12)
+ * One layer per line; empties dropped.
+ */
+export function buildContextHeader(parts: {
+  breadcrumb?: string | null
+  docContext?: string | null
+  situating?: string | null
+}): string {
+  return [parts.breadcrumb, parts.docContext, parts.situating]
+    .map((s) => (s ?? '').trim())
+    .filter(Boolean)
+    .join('\n')
+}
+
+/**
+ * The single place embedded text is assembled (PLAN_A §0.3): `header + \n\n +
+ * chunkText`. When the header is empty, the chunk text is returned unchanged.
+ * The raw chunkText stored for KG/citations is NEVER passed through here — only
+ * the copy handed to the embedding model is wrapped.
+ */
+export function assembleEmbedText(header: string, chunkText: string): string {
+  return header ? `${header}\n\n${chunkText}` : chunkText
+}

@@ -30,7 +30,7 @@ _Branch: `pipeline/p3-docs-email-depth` · Flags: `SIDECAR_PARSING` (default OFF
 | P3-10 | `documents.context_summary` migration + doc-context generator (simple tier, cached by content_hash, injection-guarded, ≤60 tok) | done (migration + generator; wired in P3-13) | M | — |
 | P3-11 | Breadcrumb builders per connector: Drive folder_path (exists), Notion ancestor chain, Confluence space+ancestors, SharePoint site/drive | done (builder; ancestor-walk + space-name enrichment deferred) | M | — |
 | P3-12 | Per-chunk situating lines: batched 10/call JSON, prose/email/work_item, skip single-chunk docs; `context_header` in embedding-row metadata | done (generator; wired in P3-13) | M | P3-10 |
-| P3-13 | Embed text assembly: `header + '\n\n' + child` (one place: indexing pipeline) | todo | S | P3-10, P3-11, P3-12 |
+| P3-13 | Embed text assembly: `header + '\n\n' + child` (one place: indexing pipeline) | done (bulk + single-doc standard; structural+envelope follow-up) | S | P3-10, P3-11, P3-12 |
 
 ---
 
@@ -47,6 +47,39 @@ _Branch: `pipeline/p3-docs-email-depth` · Flags: `SIDECAR_PARSING` (default OFF
 ---
 
 ## Session notes
+
+### P3-13: embed-text assembly — context envelope wired (2026-06-13)
+
+_Context-envelope finale — wires breadcrumb (P3-11) + doc-context (P3-10) +
+situating (P3-12) into the indexer's EMBEDDED text. Behind `CONTEXT_ENVELOPE`
+(default OFF → zero behavior change; verified by the 432-test suite)._
+
+- **Assembly helpers** (`context-envelope.ts`): `buildContextHeader({breadcrumb,
+  docContext, situating})` joins the non-empty layers; `assembleEmbedText(header,
+  chunkText)` → `header + '\n\n' + chunkText` (chunk unchanged when header empty).
+- **`computeChunkHeaders`** (`indexing.ts`): per document, breadcrumb (free) +
+  doc-context (1 LLM call for enrichable shapes, persisted to
+  `documents.context_summary` via `persistContextSummary`) + situating
+  (multi-chunk only) → one header per sub-chunk. Returns empty headers when the
+  flag is off.
+- **Wired into both standard paths:** bulk `indexDocuments` (late + hint-group
+  batches now embed `itemEmbedTexts`/`allEmbedTexts`) and single-doc
+  `indexDocument`. The EMBEDDED text carries the header; the stored `chunk_text`
+  stays RAW (citations/KG unaffected); `content_hash` is of the raw text (header
+  never affects dedup); the header is mirrored to `metadata.context_header` (a
+  key separate from `chunk_text`, never a FORBIDDEN content key).
+- **Deferred (documented):** the structural parent/child path
+  (`indexDocument` structural branch, only reachable when BOTH
+  `PIPELINE_SHAPE_ROUTING` AND `CONTEXT_ENVELOPE` are on) is breadcrumb-eligible
+  but not yet envelope-wired — a contained follow-up. With shape-routing OFF
+  (prod default) all docs flow through the standard paths, which ARE wired, so
+  the common pilot config is fully covered.
+- **Tests:** `indexing-context-envelope.test.ts` (1 end-to-end: embedded text
+  contains breadcrumb + doc-context + body, stored chunk_text is raw, content_hash
+  is of raw text, `context_header` mirrored, `context_summary` persisted) +
+  `context-envelope.test.ts` +4 (buildContextHeader/assembleEmbedText). Fixed two
+  pre-existing mocks to export `CONTEXT_ENVELOPE: false`. 432 integration+indexing
+  tests green; tsc + RLS clean.
 
 ### P3-12: per-chunk situating lines (2026-06-13)
 
@@ -392,7 +425,7 @@ commit 2 (keeps each PR ≤ ~600 lines per the SDLC protocol)._
 | Decision nodes from Drive/Gmail/SharePoint/upload fixtures (D1 closed by shape, string sets deleted) | todo |
 | Email duplicate-text ratio < 2% | mechanism in place (P3-6 embeds reply only, not quoted chain); measurement needs deployed sidecar + pilot org |
 | Documents-per-email = 1 | ✅ P3-5 — one chunk per email, `chunk_id` without `:idx` (the `#quoted` provenance row is a deliberate separate non-searchable doc, not a content slice) |
-| Prose recall@5 ≥ 20% over P0 baseline | todo (needs Jina keys + pilot org — same infra blocker as P1/P2 gates) |
+| Prose recall@5 ≥ 20% over P0 baseline | mechanisms in place (context envelope P3-10→13 + structural chunking P1); measurement needs Jina keys + pilot org (same infra blocker as P1/P2 gates) |
 | Parser fallback rate < 5% over a week | todo (needs deployed sidecar + telemetry window) |
 | D8 regression green (SQL/code fixture survives byte-identical) | ✅ `normalize-content.test.ts` (8 tests) — fenced code byte-identical, inline `<T>`/`<Component>`/SQL operators survive |
 

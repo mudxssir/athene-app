@@ -4,7 +4,12 @@
 // ============================================================
 
 import { describe, it, expect } from 'vitest'
-import { buildBreadcrumb, sourceLabel } from '@/lib/indexing/context-envelope'
+import {
+  buildBreadcrumb,
+  sourceLabel,
+  buildContextHeader,
+  assembleEmbedText,
+} from '@/lib/indexing/context-envelope'
 
 describe('sourceLabel (P3-11)', () => {
   it('disambiguates Google by resource_type', () => {
@@ -84,5 +89,32 @@ describe('buildBreadcrumb (P3-11)', () => {
         metadata: { provider: 'notion', resource_type: 'page', breadcrumb_path: 'Workspace/Team/Parent' },
       }),
     ).toBe('Notion › Workspace/Team/Parent › Child Page')
+  })
+})
+
+describe('buildContextHeader + assembleEmbedText (P3-13)', () => {
+  it('joins the three layers, dropping empties', () => {
+    expect(
+      buildContextHeader({
+        breadcrumb: 'Google Drive › /Legal › MSA',
+        docContext: 'A vendor contract.',
+        situating: 'This chunk covers indemnification.',
+      }),
+    ).toBe('Google Drive › /Legal › MSA\nA vendor contract.\nThis chunk covers indemnification.')
+  })
+
+  it('drops null/empty layers', () => {
+    expect(buildContextHeader({ breadcrumb: 'Slack › #eng', docContext: null, situating: '' })).toBe(
+      'Slack › #eng',
+    )
+    expect(buildContextHeader({})).toBe('')
+  })
+
+  it('assembleEmbedText wraps chunk text with header + blank line', () => {
+    expect(assembleEmbedText('HEADER', 'chunk body')).toBe('HEADER\n\nchunk body')
+  })
+
+  it('assembleEmbedText returns chunk unchanged when header is empty', () => {
+    expect(assembleEmbedText('', 'chunk body')).toBe('chunk body')
   })
 })

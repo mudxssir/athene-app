@@ -20,7 +20,10 @@ import { logger } from '@/lib/logger'
 import { embedBatchDetailed, embedBatchLateChunking, embedBatchPinned, type EmbeddingHint } from '@/lib/ai/embedding-factory'
 import { chunk as tokenChunk } from '@/lib/langgraph/tools/chunker'
 import { writeChunkText } from '@/lib/indexing/chunk-text-store'
-import { PIPELINE_SHAPE_ROUTING } from '@/lib/config/feature-flags'
+import { PIPELINE_SHAPE_ROUTING, CONTEXT_ENVELOPE } from '@/lib/config/feature-flags'
+import { buildBreadcrumb, buildContextHeader, assembleEmbedText } from '@/lib/indexing/context-envelope'
+import { generateDocContext } from '@/lib/indexing/doc-context'
+import { generateSituatingLines, shapeGetsSituating } from '@/lib/indexing/situating'
 import { computeSignals, selectStrategy, truncateAtTokenCap, neutralizeMonsterRuns, MIN_TOKENS, MAX_CHUNKS_PER_DOC } from '@/lib/indexing/chunk-policy'
 import { splitByHeadings, splitFenceAtomic, groupIntoParents } from '@/lib/indexing/structural-chunker'
 import { claimIdentitiesFromOwners } from './identity-claim'
@@ -323,6 +326,47 @@ function enqueueEmbedRetry(orgId: string, documentId: string): void {
     { err: err instanceof Error ? err.message : String(err), documentId },
     '[indexing] Failed to enqueue embed-retry job (non-fatal)'
   ))
+}
+
+/**
+ * P3-10: persist the cached doc-context line on the documents row (non-fatal).
+ */
+async function persistContextSummary(documentId: string, orgId: string, summary: string): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from('documents')
+    .update({ context_summary: summary })
+    .eq('id', documentId)
+    .eq('org_id', orgId)
+  if (error) {
+    logger.warn({ documentId, err: error.message }, '[indexing] context_summary update failed (non-fatal)')
+  }
+}
+
+/**
+ * P3-13: compute the per-sub-chunk context header for one document
+ * (breadcrumb + doc-context + situating). Returns one header string per
+ * sub-chunk (empty string when the envelope is off or a layer is unavailable).
+ * The doc-context line is generated once per document and persisted on
+ * documents.context_summary. Enrichment failures degrade to the breadcrumb.
+ */
+async function computeChunkHeaders(
+  chunk: FetchedChunk,
+  subChunks: string[],
+  documentId: string,
+  orgId: string | undefined,
+): Promise<string[]> {
+  if (!CONTEXT_ENVELOPE) return subChunks.map(() => '')
+  const breadcrumb = buildBreadcrumb(chunk)
+  let docContext: string | null = null
+  let situating: (string | null)[] = subChunks.map(() => null)
+  if (shapeGetsSituating(chunk.shape)) {
+    docContext = await generateDocContext(chunk.title, chunk.content, orgId)
+    if (docContext && orgId) await persistContextSummary(documentId, orgId, docContext)
+    situating = await generateSituatingLines(docContext ?? '', subChunks, orgId)
+  }
+  return subChunks.map((_, j) =>
+    buildContextHeader({ breadcrumb, docContext, situating: situating[j] }),
+  )
 }
 
 /**
@@ -732,6 +776,12 @@ export async function indexDocument(
 
   if (contentChunks.length === 0) return documentId
 
+  // P3-13: context envelope. Header per sub-chunk (breadcrumb + doc-context +
+  // situating); embed the header-wrapped text, store raw chunk_text. Empty
+  // headers when CONTEXT_ENVELOPE is off → embedTexts === contentChunks.
+  const headers = await computeChunkHeaders(chunk, contentChunks, documentId, orgId)
+  const embedChunks = contentChunks.map((text, i) => assembleEmbedText(headers[i] ?? '', text))
+
   // P1-9: use late chunking for eligible shapes when PIPELINE_SHAPE_ROUTING is on
   const useLateChunking = PIPELINE_SHAPE_ROUTING && !!chunk.shape && LATE_CHUNKING_SHAPES.has(chunk.shape) && contentChunks.length > 1
 
@@ -744,7 +794,7 @@ export async function indexDocument(
   let needsRetry = false
 
   try {
-    const result = await generateEmbeddings(contentChunks, orgId, hint, useLateChunking)
+    const result = await generateEmbeddings(embedChunks, orgId, hint, useLateChunking)
     embeddings = result.embeddings
     embeddingModel = result.model
   } catch (embErr) {
@@ -766,6 +816,8 @@ export async function indexDocument(
   const records = contentChunks.map((text, index) => {
     const meta = writeChunkText(chunk.metadata, text)
     if (structuredFields) meta.structured_fields = structuredFields
+    // P3-13: store the embedded header (separate key from the raw chunk_text).
+    if (headers[index]) meta.context_header = headers[index]
     return {
       org_id: orgId,
       document_id: documentId,
@@ -910,12 +962,28 @@ export async function indexDocuments(
   // Only include items with subChunks (items with empty subChunks had unchanged content)
   const changedItems = prepared.filter(item => item.subChunks.length > 0)
   const allTexts: string[] = changedItems.flatMap(item => item.subChunks)
-  const allTemplates = changedItems.flatMap(item => {
+
+  // P3-13: context envelope. Per item, compute one header per sub-chunk
+  // (breadcrumb + doc-context + situating). itemEmbedTexts wraps the EMBEDDED
+  // text with the header; chunk_text stored stays raw (allTexts). When the flag
+  // is off, headers are empty and itemEmbedTexts === item.subChunks (no change).
+  const itemHeaders: string[][] = await Promise.all(
+    changedItems.map(item => computeChunkHeaders(item.chunk, item.subChunks, item.documentId, orgId)),
+  )
+  const itemEmbedTexts: string[][] = changedItems.map((item, ii) =>
+    item.subChunks.map((text, j) => assembleEmbedText(itemHeaders[ii][j] ?? '', text)),
+  )
+  const allEmbedTexts: string[] = itemEmbedTexts.flat()
+
+  const allTemplates = changedItems.flatMap((item, ii) => {
     const isRecord = PIPELINE_SHAPE_ROUTING ? item.chunk.shape === 'record' : RECORD_SOURCE_TYPES.has(item.chunk.metadata.provider as string)
     const structuredFields = isRecord ? extractStructuredFields(item.chunk.metadata) : null
     return item.subChunks.map((text, index) => {
       const meta = writeChunkText(item.chunk.metadata, text)
       if (structuredFields) meta.structured_fields = structuredFields
+      // P3-13: the embedded header is auditable (separate key from chunk_text).
+      const header = itemHeaders[ii][index]
+      if (header) meta.context_header = header
       return {
         org_id: orgId,
         document_id: item.documentId,
@@ -969,7 +1037,8 @@ export async function indexDocuments(
     const item = changedItems[i]
     const hint = resolveEmbeddingHint(item.chunk.shape, item.chunk.metadata.provider as string)
     try {
-      const { embeddings, model } = await generateEmbeddings(item.subChunks, orgId, hint, true)
+      // P3-13: embed the header-wrapped text; chunk_text stored stays raw.
+      const { embeddings, model } = await generateEmbeddings(itemEmbedTexts[i], orgId, hint, true)
       item.subChunks.forEach((_, j) => {
         allEmbeddings[itemOffsets[i] + j] = embeddings[j]
         allModels[itemOffsets[i] + j] = model
@@ -1003,7 +1072,8 @@ export async function indexDocuments(
   for (const [hint, indices] of hintGroups) {
     for (let i = 0; i < indices.length; i += EMBED_BATCH_SIZE) {
       const batchIndices = indices.slice(i, i + EMBED_BATCH_SIZE)
-      const batchTexts = batchIndices.map((idx) => allTexts[idx])
+      // P3-13: embed the header-wrapped text; chunk_text stored stays raw.
+      const batchTexts = batchIndices.map((idx) => allEmbedTexts[idx])
       try {
         const { embeddings, model } = await generateEmbeddings(batchTexts, orgId, hint)
         batchIndices.forEach((flatIdx, j) => {
