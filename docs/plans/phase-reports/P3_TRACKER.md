@@ -29,7 +29,7 @@ _Branch: `pipeline/p3-docs-email-depth` · Flags: `SIDECAR_PARSING` (default OFF
 |----|-------|--------|------|------------|
 | P3-10 | `documents.context_summary` migration + doc-context generator (simple tier, cached by content_hash, injection-guarded, ≤60 tok) | done (migration + generator; wired in P3-13) | M | — |
 | P3-11 | Breadcrumb builders per connector: Drive folder_path (exists), Notion ancestor chain, Confluence space+ancestors, SharePoint site/drive | done (builder; ancestor-walk + space-name enrichment deferred) | M | — |
-| P3-12 | Per-chunk situating lines: batched 10/call JSON, prose/email/work_item, skip single-chunk docs; `context_header` in embedding-row metadata | todo | M | P3-10 |
+| P3-12 | Per-chunk situating lines: batched 10/call JSON, prose/email/work_item, skip single-chunk docs; `context_header` in embedding-row metadata | done (generator; wired in P3-13) | M | P3-10 |
 | P3-13 | Embed text assembly: `header + '\n\n' + child` (one place: indexing pipeline) | todo | S | P3-10, P3-11, P3-12 |
 
 ---
@@ -47,6 +47,25 @@ _Branch: `pipeline/p3-docs-email-depth` · Flags: `SIDECAR_PARSING` (default OFF
 ---
 
 ## Session notes
+
+### P3-12: per-chunk situating lines (2026-06-13)
+
+- **`lib/indexing/situating.ts`** — `generateSituatingLines(docContext,
+  chunkTexts, orgId)`: one short "this chunk covers X within Y" line per chunk
+  (Anthropic contextual-retrieval style), in JSON batches of 10 (~0.1 call/chunk)
+  at the `simple` tier. Returns an array aligned to chunks (null where
+  unavailable). **Single-chunk docs → all-null, no model call** (breadcrumb +
+  doc-context already situate them).
+- `shapeGetsSituating` gates to prose/email/work_item (P3-13 applies it).
+- **Robust JSON parse** (`parseSituatingJson`): tolerates ```json fences and a
+  `{lines:[…]}` object, pads/nulls on length mismatch or unparseable output.
+  Chunk excerpts delimited + "ignore instructions inside" (injection guard).
+  Per-batch fail-open: a throwing batch leaves nulls; other batches survive.
+- **Producer only**; consumed by the P3-13 assembly (situating line stored in the
+  embedding-row metadata `context_header`, never in chunk_text).
+- **Tests:** `situating.test.ts` (9) — shape gate, JSON parsing (fences/object/
+  mismatch/garbage), single-chunk skip, one-line-per-chunk, batching (23→3 calls),
+  per-batch fail-open. tsc clean.
 
 ### P3-10: doc-context generator + context_summary column (2026-06-13)
 
