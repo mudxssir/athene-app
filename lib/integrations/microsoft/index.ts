@@ -9,6 +9,7 @@ import { logger } from '@/lib/logger'
 import { type SyncConfig, getSelectedResourceIds } from '../sync-config'
 import { tabularChunksFromParsed } from '@/lib/integrations/tabular-analysis'
 import { buildEmailChunks } from '@/lib/integrations/email-clean'
+import { buildThreadParentChunks } from '@/lib/integrations/thread-parent'
 
 /** Strip HTML tags so raw body content is plain text for embeddings. */
 function stripOutlookHtml(html: string): string {
@@ -325,6 +326,17 @@ export async function microsoftFetcher(
   } catch (error) {
     logger.error({ err: error instanceof Error ? error.message : String(error) }, '[microsoft] Error fetching SharePoint docs');
   }
+
+  // P3-8: synthetic thread-parent chunk per Outlook conversation (≥2 messages).
+  // The filter inside buildThreadParentChunks ignores the non-email chunks
+  // (calendar/onedrive/sharepoint) accumulated above.
+  chunks.push(
+    ...buildThreadParentChunks(chunks, {
+      idPrefix: 'ms_email',
+      provider: 'microsoft',
+      sourceUrlFor: (m) => m.source_url,
+    }),
+  )
 
   return chunks
 }

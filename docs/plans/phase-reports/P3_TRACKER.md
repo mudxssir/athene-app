@@ -20,7 +20,7 @@ _Branch: `pipeline/p3-docs-email-depth` · Flags: `SIDECAR_PARSING` (default OFF
 | P3-5 | Gmail + Outlook emit ONE chunk per email (full body, canonical header block); `chunk_id` without `:idx`; Outlook `conversationId` → thread_id | done | M | P1 shape |
 | P3-6 | Sidecar `/email/clean` (Talon): reply text embedded; quoted tail + signature → final non-embedded chunk | done | M | P3-5, P1-11 |
 | P3-7 | Migration: delete per-slice email documents + paced mailbox re-index; citation links survive | todo | S | P3-5 |
-| P3-8 | Thread parent rows: synthetic parent per `thread_id` for small-to-big return + cached thread doc-context line | todo | M | P3-5 |
+| P3-8 | Thread parent rows: synthetic parent per `thread_id` for small-to-big return + cached thread doc-context line | done (parent built; retrieval JOIN + LLM line deferred) | M | P3-5 |
 | P3-9 | `text/calendar` parts → record shape routing; attachments → media queue stub | done (Gmail; Outlook attachments deferred) | S | P3-5 |
 
 ## Context envelope
@@ -47,6 +47,33 @@ _Branch: `pipeline/p3-docs-email-depth` · Flags: `SIDECAR_PARSING` (default OFF
 ---
 
 ## Session notes
+
+### P3-8: synthetic email thread-parent chunks (2026-06-13)
+
+- **Design fork resolved:** the thread parent spans MULTIPLE documents (emails
+  sharing a `thread_id`), so it can't use the within-document `parent_chunk_index`
+  JOIN (P1-8). Built it as a synthetic non-embedded thread-parent DOCUMENT instead.
+- **`buildThreadParentChunks`** (`thread-parent.ts`): groups email message chunks
+  by `thread_id`, emits one parent per thread with ≥2 messages
+  (`{gmail|ms_email}:thread:{id}`, `skip_embedding: true`, resource_type
+  `email_thread`). Content = deterministic digest: subject (Re:/Fwd: stripped),
+  unique participants, message count, chronological per-message one-liners
+  (windowed at 50 + "… and N earlier"). Re-emitted every sync → refreshes on new
+  message (content-hash dedup skips unchanged digests). Filter ignores `#quoted`
+  provenance, calendar records, and thread-less messages.
+- **Wired:** appended at the end of Gmail `indexEmailChunks` and
+  `fetchMicrosoftChunks` (the filter ignores the non-email chunks the MS function
+  also accumulates). Stored via the P3-6 `skip_embedding` path (own document,
+  embedding=null, excluded from vector search).
+- **Deferred (documented):** (1) the retrieval-time child→thread-parent JOIN is a
+  `vector_search` RPC change (cross-document, on thread_id) tracked as a P3
+  search-layer follow-up — until it lands, the parent is a stored anchor, not yet
+  returned; (2) the LLM "what this thread is about" context line is P3-10's
+  doc-context generator applied at thread granularity. The deterministic digest is
+  the foundation both attach to. Gate-neutral (email gates met by P3-5/P3-6).
+- **Tests:** `thread-parent.test.ts` (4: parent per multi-message thread,
+  single-message skipped, ignores #quoted/calendar/no-thread, huge-thread
+  windowing). 305 integration tests green; tsc + RLS clean.
 
 ### P3-9: calendar parts → record + attachment stubs (Gmail) — audit D12 (2026-06-13)
 

@@ -2,6 +2,7 @@ import { googleFetch, googleFetchRaw } from './api-client'
 import type { FetchedChunk } from '@/lib/integrations/base'
 import { assertSafeMetadata } from '@/lib/integrations/base'
 import { buildEmailChunks } from '@/lib/integrations/email-clean'
+import { buildThreadParentChunks } from '@/lib/integrations/thread-parent'
 import { enqueueMediaStubs } from '@/lib/integrations/binary-parsing'
 import { type SyncConfig, getSelectedResourceIds } from '@/lib/integrations/sync-config'
 
@@ -395,6 +396,16 @@ export async function indexEmailChunks(
     )
     for (const r of results) chunks.push(...r)
   }
+
+  // P3-8: synthetic thread-parent chunk per thread_id (≥2 messages) for
+  // small-to-big thread return. Non-embedded; refreshed each sync.
+  chunks.push(
+    ...buildThreadParentChunks(chunks, {
+      idPrefix: 'gmail',
+      provider: 'google',
+      sourceUrlFor: (m) => m.source_url,
+    }),
+  )
 
   return chunks
 }
