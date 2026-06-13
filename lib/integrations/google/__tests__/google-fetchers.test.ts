@@ -10,6 +10,12 @@ vi.mock('@/lib/integrations/google/api-client', () => ({
   googleFetchRaw: (...args: any[]) => mockGoogleFetchRaw(...args),
 }))
 
+// P3-9: assert media-queue stub enqueues without touching the DB layer.
+const mockEnqueueMediaStubs = vi.fn()
+vi.mock('@/lib/integrations/binary-parsing', () => ({
+  enqueueMediaStubs: (...args: any[]) => mockEnqueueMediaStubs(...args),
+}))
+
 import {
   listDriveFiles,
   searchDrive,
@@ -383,6 +389,65 @@ describe('Gmail FetchedChunk Builder', () => {
     expect(c.content).toContain('Subject: Quarterly plan')
     // Full body present in the single chunk (not truncated to a 2000-char slice).
     expect(c.content.length).toBeGreaterThan(3000)
+  })
+
+  // P3-9 / audit D12: a text/calendar part becomes a record-shape chunk and a
+  // binary attachment becomes a media_queue stub (no longer silently dropped).
+  it('indexEmailChunks routes calendar parts to record shape + enqueues attachment stubs', async () => {
+    mockEnqueueMediaStubs.mockClear()
+    const b64 = (s: string) =>
+      Buffer.from(s, 'utf-8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_')
+    const ics = [
+      'BEGIN:VCALENDAR',
+      'BEGIN:VEVENT',
+      'SUMMARY:Quarterly Review',
+      'DTSTART:20260601T150000Z',
+      'DTEND:20260601T160000Z',
+      'LOCATION:Room 4',
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ].join('\n')
+
+    mockGoogleFetch.mockImplementation((_c: string, _o: string, url: string) => {
+      if (url.includes('/messages?')) return Promise.resolve({ messages: [{ id: 'm-2' }] })
+      return Promise.resolve({
+        id: 'm-2',
+        threadId: 'thread-2',
+        internalDate: '1745123456000',
+        payload: {
+          mimeType: 'multipart/mixed',
+          headers: [
+            { name: 'From', value: 'bob@example.com' },
+            { name: 'Subject', value: 'Invite' },
+          ],
+          parts: [
+            { mimeType: 'text/plain', body: { size: 5, data: b64('Hello') } },
+            { mimeType: 'text/calendar', body: { size: ics.length, data: b64(ics) } },
+            { mimeType: 'application/pdf', filename: 'agenda.pdf', body: { size: 100, attachmentId: 'att-xyz' } },
+          ],
+        },
+      })
+    })
+
+    const chunks = await indexEmailChunks(CONN, ORG, { limit: 10 })
+
+    // One email chunk + one calendar record chunk.
+    const emailChunk = chunks.find((c) => c.shape === 'email')
+    const calChunk = chunks.find((c) => c.shape === 'record')
+    expect(emailChunk).toBeDefined()
+    expect(calChunk).toBeDefined()
+    expect(calChunk!.chunk_id).toBe('gmail:m-2:ical:0')
+    expect(calChunk!.content).toContain('Event: Quarterly Review')
+    expect(calChunk!.content).toContain('Location: Room 4')
+    expect(calChunk!.metadata.resource_type).toBe('calendar_invite')
+
+    // Attachment → media_queue stub (origin gmail_attachment, ref = attachmentId).
+    expect(mockEnqueueMediaStubs).toHaveBeenCalledOnce()
+    const [orgArg, sourceDocId, pics, origin] = mockEnqueueMediaStubs.mock.calls[0]
+    expect(orgArg).toBe(ORG)
+    expect(sourceDocId).toBe('gmail:m-2')
+    expect(pics).toEqual([{ ref: 'att-xyz' }])
+    expect(origin).toBe('gmail_attachment')
   })
 
   it('gmailMetadataToChunk handles missing subject', () => {

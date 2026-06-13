@@ -2,6 +2,7 @@ import { googleFetch, googleFetchRaw } from './api-client'
 import type { FetchedChunk } from '@/lib/integrations/base'
 import { assertSafeMetadata } from '@/lib/integrations/base'
 import { buildEmailChunks } from '@/lib/integrations/email-clean'
+import { enqueueMediaStubs } from '@/lib/integrations/binary-parsing'
 import { type SyncConfig, getSelectedResourceIds } from '@/lib/integrations/sync-config'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -42,8 +43,9 @@ export interface GmailMessageFull {
 
 export interface GmailPayloadPart {
   mimeType: string
+  filename?: string
   headers?: GmailHeader[]
-  body?: { size: number; data?: string }
+  body?: { size: number; data?: string; attachmentId?: string }
   parts?: GmailPayloadPart[]
 }
 
@@ -341,7 +343,7 @@ export async function indexEmailChunks(
 
           // P3-6: Talon cleaning — embed the reply, keep the quoted tail as a
           // non-embedded provenance chunk. Fails open to the full body.
-          return await buildEmailChunks(
+          const emailChunks = await buildEmailChunks(
             {
               chunk_id: `gmail:${msg.id}`,
               title: headers.subject || '(no subject)',
@@ -353,6 +355,39 @@ export async function indexEmailChunks(
             body,
             headers.from,
           )
+
+          // P3-9 / audit D12: calendar parts → record shape; attachments → media
+          // queue stubs (P5 fetches + captions). Previously dropped silently.
+          const { calendar, attachments } = collectEmailParts(full.payload)
+          calendar.forEach((ics, n) => {
+            const content = icalToRecordContent(ics)
+            if (!content.trim()) return
+            const icalMeta = {
+              provider: 'google',
+              resource_type: 'calendar_invite',
+              last_modified: new Date(Number(full.internalDate ?? 0)).toISOString(),
+              thread_id: full.threadId,
+            }
+            assertSafeMetadata(icalMeta)
+            emailChunks.push({
+              chunk_id: `gmail:${msg.id}:ical:${n}`,
+              title: `Invite: ${headers.subject || '(no subject)'}`,
+              content,
+              source_url: `https://mail.google.com/mail/u/0/#inbox/${msg.id}`,
+              shape: 'record' as const,
+              metadata: icalMeta,
+            })
+          })
+          if (attachments.length > 0) {
+            void enqueueMediaStubs(
+              orgId,
+              `gmail:${msg.id}`,
+              attachments.map((a) => ({ ref: a.attachmentId })),
+              'gmail_attachment',
+            )
+          }
+
+          return emailChunks
         } catch {
           return []
         }
@@ -416,6 +451,55 @@ function extractBodyFromPayload(payload: GmailPayloadPart): string {
 function decodeBase64Url(data: string): string {
   const base64 = data.replace(/-/g, '+').replace(/_/g, '/')
   return Buffer.from(base64, 'base64').toString('utf-8')
+}
+
+interface EmailParts {
+  /** Decoded text/calendar part bodies (ICS) — routed to the record shape (P3-9) */
+  calendar: string[]
+  /** Binary attachments → media_queue stubs (P3-9 / audit D12) */
+  attachments: { filename: string; attachmentId: string; mimeType: string }[]
+}
+
+/**
+ * Walks the MIME tree collecting calendar parts and binary attachments that
+ * extractBodyFromPayload ignores (it only returns the readable body). P3-9 /
+ * audit D12: these were silently dropped.
+ */
+function collectEmailParts(payload: GmailPayloadPart): EmailParts {
+  const out: EmailParts = { calendar: [], attachments: [] }
+  const walk = (part: GmailPayloadPart) => {
+    const mime = part.mimeType ?? ''
+    if (mime.startsWith('text/calendar') && part.body?.data) {
+      out.calendar.push(decodeBase64Url(part.body.data))
+    } else if (part.filename && part.body?.attachmentId) {
+      // Any part with a filename + attachmentId is a binary attachment.
+      out.attachments.push({
+        filename: part.filename,
+        attachmentId: part.body.attachmentId,
+        mimeType: mime || 'application/octet-stream',
+      })
+    }
+    for (const child of part.parts ?? []) walk(child)
+  }
+  walk(payload)
+  return out
+}
+
+/** Extract a few human-readable fields from an ICS body for the record content. */
+function icalToRecordContent(ics: string): string {
+  const field = (name: string): string | null => {
+    const m = ics.match(new RegExp(`^${name}[^:\\n]*:(.+)$`, 'im'))
+    return m ? m[1].trim().replace(/\\,/g, ',').replace(/\\n/g, ' ') : null
+  }
+  const lines = [
+    field('SUMMARY') && `Event: ${field('SUMMARY')}`,
+    field('DTSTART') && `Start: ${field('DTSTART')}`,
+    field('DTEND') && `End: ${field('DTEND')}`,
+    field('LOCATION') && `Location: ${field('LOCATION')}`,
+    field('ORGANIZER') && `Organizer: ${field('ORGANIZER')}`,
+    field('DESCRIPTION') && `\n${field('DESCRIPTION')}`,
+  ].filter(Boolean)
+  return lines.join('\n')
 }
 
 function stripHtmlTags(html: string): string {

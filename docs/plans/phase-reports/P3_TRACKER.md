@@ -21,7 +21,7 @@ _Branch: `pipeline/p3-docs-email-depth` · Flags: `SIDECAR_PARSING` (default OFF
 | P3-6 | Sidecar `/email/clean` (Talon): reply text embedded; quoted tail + signature → final non-embedded chunk | done | M | P3-5, P1-11 |
 | P3-7 | Migration: delete per-slice email documents + paced mailbox re-index; citation links survive | todo | S | P3-5 |
 | P3-8 | Thread parent rows: synthetic parent per `thread_id` for small-to-big return + cached thread doc-context line | todo | M | P3-5 |
-| P3-9 | `text/calendar` parts → record shape routing; attachments → media queue stub | todo | S | P3-5 |
+| P3-9 | `text/calendar` parts → record shape routing; attachments → media queue stub | done (Gmail; Outlook attachments deferred) | S | P3-5 |
 
 ## Context envelope
 
@@ -42,11 +42,35 @@ _Branch: `pipeline/p3-docs-email-depth` · Flags: `SIDECAR_PARSING` (default OFF
 | D7 | Drive XLSX bypasses tabular engine; 200-row windows re-split at 512 tok | P3-3 |
 | D8 | `normalizeContent` corrupts code-like text (`<T>`, `<Component>`) in all prose | P3-4 |
 | D1 (verify) | Decision extraction live for Drive/Gmail/SharePoint/upload (closed by shape in P1; verified here, string sets deleted) | gate suite |
-| D12 (partial) | Notion images / attachments dropped silently → media queue stubs (P5 consumes) | P3-2, P3-9 |
+| D12 (partial) | Docling pictures + Gmail attachments → media queue stubs (P5 consumes); Notion images + Outlook attachments deferred | P3-2, P3-9 |
 
 ---
 
 ## Session notes
+
+### P3-9: calendar parts → record + attachment stubs (Gmail) — audit D12 (2026-06-13)
+
+- **Root cause (D12):** the Gmail MIME walk (`extractBodyFromPayload`) only
+  returned text/plain | text/html; `text/calendar` parts and binary attachments
+  were silently dropped (`fetchGmailAttachment` existed but was never called).
+- **Fix:** new `collectEmailParts(payload)` recursive walk gathers calendar part
+  bodies + attachment refs (any part with `filename` + `body.attachmentId`).
+  `GmailPayloadPart` extended with `filename` + `body.attachmentId`.
+  - **Calendar:** `icalToRecordContent` extracts SUMMARY/DTSTART/DTEND/LOCATION/
+    ORGANIZER/DESCRIPTION → a `record`-shape chunk (`gmail:{id}:ical:{n}`,
+    resource_type `calendar_invite`).
+  - **Attachments:** `enqueueMediaStubs(orgId, gmail:{id}, [{ref:attachmentId}],
+    'gmail_attachment')` — reuses the P3-2 media_queue path; P5 revives
+    `fetchGmailAttachment` to fetch + caption. No silent drop.
+- **Deferred (documented):** Outlook email attachment enumeration needs an extra
+  per-email Graph `/messages/{id}/attachments` call; Outlook calendar invites
+  already arrive as records via the `/me/events` path, so the email-embedded ICS
+  case is low-value there. Tracked as a follow-up.
+- **Tests:** `google-fetchers.test.ts` +1 — a multipart email with a text/calendar
+  part + a PDF attachment yields an email chunk + a `record` calendar chunk
+  (`gmail:m-2:ical:0`, content "Event: Quarterly Review"/"Location: Room 4") and
+  one `enqueueMediaStubs` call (`gmail_attachment`, ref `att-xyz`). 301
+  integration tests green; tsc clean.
 
 ### P3-6: Talon email cleaning — `/email/clean` lane (2026-06-13)
 
