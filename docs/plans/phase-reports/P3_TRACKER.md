@@ -19,7 +19,7 @@ _Branch: `pipeline/p3-docs-email-depth` · Flags: `SIDECAR_PARSING` (default OFF
 |----|-------|--------|------|------------|
 | P3-5 | Gmail + Outlook emit ONE chunk per email (full body, canonical header block); `chunk_id` without `:idx`; Outlook `conversationId` → thread_id | done | M | P1 shape |
 | P3-6 | Sidecar `/email/clean` (Talon): reply text embedded; quoted tail + signature → final non-embedded chunk | done | M | P3-5, P1-11 |
-| P3-7 | Migration: delete per-slice email documents + paced mailbox re-index; citation links survive | todo | S | P3-5 |
+| P3-7 | Migration: delete per-slice email documents + paced mailbox re-index; citation links survive | done (script; dry-run default, not run on real data) | S | P3-5 |
 | P3-8 | Thread parent rows: synthetic parent per `thread_id` for small-to-big return + cached thread doc-context line | done (parent built; retrieval JOIN + LLM line deferred) | M | P3-5 |
 | P3-9 | `text/calendar` parts → record shape routing; attachments → media queue stub | done (Gmail; Outlook attachments deferred) | S | P3-5 |
 
@@ -47,6 +47,32 @@ _Branch: `pipeline/p3-docs-email-depth` · Flags: `SIDECAR_PARSING` (default OFF
 ---
 
 ## Session notes
+
+### P3-7: per-slice email deletion migration — audit D4 (2026-06-13)
+
+_Email-group finale — sequenced LAST so re-index produces final-form chunks
+(after P3-5/6/8/9 all landed)._
+
+- **`scripts/migrations/delete-per-slice-emails.ts`**: deletes the OLD per-slice
+  email `documents` rows so the next sync re-indexes under the P3-5 scheme;
+  `document_embeddings` cascade-delete (FK ON DELETE CASCADE, verified in schema).
+- **DRY-RUN BY DEFAULT** — the script only counts/samples without `--execute`. The
+  migration is reversible only by re-index, so "drill on staging first" is
+  enforced by the tool, not just discipline. **Not run against any real data in
+  this session.** Paginated, paced batched deletes, `--org`-scoped.
+- **Corrected the playbook's deletion predicate.** The shorthand
+  `external_id LIKE 'gmail:%:%'` is WRONG after P3-8/P3-9: it would also delete
+  the new `gmail:{id}:ical:{n}` (calendar) and `gmail:thread:{id}` (thread parent)
+  documents. The precise classifier `isOldPerSliceEmailId` matches only
+  `^gmail:[^:]+:\d+$` / `^ms_email_[^:]+:\d+$` (old per-slice ends in `:{integer}`
+  with a single id segment).
+- **Tests:** `per-slice-email-id.test.ts` (5) — matches old `gmail:{id}:{idx}` /
+  `ms_email_{id}:{idx}`; rejects the new one-chunk (`gmail:{id}`), calendar
+  (`:ical:n`), thread-parent (`:thread:`), and unrelated docs (drive/notion).
+  tsc clean.
+- **Citation survival:** citations are generated at query time from current docs;
+  post-delete + re-index, new docs keep the same `source_url`, so links resolve
+  going forward (old `:idx` citations regenerate against the new `gmail:{id}` doc).
 
 ### P3-8: synthetic email thread-parent chunks (2026-06-13)
 
