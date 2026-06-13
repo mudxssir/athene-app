@@ -203,10 +203,9 @@ describe("Nango webhook HMAC verification (8A.6)", () => {
     expect(vi.mocked(dispatchThrottled)).toHaveBeenCalledOnce();
   });
 
-  // NOTE: NANGO_SECRET_KEY = "" (empty string) cannot be tested in this file because
-  // the route captures `const NANGO_SECRET = process.env.NANGO_SECRET_KEY ?? ""` at
-  // module-load time via vi.hoisted(). To test the empty-secret fail-closed path
-  // (verifyNangoSignature returns false when !NANGO_SECRET) a separate test file
-  // with its own vi.hoisted() block that sets NANGO_SECRET_KEY="" is required.
-  it.skip("rejects all requests when NANGO_SECRET_KEY is empty string — requires separate module isolation", () => {});
+  // The empty-secret fail-closed path (NANGO_SECRET_KEY = "") is covered in a
+  // separate file — webhook-empty-secret.test.ts — because the route captures
+  // `const NANGO_SECRET = process.env.NANGO_SECRET_KEY ?? ""` at module-load time
+  // and this file's vi.hoisted() already sets a real secret. A separate file gets
+  // its own fresh module evaluation with an empty secret.
 });
