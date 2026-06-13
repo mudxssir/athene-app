@@ -28,7 +28,7 @@ _Branch: `pipeline/p3-docs-email-depth` · Flags: `SIDECAR_PARSING` (default OFF
 | ID | Title | Status | Size | Depends on |
 |----|-------|--------|------|------------|
 | P3-10 | `documents.context_summary` migration + doc-context generator (simple tier, cached by content_hash, injection-guarded, ≤60 tok) | todo | M | — |
-| P3-11 | Breadcrumb builders per connector: Drive folder_path (exists), Notion ancestor chain, Confluence space+ancestors, SharePoint site/drive | todo | M | — |
+| P3-11 | Breadcrumb builders per connector: Drive folder_path (exists), Notion ancestor chain, Confluence space+ancestors, SharePoint site/drive | done (builder; ancestor-walk + space-name enrichment deferred) | M | — |
 | P3-12 | Per-chunk situating lines: batched 10/call JSON, prose/email/work_item, skip single-chunk docs; `context_header` in embedding-row metadata | todo | M | P3-10 |
 | P3-13 | Embed text assembly: `header + '\n\n' + child` (one place: indexing pipeline) | todo | S | P3-10, P3-11, P3-12 |
 
@@ -47,6 +47,31 @@ _Branch: `pipeline/p3-docs-email-depth` · Flags: `SIDECAR_PARSING` (default OFF
 ---
 
 ## Session notes
+
+### P3-11: deterministic breadcrumb builder (2026-06-13)
+
+_First ticket of the context-envelope group. Order: P3-11 (this, deterministic)
+→ P3-10 (doc-context LLM) → P3-12 (situating LLM) → P3-13 (assembly wires all
+three into the indexer). All behind `CONTEXT_ENVELOPE` (default OFF)._
+
+- **`lib/indexing/context-envelope.ts`**: pure, zero-cost `buildBreadcrumb(chunk)`
+  → `{source} › {container} › {title}` from metadata fetchers already carry.
+  `sourceLabel(provider, resource_type)` disambiguates Google→Gmail/Drive/Calendar
+  and Microsoft→Outlook/SharePoint/OneDrive; `containerSegment` resolves
+  folder_path / space / channel(#) / site / project / repo from known keys and
+  degrades to `{source} › {title}` when none is present; `cleanTitle` strips
+  connector "Prefix: " noise.
+- Consumed at embed-assembly time (P3-13); not wired into the indexer yet (the
+  builder is the deliverable here, integration lands with the doc-context +
+  situating layers in P3-13).
+- **Deferred (documented):** the full Notion ancestor-walk + Confluence
+  ancestor/space-NAME enrichment (each needs an extra API walk + cache table).
+  The builder reads a pre-built `breadcrumb_path` metadata key when a future
+  walk supplies one, and otherwise uses `space_id` — still a valid container
+  signal. Tracked as a connector-enrichment follow-up.
+- **Tests:** `context-envelope.test.ts` (10) — Drive/Confluence/Slack/SharePoint/
+  Notion breadcrumbs, prefix stripping, root-folder skip, `breadcrumb_path`
+  preference, unknown-provider capitalization. tsc clean.
 
 ### P3-7: per-slice email deletion migration — audit D4 (2026-06-13)
 
