@@ -123,23 +123,47 @@ function chunkEmail(content: string): string[] {
 }
 
 /**
- * Strips residual HTML and normalizes whitespace before chunking.
- * Most fetchers already clean their output, but some sources (Confluence,
- * Zendesk, Gmail) can leak partial tags.
+ * Whitespace + entity normalization for prose before chunking.
  *
- * HTML detection heuristic: only strip a `<...>` span if it looks like an
- * actual tag (starts with a letter or `/`). This avoids corrupting code/SQL
- * content where `<`, `>` appear as comparison operators (e.g. `WHERE age < 30`).
+ * D8 fix (P3): the global HTML-tag strip is GONE. It corrupted code-like prose
+ * (`<T>`, `<Component>`, `WHERE a < b`) across every shape, since
+ * `normalizeContent` runs on ALL content regardless of source. HTML sanitization
+ * now lives in the per-shape converters that actually emit HTML — Confluence
+ * (`stripHtml`), Zendesk (`stripHtml`), Outlook (`stripOutlookHtml`), Gmail
+ * (`stripHtmlTags`, which also prefers the text/plain MIME part). Sources that
+ * emit markdown or plain text (Notion, the parser lanes for Drive/SharePoint/
+ * uploads) keep their angle-brackets intact.
+ *
+ * The remaining normalization — entity decode + whitespace collapse — runs only
+ * on prose BETWEEN fenced code blocks. Fenced blocks (``` / ~~~) are copied
+ * verbatim so indentation-significant code (Python, YAML, SQL) survives
+ * byte-identical (PLAN_A Part I prose note: "normalizeContent must skip fenced
+ * blocks").
  */
 export function normalizeContent(content: string): string {
-  return content
-    .replace(/<\/?\s*[a-zA-Z][^>]*>/g, ' ')  // strip HTML tags (letter-prefixed only)
+  // Walk the string, copying fenced code blocks verbatim and normalizing only
+  // the prose between them. An unterminated fence simply never matches → its
+  // text is treated as prose (acceptable degradation for malformed input).
+  const fence = /(?:^|\n)(`{3,}|~{3,})[^\n]*\n[\s\S]*?\n\1[ \t]*(?=\n|$)/g
+  let out = ''
+  let cursor = 0
+  for (let m = fence.exec(content); m !== null; m = fence.exec(content)) {
+    out += normalizeProse(content.slice(cursor, m.index))
+    out += m[0]  // fenced block — byte-identical
+    cursor = m.index + m[0].length
+  }
+  out += normalizeProse(content.slice(cursor))
+  return out.trim()
+}
+
+/** Entity-decode + whitespace-collapse for non-code prose (no tag stripping). */
+function normalizeProse(text: string): string {
+  return text
     .replace(/&(?:amp|lt|gt|quot|nbsp|apos);/gi, (m) => ({
       '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&nbsp;': ' ', '&apos;': "'"
     } as Record<string, string>)[m.toLowerCase()] ?? m)  // decode common entities
     .replace(/\n{3,}/g, '\n\n')     // collapse runs of blank lines
     .replace(/ {2,}/g, ' ')         // collapse multiple spaces
-    .trim()
 }
 
 /**
@@ -303,8 +327,10 @@ function enqueueEmbedRetry(orgId: string, documentId: string): void {
 
 /**
  * normalizeContent wrapper that measures how much was stripped (P0-7 / audit D8
- * exposure metric): a high strip ratio on code-bearing docs signals corruption
- * by the HTML-strip regex — informs the P3 per-shape sanitization fix.
+ * exposure metric). With the global HTML-tag strip removed (P3 D8 fix), a high
+ * strip ratio now only comes from entity decode + whitespace collapse on prose,
+ * so this should fire rarely — a residual guard for a converter leaking large
+ * volumes of un-stripped markup into prose content.
  */
 function normalizeContentTracked(content: string, title?: string): string {
   const normalized = normalizeContent(content)
