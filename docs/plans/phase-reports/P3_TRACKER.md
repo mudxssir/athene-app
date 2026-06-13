@@ -27,7 +27,7 @@ _Branch: `pipeline/p3-docs-email-depth` · Flags: `SIDECAR_PARSING` (default OFF
 
 | ID | Title | Status | Size | Depends on |
 |----|-------|--------|------|------------|
-| P3-10 | `documents.context_summary` migration + doc-context generator (simple tier, cached by content_hash, injection-guarded, ≤60 tok) | todo | M | — |
+| P3-10 | `documents.context_summary` migration + doc-context generator (simple tier, cached by content_hash, injection-guarded, ≤60 tok) | done (migration + generator; wired in P3-13) | M | — |
 | P3-11 | Breadcrumb builders per connector: Drive folder_path (exists), Notion ancestor chain, Confluence space+ancestors, SharePoint site/drive | done (builder; ancestor-walk + space-name enrichment deferred) | M | — |
 | P3-12 | Per-chunk situating lines: batched 10/call JSON, prose/email/work_item, skip single-chunk docs; `context_header` in embedding-row metadata | todo | M | P3-10 |
 | P3-13 | Embed text assembly: `header + '\n\n' + child` (one place: indexing pipeline) | todo | S | P3-10, P3-11, P3-12 |
@@ -47,6 +47,25 @@ _Branch: `pipeline/p3-docs-email-depth` · Flags: `SIDECAR_PARSING` (default OFF
 ---
 
 ## Session notes
+
+### P3-10: doc-context generator + context_summary column (2026-06-13)
+
+- **Migration** `20260613000002_documents_context_summary.sql`:
+  `documents.context_summary text` (additive; documents RLS already governs it).
+- **`lib/indexing/doc-context.ts`** — `generateDocContext(title, content, orgId)`:
+  one `simple`-tier LLM call (BYOK-aware via `resolveModelClient`) → a ≤25-word
+  "what this document is about" line. The body is delimited
+  (`<<<DOCUMENT…>>>`) and the model is told to treat it as data and ignore inner
+  instructions (prompt-injection guard); output is URL-stripped + clamped to 320
+  chars by `sanitizeDocContext`. Returns null on empty input or any LLM failure →
+  envelope degrades to breadcrumb-only.
+- **Caching = content_hash:** the indexer calls this only when a document's
+  content changes (P3-13 wiring), so it's one call per content_hash; the result
+  persists on `documents.context_summary`.
+- **Producer only** (like P3-11); consumed + persisted by the P3-13 assembly.
+- **Tests:** `doc-context.test.ts` (6) — summary returned, array content blocks,
+  empty→null (no model call), throw→null fail-open, injected-URL stripped;
+  `sanitizeDocContext` URL/whitespace/length. tsc clean.
 
 ### P3-11: deterministic breadcrumb builder (2026-06-13)
 
