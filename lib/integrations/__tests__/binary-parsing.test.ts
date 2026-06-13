@@ -185,7 +185,14 @@ describe('parsedToChunks — adapter', () => {
       expect(c.metadata.parser_version).toBe('2.x')
     }
     // Tabular chunk present (stats), shape != prose.
-    expect(chunks.some((c) => c.chunk_id === 'drive:f1:stats')).toBe(true)
+    const stats = chunks.find((c) => c.chunk_id === 'drive:f1:stats')!
+    expect(stats).toBeDefined()
+    // The tabular builder's own metadata survives the adapter merge (not dropped):
+    // resource_type stays table_stats, row_count present, folder_path merged in.
+    expect(stats.metadata.resource_type).toBe('table_stats')
+    expect(stats.metadata.row_count).toBeDefined()
+    expect(stats.metadata.folder_path).toBe('/Reports')
+    expect(stats.metadata.parser_used).toBe('docling')
   })
 
   it('writes a media_queue stub per picture', async () => {

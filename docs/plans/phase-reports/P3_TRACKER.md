@@ -46,6 +46,49 @@ _Branch: `pipeline/p3-docs-email-depth` · Flags: `SIDECAR_PARSING` (default OFF
 
 ---
 
+## Post-implementation review round (2026-06-13)
+
+A full review against the plan, the to-do lists, the SDLC rules, and regression
+cases. Ran the COMPLETE suite (not just the integration subset): 937 TS tests +
+21 Python + tsc + check-rls. Findings + fixes:
+
+1. **Doc-context coupled to situating (plan deviation).** `computeChunkHeaders`
+   gated BOTH the doc-context line (PLAN_A §0.3 layer 2 — meant to be per
+   *document*, all narrative shapes) and situating (layer 3 — prose/email/
+   work_item only) behind `shapeGetsSituating`, so records got no doc-context.
+   **Fixed:** new `shapeGetsDocContext` (prose/email/thread/work_item/record;
+   excludes deterministic tabular/bi_artifact/media which are self-describing).
+   Doc-context and situating now run independently. Test added (record shape →
+   doc-context applied, situating skipped).
+2. **Unbounded LLM fan-out in the bulk path (operational risk / SDLC "don't
+   hammer providers").** `Promise.all(changedItems.map(computeChunkHeaders))`
+   could issue up to ~2 LLM calls × N documents concurrently (a 200-doc sync →
+   ~400 concurrent calls) once `CONTEXT_ENVELOPE` is flipped on a pilot.
+   **Fixed:** `mapWithConcurrency` worker pool, `ENVELOPE_CONCURRENCY = 5`
+   (order-preserving). Latent until the flag flips, but caught pre-pilot.
+3. **Tabular metadata dropped by the Docling adapter (correctness bug).**
+   `parsedToChunks` did `c.metadata = stamp(provider, resource_type)` —
+   REPLACING the object and dropping the tabular builder's keys (`row_count`,
+   `table`, real `resource_type`), which faceted search relies on. The Drive
+   (P3-3) and Microsoft paths correctly MERGE. **Fixed:** the tabular branch now
+   spreads `...c.metadata` then layers base metadata + parser provenance; the
+   prose chunk (freshly built) keeps a full object. Test strengthened to assert
+   `resource_type=table_stats`, `row_count`, and merged `folder_path` survive.
+4. **Stale test mocks.** Two pre-existing indexing test files mocked
+   `feature-flags` without `CONTEXT_ENVELOPE`; the envelope test mocked
+   `doc-context`/`situating` without the new shape predicates and with an
+   always-true `shapeGetsSituating`. All corrected to mirror real behavior.
+
+Confirmed clean (no change needed): P0-6 chunk-text-store rule (all `chunk_text`
+refs in new production files are comments; reads/writes go through the store);
+embedding-alignment in the bulk path (allEmbedTexts/allTexts/flatHints flatten in
+the same order; late-chunking offsets aligned); content_hash is of RAW text so the
+envelope header never affects delta-sync dedup; skip_embedding + structural +
+sentinel branch ordering in both indexer paths; thread-parent grouping excludes
+`#quoted` provenance and calendar records. The `storage.test.ts` timeout seen in
+one full-suite run was parallel-run resource contention (passes in 0.6 s in
+isolation on both P2 and P3; imports nothing from the P3 diff) — not a regression.
+
 ## Session notes
 
 ### P3-13: embed-text assembly — context envelope wired (2026-06-13)

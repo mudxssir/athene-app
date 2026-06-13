@@ -26,10 +26,14 @@ vi.mock('@/lib/config/feature-flags', () => ({
   PIPELINE_SHAPE_ROUTING: false,
 }))
 
-vi.mock('@/lib/indexing/doc-context', () => ({ generateDocContext: docContextMock }))
+vi.mock('@/lib/indexing/doc-context', () => ({
+  generateDocContext: docContextMock,
+  shapeGetsDocContext: (shape?: string) =>
+    ['prose', 'email', 'thread', 'work_item', 'record'].includes(shape ?? ''),
+}))
 vi.mock('@/lib/indexing/situating', () => ({
   generateSituatingLines: situatingMock,
-  shapeGetsSituating: () => true,
+  shapeGetsSituating: (shape?: string) => ['prose', 'email', 'work_item'].includes(shape ?? ''),
 }))
 
 vi.mock('@/lib/ai/embedding-factory', () => ({
@@ -141,5 +145,30 @@ describe('P3-13 — context envelope assembly (bulk path)', () => {
     )
     expect(ctxUpdate).toBeTruthy()
     expect((ctxUpdate!.records as Record<string, unknown>).context_summary).toContain('March invoice')
+  })
+
+  // Review fix: doc-context (layer 2) is decoupled from situating (layer 3).
+  // A record-shape doc gets a doc-context line (+ breadcrumb) but NO situating.
+  it('record shape: doc-context applied, situating skipped', async () => {
+    docContextMock.mockResolvedValue('A Salesforce opportunity for the Acme renewal.')
+    const recordChunk: FetchedChunk = {
+      chunk_id: 'sf:opp-1',
+      title: 'Acme Renewal',
+      content: 'Opportunity: Acme Renewal. Stage: Negotiation. Amount: 50000.',
+      source_url: 'https://sf/opp-1',
+      shape: 'record',
+      metadata: { provider: 'salesforce', resource_type: 'opportunity' },
+    } as FetchedChunk
+
+    await indexDocuments([recordChunk], ORG, CONN, null, 'org_wide')
+
+    // doc-context generated for the record...
+    expect(docContextMock).toHaveBeenCalled()
+    // ...but situating NOT called (record is not a situating shape).
+    expect(situatingMock).not.toHaveBeenCalled()
+
+    const embeddedText = embedBatchMock.mock.calls[0][0][0] as string
+    expect(embeddedText).toContain('Salesforce › Acme Renewal')                 // breadcrumb
+    expect(embeddedText).toContain('A Salesforce opportunity for the Acme')     // doc-context
   })
 })

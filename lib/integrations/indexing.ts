@@ -22,7 +22,7 @@ import { chunk as tokenChunk } from '@/lib/langgraph/tools/chunker'
 import { writeChunkText } from '@/lib/indexing/chunk-text-store'
 import { PIPELINE_SHAPE_ROUTING, CONTEXT_ENVELOPE } from '@/lib/config/feature-flags'
 import { buildBreadcrumb, buildContextHeader, assembleEmbedText } from '@/lib/indexing/context-envelope'
-import { generateDocContext } from '@/lib/indexing/doc-context'
+import { generateDocContext, shapeGetsDocContext } from '@/lib/indexing/doc-context'
 import { generateSituatingLines, shapeGetsSituating } from '@/lib/indexing/situating'
 import { computeSignals, selectStrategy, truncateAtTokenCap, neutralizeMonsterRuns, MIN_TOKENS, MAX_CHUNKS_PER_DOC } from '@/lib/indexing/chunk-policy'
 import { splitByHeadings, splitFenceAtomic, groupIntoParents } from '@/lib/indexing/structural-chunker'
@@ -343,6 +343,33 @@ async function persistContextSummary(documentId: string, orgId: string, summary:
 }
 
 /**
+ * Map an async fn over items with a bounded worker pool, preserving order.
+ * Used to cap how many documents enrich concurrently (each enrichment is up to
+ * two LLM calls) so a large sync batch can't fan out into a rate-limit storm.
+ */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let cursor = 0
+  const worker = async (): Promise<void> => {
+    for (;;) {
+      const i = cursor++
+      if (i >= items.length) return
+      results[i] = await fn(items[i], i)
+    }
+  }
+  const workers = Array.from({ length: Math.min(limit, items.length) }, worker)
+  await Promise.all(workers)
+  return results
+}
+
+/** Max documents enriched concurrently in the bulk path (context envelope). */
+const ENVELOPE_CONCURRENCY = 5
+
+/**
  * P3-13: compute the per-sub-chunk context header for one document
  * (breadcrumb + doc-context + situating). Returns one header string per
  * sub-chunk (empty string when the envelope is off or a layer is unavailable).
@@ -359,9 +386,15 @@ async function computeChunkHeaders(
   const breadcrumb = buildBreadcrumb(chunk)
   let docContext: string | null = null
   let situating: (string | null)[] = subChunks.map(() => null)
-  if (shapeGetsSituating(chunk.shape)) {
+
+  // Layer 2 (PLAN_A §0.3): doc-context line — once per document, for any narrative
+  // shape (prose/email/thread/work_item/record). Persisted to context_summary.
+  if (shapeGetsDocContext(chunk.shape)) {
     docContext = await generateDocContext(chunk.title, chunk.content, orgId)
     if (docContext && orgId) await persistContextSummary(documentId, orgId, docContext)
+  }
+  // Layer 3: per-chunk situating — prose/email/work_item, multi-chunk only.
+  if (shapeGetsSituating(chunk.shape)) {
     situating = await generateSituatingLines(docContext ?? '', subChunks, orgId)
   }
   return subChunks.map((_, j) =>
@@ -967,8 +1000,10 @@ export async function indexDocuments(
   // (breadcrumb + doc-context + situating). itemEmbedTexts wraps the EMBEDDED
   // text with the header; chunk_text stored stays raw (allTexts). When the flag
   // is off, headers are empty and itemEmbedTexts === item.subChunks (no change).
-  const itemHeaders: string[][] = await Promise.all(
-    changedItems.map(item => computeChunkHeaders(item.chunk, item.subChunks, item.documentId, orgId)),
+  const itemHeaders: string[][] = await mapWithConcurrency(
+    changedItems,
+    ENVELOPE_CONCURRENCY,
+    (item) => computeChunkHeaders(item.chunk, item.subChunks, item.documentId, orgId),
   )
   const itemEmbedTexts: string[][] = changedItems.map((item, ii) =>
     item.subChunks.map((text, j) => assembleEmbedText(itemHeaders[ii][j] ?? '', text)),

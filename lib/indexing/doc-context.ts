@@ -17,9 +17,22 @@ import 'server-only'
 import { HumanMessage } from '@langchain/core/messages'
 import { resolveModelClient } from '@/lib/langgraph/llm-factory'
 import { logger } from '@/lib/logger'
+import type { DataShape } from '@/lib/integrations/base'
 
 const MAX_INPUT_CHARS = 6_000   // a doc-level gist needs only the opening; caps cost
 const MAX_OUTPUT_CHARS = 320    // ~60–80 tokens
+
+/**
+ * Shapes that get a doc-context line (PLAN_A §0.3 layer 2 — per document).
+ * Narrative/free-text shapes only; tabular/bi_artifact/media are deterministic
+ * and already self-describing via their stats/artifact headers, so a cheap-LLM
+ * gist adds cost without retrieval value there.
+ */
+const DOC_CONTEXT_SHAPES = new Set<DataShape>(['prose', 'email', 'thread', 'work_item', 'record'])
+
+export function shapeGetsDocContext(shape: DataShape | undefined): boolean {
+  return !!shape && DOC_CONTEXT_SHAPES.has(shape)
+}
 
 /** Extract plain text from a LangChain invoke() result (string | content blocks). */
 function contentToText(raw: unknown): string {

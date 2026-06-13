@@ -221,19 +221,10 @@ export async function parsedToChunks(
   opts: AdapterOptions,
 ): Promise<FetchedChunk[]> {
   const chunks: FetchedChunk[] = []
-  /** Merge base metadata + the chunk's required keys + parser provenance. */
-  const stamp = (
-    provider: string,
-    resourceType: string,
-  ): FetchedChunk['metadata'] => ({
-    ...(opts.baseMetadata ?? {}),
-    provider,
-    resource_type: resourceType,
-    parser_used: parsed.parser_used,
-    parser_version: parsed.parser_version,
-  })
 
-  // Tables → tabular engine
+  // Tables → tabular engine. MERGE base metadata + parser provenance ONTO the
+  // builder's metadata so its keys (resource_type, row_count, table, …) survive
+  // — replacing the object wholesale would drop them and break faceted search.
   if (parsed.tables.length > 0) {
     const tableChunks = await tabularChunksFromParsed(
       parsed.tables,
@@ -243,12 +234,18 @@ export async function parsedToChunks(
       { withLlmAnalysis: false, provider: opts.tabularProvider },
     )
     for (const c of tableChunks) {
-      c.metadata = stamp(c.metadata.provider, c.metadata.resource_type)
+      c.metadata = {
+        ...c.metadata,
+        ...(opts.baseMetadata ?? {}),
+        parser_used: parsed.parser_used,
+        parser_version: parsed.parser_version,
+      }
     }
     chunks.push(...tableChunks)
   }
 
-  // Narrative markdown → prose chunk (structural chunking happens at index time)
+  // Narrative markdown → prose chunk (structural chunking happens at index time).
+  // Freshly built, so a full metadata object is correct here.
   if (parsed.text.trim().length > 0) {
     chunks.push({
       chunk_id: opts.chunkId,
@@ -256,7 +253,13 @@ export async function parsedToChunks(
       content: parsed.text,
       source_url: opts.sourceUrl,
       shape: 'prose',
-      metadata: stamp(opts.provider, opts.proseResourceType ?? 'document'),
+      metadata: {
+        ...(opts.baseMetadata ?? {}),
+        provider: opts.provider,
+        resource_type: opts.proseResourceType ?? 'document',
+        parser_used: parsed.parser_used,
+        parser_version: parsed.parser_version,
+      },
     })
   }
 
