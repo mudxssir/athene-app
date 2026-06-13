@@ -9,7 +9,7 @@ _Branch: `pipeline/p4-bi-crm-depth` (off `pipeline/p3-docs-email-depth`) · Flag
 | ID | Title | Status | Size | Depends on |
 |----|-------|--------|------|------------|
 | P4-4 | Type-inference hardening: 95th-percentile rule replaces `every()` in `tabular-analysis.ts inferSchema` | done | S | — |
-| P4-1 | D2: builder Tier C path — `extractSchemaEntities` for tabular (0 LLM); bi_artifact deterministic service/metric nodes; media inherits parent | todo | M | P4-4 |
+| P4-1 | D2: builder Tier C path — `extractSchemaEntities` for tabular (0 LLM); bi_artifact deterministic service/metric nodes; media inherits parent | done (tabular schema path; bi_artifact-name nodes folded into P4-5) | M | P4-4 |
 | P4-3 | Wide tables: column-group splits (30 cols) + table-name header re-emit; PII masking flag for sample chunks (stats unaffected) | todo | M | P4-4 |
 | P4-2 | Vocabulary enrichment: 1 simple-tier call/table → alias line in stats header (cached by schema hash); warehouse column comments | todo | M | P4-1 |
 
@@ -39,6 +39,37 @@ _Branch: `pipeline/p4-bi-crm-depth` (off `pipeline/p3-docs-email-depth`) · Flag
 ---
 
 ## Session notes
+
+### P4-1: D2 — deterministic Tier-C schema entities for tabular docs (2026-06-14)
+
+- **Root cause (audit D2):** `extractSchemaEntities` (the deterministic, no-LLM KG
+  path for tables) had ZERO call sites — only a re-export in `extractor.ts`. Tabular
+  docs either got skipped (no graph nodes at all) or, pre-shape-routing, ran the LLM
+  entity/relation prompt over statistical text (noise).
+- **Fix:** `TABULAR_TIER_C` flag (default OFF). When on, the builder treats a doc
+  whose chunks are ALL deterministic tabular chunks (`table_stats`/`table_sample`/
+  `table_aggregations`, via new `TABULAR_RESOURCE_TYPES`) as Tier C: it **skips the
+  LLM extractor entirely** and runs `buildSchemaEntityGraph` instead → table = service
+  node, numeric cols = metric concepts (FEEDS), categorical cols = dimension concepts
+  (PART_OF), all EXTRACTED/1.0, zero LLM calls.
+- **Schema plumbing:** `buildStatsChunk` now emits the structured column schema
+  (`schema: [{name,type}]`) in stats-chunk metadata (small, structured — not content;
+  passes the chunk-text gate). `buildSchemaEntityGraph` reconstructs a minimal
+  `TableStats` (`extractSchemaEntities` only reads `rowCount` + `schema`) and calls
+  the existing function. Covers ALL tabular sources (warehouses + uploads + Drive XLSX
+  + Sheets) since they share `buildStatsChunk`.
+- **Builder wiring** mirrors `buildStructuredLinkGraph`/`buildStructuredOwnerGraph`:
+  a pure deterministic producer merged alongside (idempotent via node/edge dedup, so
+  safe even on mixed docs). The LLM-skip is gated on the doc being *fully* tabular, so
+  a mixed doc still gets LLM on its narrative chunks.
+- **Scope note:** the playbook listed "bi_artifact deterministic service/metric nodes
+  from artifact names" under this item — folded into **P4-5** (bi_artifact split) where
+  the artifact shape/naming lives. P4-1 delivers the tabular schema path (the D2 core).
+- **Tests:** `schema-entity-graph.test.ts` (5) — service/metric/dimension nodes,
+  FEEDS/PART_OF edges EXTRACTED/1.0, multi-table, ignores non-stats chunks, malformed
+  metadata → empty. `builder-tabular-tier-c.test.ts` (1, gate) — warehouse doc →
+  `extractEntitiesAndRelations` NOT called + schema entities persisted via upsertGraph.
+  Existing builder suite (9) green with flag dormant; full suite 954; tsc + RLS clean.
 
 ### P4-4: type-inference hardening — 95th-percentile rule (2026-06-14)
 
@@ -70,7 +101,7 @@ P4-1 (D2 keystone) → P4-3 → P4-2 → P4-5 → P4-6/7/8._
 
 | Criterion | Status |
 |---|---|
-| Warehouse fixture: 0 LLM extraction calls, schema entities present | todo |
+| Warehouse fixture: 0 LLM extraction calls, schema entities present | ✅ `builder-tabular-tier-c.test.ts` — tabular doc bypasses the LLM extractor; service/metric/dimension nodes persisted (flag `TABULAR_TIER_C`) |
 | "metric by dimension" golden queries hit enriched stats chunks (≥15% on tabular set) | todo (needs Jina keys + pilot — batched with P1–P3 gates) |
 | Calendar fixtures produce record-shaped rows + obligation-adjacent retrieval | todo |
 | CRM OWNS / TIED_TO_ACCOUNT edges EXTRACTED/1.0 | todo |

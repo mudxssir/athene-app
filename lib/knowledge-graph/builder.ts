@@ -22,7 +22,8 @@ import { extractEntitiesAndRelations } from './extractor'
 import { shouldRunExtractionChained } from './extraction-gate'
 import { buildStructuredLinkGraph } from './structured-links'
 import { buildStructuredOwnerGraph } from './structured-owners'
-import { KG_OWNER_GRAPH } from '@/lib/config/feature-flags'
+import { buildSchemaEntityGraph, TABULAR_RESOURCE_TYPES } from '@/lib/integrations/bi-chunking'
+import { KG_OWNER_GRAPH, TABULAR_TIER_C } from '@/lib/config/feature-flags'
 import { upsertGraph, deleteByDocument } from './storage'
 import { detectCommunities } from './community'
 import { extractAndUpsertEvents } from './event-extractor'
@@ -226,12 +227,23 @@ async function processDocument(
     )
   }
 
+  // P4-1 (D2): a document whose chunks are ALL deterministic tabular chunks
+  // (stats/sample/agg) is Tier C — it gets schema entities with ZERO LLM calls,
+  // never the entity/relation LLM over statistical text. Flag-gated.
+  const isTabularDoc =
+    TABULAR_TIER_C &&
+    extractorChunks.length > 0 &&
+    extractorChunks.every((c) =>
+      TABULAR_RESOURCE_TYPES.has(String((c.metadata as Record<string, unknown> | undefined)?.resource_type ?? '')))
+
   // Tier A/B gate (REFOCUS §5.3 + P2-10 chain): Slack chunks get embeddings
   // only unless they match decision/blocker signal patterns AND GLiNER
   // confirms real person/org/project entities (sidecar down → fail open).
   const chunkTexts = extractorChunks.map((c) => c.text)
-  const runLLM = await shouldRunExtractionChained(doc.source_type, chunkTexts)
-  if (!runLLM) {
+  const runLLM = !isTabularDoc && (await shouldRunExtractionChained(doc.source_type, chunkTexts))
+  if (isTabularDoc) {
+    logger.info({ docId, sourceType: doc.source_type }, '[builder] Tier C (tabular) — deterministic schema entities, no LLM')
+  } else if (!runLLM) {
     logger.info({ docId, sourceType: doc.source_type }, '[builder] Tier B — gate not passed, skipping LLM extraction')
   }
 
@@ -260,6 +272,21 @@ async function processDocument(
     const ownersGraph = buildStructuredOwnerGraph(docArg)
     nodes.push(...ownersGraph.nodes)
     edges.push(...ownersGraph.edges)
+  }
+
+  // Schema entities (P4-1 / D2): deterministic service/metric/dimension nodes
+  // from tabular stats chunks — no LLM. Behind TABULAR_TIER_C (P4 rollback
+  // story). Additive + idempotent (node/edge dedup), so safe even on mixed docs.
+  if (TABULAR_TIER_C) {
+    const schemaGraph = buildSchemaEntityGraph(
+      extractorChunks,
+      orgId,
+      doc.department_id ?? null,
+      (doc.visibility ?? 'department') as Parameters<typeof buildSchemaEntityGraph>[3],
+      docId,
+    )
+    nodes.push(...schemaGraph.nodes)
+    edges.push(...schemaGraph.edges)
   }
 
   // BUG-12 FIX: Only update global counters after full success

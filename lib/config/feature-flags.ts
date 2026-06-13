@@ -51,3 +51,14 @@ export const SIDECAR_PARSING = process.env.SIDECAR_PARSING === "true";
  * Set CONTEXT_ENVELOPE=true to activate.
  */
 export const CONTEXT_ENVELOPE = process.env.CONTEXT_ENVELOPE === "true";
+
+/**
+ * P4: deterministic Tier-C knowledge-graph path for tabular documents (audit D2).
+ * When ON, the builder runs `extractSchemaEntities` (table → service node, columns →
+ * metric/dimension concept nodes, all EXTRACTED/1.0, ZERO LLM calls) for tabular
+ * docs and skips the LLM extractor for them entirely — instead of the current
+ * behavior where BI stats chunks either get skipped (no graph) or run LLM over
+ * statistical text. Default OFF until the P4 gate (rollback: off → current
+ * LLM-on-everything / skip behavior). Set TABULAR_TIER_C=true to activate.
+ */
+export const TABULAR_TIER_C = process.env.TABULAR_TIER_C === "true";

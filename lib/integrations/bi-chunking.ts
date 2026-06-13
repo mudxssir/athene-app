@@ -175,6 +175,10 @@ export function buildStatsChunk(
       resource_type: 'table_stats',
       table: tableFullName,
       row_count: String(stats.rowCount),
+      // P4-1 (D2): structured column schema so the builder can reconstruct
+      // schema entities deterministically (no LLM). Small, structured — not
+      // content. Consumed by buildSchemaEntityGraph at KG-build time.
+      schema: stats.schema.map((c) => ({ name: c.name, type: c.type })),
     },
   }
 }
@@ -345,6 +349,72 @@ export function extractSchemaEntities(
         visibility,
       })
     }
+  }
+
+  return { nodes, edges }
+}
+
+/** Resource types whose chunks are fully deterministic (Tier C — no LLM). */
+export const TABULAR_RESOURCE_TYPES = new Set([
+  'table_stats',
+  'table_sample',
+  'table_aggregations',
+])
+
+interface SchemaChunkLike {
+  metadata?: Record<string, unknown> | null
+}
+
+/**
+ * P4-1 (D2): deterministic KG path for tabular documents. Scans a document's
+ * chunks for `table_stats` chunks (which carry `table` + `schema` in metadata,
+ * emitted by buildStatsChunk) and produces schema entities via
+ * extractSchemaEntities — table → service node, numeric cols → metric concepts
+ * (FEEDS), categorical cols → dimension concepts (PART_OF), all EXTRACTED/1.0,
+ * ZERO LLM calls. Returns empty when no stats chunk is present.
+ *
+ * Mirrors buildStructuredLinkGraph / buildStructuredOwnerGraph: a pure,
+ * deterministic node/edge producer the builder merges alongside LLM output.
+ */
+export function buildSchemaEntityGraph(
+  chunks: SchemaChunkLike[],
+  orgId: string,
+  departmentId: string | null,
+  visibility: Visibility,
+  documentId: string,
+): { nodes: KGNode[]; edges: KGEdge[] } {
+  const nodes: KGNode[] = []
+  const edges: KGEdge[] = []
+
+  for (const chunk of chunks) {
+    const meta = chunk.metadata
+    if (!meta || meta.resource_type !== 'table_stats') continue
+
+    const tableFullName = typeof meta.table === 'string' ? meta.table : ''
+    const rawSchema = Array.isArray(meta.schema) ? meta.schema : []
+    if (!tableFullName || rawSchema.length === 0) continue
+
+    const schema: ColumnSchema[] = rawSchema
+      .filter((c): c is { name: string; type: string } =>
+        !!c && typeof (c as ColumnSchema).name === 'string' && typeof (c as ColumnSchema).type === 'string')
+      .map((c) => ({ name: c.name, type: c.type }))
+    if (schema.length === 0) continue
+
+    const rowCount = Number(meta.row_count ?? 0) || 0
+
+    // extractSchemaEntities only reads stats.rowCount + stats.schema; the other
+    // TableStats fields are unused here, so a minimal object is sufficient.
+    const stats: TableStats = {
+      tableName: tableFullName,
+      rowCount,
+      schema,
+      numeric: [],
+      categorical: [],
+      dates: [],
+    }
+    const sub = extractSchemaEntities(tableFullName, stats, orgId, departmentId, visibility, documentId)
+    nodes.push(...sub.nodes)
+    edges.push(...sub.edges)
   }
 
   return { nodes, edges }
