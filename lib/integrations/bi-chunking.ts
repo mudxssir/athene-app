@@ -21,6 +21,34 @@
 
 import type { FetchedChunk } from './base'
 import type { KGNode, KGEdge, Visibility } from '@/lib/knowledge-graph/types'
+import { TABULAR_PII_MASKING } from '@/lib/config/feature-flags'
+
+// ---- PII masking (P4-3) ---------------------------------------
+
+/** Columns per group when rendering a wide sample chunk (table-name header re-emitted per group). */
+const WIDE_TABLE_COLUMN_GROUP = 30
+
+// Order matters: email first, then SSN (9 digits, 3-2-4) before phone (10 digits)
+// so a 3-2-4 SSN is never half-matched by the phone pattern.
+const PII_PATTERNS: RegExp[] = [
+  /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g,        // email
+  /\b\d{3}-\d{2}-\d{4}\b/g,                                  // SSN (3-2-4)
+  // phone: optional country code, optional area-code parens, 3-3-4 with any of
+  // space/dot/dash separators. No leading \b (so `(415) …` parens-form matches).
+  /(?:\+?\d{1,3}[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/g,
+]
+
+/**
+ * Mask email / SSN / phone tokens in a rendered cell value → `***`.
+ * No-op unless TABULAR_PII_MASKING is on. Applied only to rendered raw values
+ * (sample rows, categorical top-values); statistical aggregates are untouched.
+ */
+export function maskPII(value: string): string {
+  if (!TABULAR_PII_MASKING || !value) return value
+  let out = value
+  for (const re of PII_PATTERNS) out = out.replace(re, '***')
+  return out
+}
 
 // ---- SyncConfig -----------------------------------------------
 
@@ -148,9 +176,11 @@ export function buildStatsChunk(
         if (numStat.sum !== '') parts.push(`total: ${numStat.sum}`)
         if (parts.length) detail += ` — ${parts.join(', ')}`
       } else if (catStat) {
+        // P4-3: top categorical values are raw cell values — mask PII here too
+        // (the count distribution is unaffected; only the value label is masked).
         const topStr = catStat.topValues
           .slice(0, 5)
-          .map(({ value, count }) => `${value} (${count})`)
+          .map(({ value, count }) => `${maskPII(value)} (${count})`)
           .join(', ')
         detail += ` — ${catStat.distinct} distinct values`
         if (topStr) detail += `: ${topStr}`
@@ -201,6 +231,26 @@ export function buildSampleChunk(
     }
   }
 
+  // P4-3: render a row as `k: v, …` with PII-masked values. For wide tables
+  // (> WIDE_TABLE_COLUMN_GROUP columns) the row is segmented into column groups,
+  // each prefixed with a table-name + column-range header so every group is
+  // self-describing (header re-emit) and no single 200-column blob is produced.
+  const colNames = schema.map((c) => c.name)
+  const wide = colNames.length > WIDE_TABLE_COLUMN_GROUP
+
+  const renderRow = (row: Record<string, string>): string => {
+    if (!wide) {
+      return Object.entries(row).map(([k, v]) => `${k}: ${maskPII(v)}`).join(', ')
+    }
+    const parts: string[] = []
+    for (let g = 0; g < colNames.length; g += WIDE_TABLE_COLUMN_GROUP) {
+      const group = colNames.slice(g, g + WIDE_TABLE_COLUMN_GROUP)
+      const kv = group.map((c) => `${c}: ${maskPII(row[c] ?? '')}`).join(', ')
+      parts.push(`[${tableFullName} cols ${g + 1}-${g + group.length}] ${kv}`)
+    }
+    return parts.join('\n')
+  }
+
   // Detect primary grouping dimension: most cardinal categorical column
   const primaryDim = detectPrimaryDimension(schema, rows)
 
@@ -215,16 +265,14 @@ export function buildSampleChunk(
     }
     const blocks: string[] = []
     for (const [dimVal, groupRows] of Array.from(groups.entries()).slice(0, 10)) {
-      blocks.push(`--- ${primaryDim}: ${dimVal} ---`)
+      blocks.push(`--- ${primaryDim}: ${maskPII(dimVal)} ---`)
       for (const row of groupRows.slice(0, 3)) {
-        blocks.push(Object.entries(row).map(([k, v]) => `${k}: ${v}`).join(', '))
+        blocks.push(renderRow(row))
       }
     }
     content = blocks.join('\n')
   } else {
-    content = rows.slice(0, 50).map((row) =>
-      Object.entries(row).map(([k, v]) => `${k}: ${v}`).join(', ')
-    ).join('\n')
+    content = rows.slice(0, 50).map(renderRow).join('\n')
   }
 
   return {

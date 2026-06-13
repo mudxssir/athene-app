@@ -62,3 +62,12 @@ export const CONTEXT_ENVELOPE = process.env.CONTEXT_ENVELOPE === "true";
  * LLM-on-everything / skip behavior). Set TABULAR_TIER_C=true to activate.
  */
 export const TABULAR_TIER_C = process.env.TABULAR_TIER_C === "true";
+
+/**
+ * P4-3: mask PII (email / SSN / phone) in tabular SAMPLE chunk values before they
+ * are embedded. Statistical aggregates (counts, ranges, distinct) are unaffected;
+ * only rendered raw cell values are masked. Default OFF: masking changes embedded
+ * content, so it is opt-in per the flags-default-off discipline (an org that wants
+ * it sets TABULAR_PII_MASKING=true). Rollback: off → raw values (re-index reverts).
+ */
+export const TABULAR_PII_MASKING = process.env.TABULAR_PII_MASKING === "true";

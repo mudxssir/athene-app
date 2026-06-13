@@ -10,7 +10,7 @@ _Branch: `pipeline/p4-bi-crm-depth` (off `pipeline/p3-docs-email-depth`) · Flag
 |----|-------|--------|------|------------|
 | P4-4 | Type-inference hardening: 95th-percentile rule replaces `every()` in `tabular-analysis.ts inferSchema` | done | S | — |
 | P4-1 | D2: builder Tier C path — `extractSchemaEntities` for tabular (0 LLM); bi_artifact deterministic service/metric nodes; media inherits parent | done (tabular schema path; bi_artifact-name nodes folded into P4-5) | M | P4-4 |
-| P4-3 | Wide tables: column-group splits (30 cols) + table-name header re-emit; PII masking flag for sample chunks (stats unaffected) | todo | M | P4-4 |
+| P4-3 | Wide tables: column-group splits (30 cols) + table-name header re-emit; PII masking flag for sample chunks (stats unaffected) | done (in-chunk grouping; physical multi-chunk split deferred) | M | P4-4 |
 | P4-2 | Vocabulary enrichment: 1 simple-tier call/table → alias line in stats header (cached by schema hash); warehouse column comments | todo | M | P4-1 |
 
 ## bi_artifact split
@@ -39,6 +39,34 @@ _Branch: `pipeline/p4-bi-crm-depth` (off `pipeline/p3-docs-email-depth`) · Flag
 ---
 
 ## Session notes
+
+### P4-3: PII masking + wide-table column grouping (2026-06-14)
+
+- **PII masking** (`maskPII`, behind `TABULAR_PII_MASKING`, default OFF): masks
+  email / SSN / phone tokens → `***` in rendered raw cell values. Applied to (a)
+  sample-chunk row renderings and (b) stats-chunk categorical top-values (also raw
+  values — leaving them would defeat the feature). Numeric/structural stats
+  (counts, ranges, distinct) are untouched, so "stats unaffected" holds for the
+  aggregates. Default OFF because it changes embedded content (flags-default-off
+  discipline); an org opts in.
+- **Wide tables** (> `WIDE_TABLE_COLUMN_GROUP` = 30 cols): each sample row is
+  segmented into 30-column groups, each prefixed with a
+  `[{table} cols a-b] …` header (table-name + column-range re-emit) so every group
+  is self-describing. Narrow tables (≤30) render unchanged (back-compat chunk_id +
+  content).
+- **Scope decision:** kept as **in-chunk grouping** (one sample chunk with grouped
+  sections) rather than physical multi-chunk splitting. Rationale: `buildSampleChunk`
+  is called by 4 sites and mocked by 3 warehouse fetcher tests — changing its return
+  type to `FetchedChunk[]` would ripple widely; and the P1 chunk-policy engine
+  already splits oversized tabular chunks at index time. The header-re-emit keeps
+  groups coherent. Physical per-group chunks tracked as a deferred follow-up
+  (gate-neutral — not in the P4 gate criteria).
+- **Tests:** `tabular-pii-wide.test.ts` (6) — maskPII email/SSN/phone (incl.
+  parenthesized + dashed forms), non-PII untouched, multi-token; sample-chunk
+  masking applied; wide-table 65-col → 3 group headers, all columns present;
+  narrow-table back-compat. Fixed `binary-parsing.test.ts` feature-flags mock to
+  export `TABULAR_PII_MASKING` (bi-chunking now imports it). Full suite 960; tsc +
+  RLS clean.
 
 ### P4-1: D2 — deterministic Tier-C schema entities for tabular docs (2026-06-14)
 
