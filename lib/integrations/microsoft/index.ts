@@ -192,7 +192,7 @@ export async function microsoftFetcher(
   try {
     const driveDocs = await listOneDriveDocs(connectionId, orgId, options?.syncConfig)
     const driveChunkArrays = await Promise.all(driveDocs.map(async (doc) => {
-      const { text, tables } = await fetchOneDriveDocContent(connectionId, orgId, doc.id)
+      const { text, tables, parser_used } = await fetchOneDriveDocContent(connectionId, orgId, doc.id)
       const sourceUrl = doc.webLink
       const docChunks: FetchedChunk[] = []
       // Table chunks (Hebbia-style structured extraction)
@@ -204,6 +204,7 @@ export async function microsoftFetcher(
           sourceUrl,
           { withLlmAnalysis: false, provider: 'onedrive_tabular' },
         )
+        if (parser_used) for (const c of tableChunks) c.metadata.parser_used = parser_used
         docChunks.push(...tableChunks)
       }
       // Narrative text chunk
@@ -214,7 +215,7 @@ export async function microsoftFetcher(
           content: text,
           source_url: sourceUrl,
           shape: 'prose' as const,
-          metadata: { provider: 'microsoft', resource_type: 'onedrive_doc', id: doc.id },
+          metadata: { provider: 'microsoft', resource_type: 'onedrive_doc', id: doc.id, ...(parser_used ? { parser_used } : {}) },
         } satisfies FetchedChunk)
       }
       return docChunks
@@ -268,7 +269,7 @@ export async function microsoftFetcher(
                 })
                 .map(async (doc: any) => {
                   const driveId = doc.parentReference.driveId
-                  const { text, tables } = await fetchSharePointDocContent(connectionId, orgId, driveId, doc.id)
+                  const { text, tables, parser_used } = await fetchSharePointDocContent(connectionId, orgId, driveId, doc.id)
                   const sourceUrl = doc.webLink
                   const docChunks: FetchedChunk[] = []
                   if (tables.length > 0) {
@@ -279,6 +280,7 @@ export async function microsoftFetcher(
                       sourceUrl,
                       { withLlmAnalysis: false, provider: 'sharepoint_tabular' },
                     )
+                    if (parser_used) for (const c of tableChunks) c.metadata.parser_used = parser_used
                     docChunks.push(...tableChunks)
                   }
                   if (text.trim().length > 0) {
@@ -288,7 +290,7 @@ export async function microsoftFetcher(
                       content: text,
                       source_url: sourceUrl,
                       shape: 'prose' as const,
-                      metadata: { provider: 'microsoft', resource_type: 'sharepoint_doc', id: doc.id },
+                      metadata: { provider: 'microsoft', resource_type: 'sharepoint_doc', id: doc.id, ...(parser_used ? { parser_used } : {}) },
                     } satisfies FetchedChunk)
                   }
                   return docChunks

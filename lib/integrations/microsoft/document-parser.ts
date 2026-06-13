@@ -3,6 +3,7 @@ import * as pdf from 'pdf-parse'
 import ExcelJS from 'exceljs'
 import type { ParsedTable } from '@/lib/integrations/tabular-analysis'
 import { parseWithLlamaParse } from '@/lib/integrations/llamaparse-client'
+import { parseBinaryTiered, enqueueMediaStubs, tieredParsingEnabled } from '@/lib/integrations/binary-parsing'
 
 export async function parseDocument(fileName: string, buffer: Buffer): Promise<string> {
   if (fileName.endsWith('.docx')) {
@@ -99,15 +100,21 @@ const LLAMAPARSE_EXTS = new Set(['pdf', 'docx', 'pptx', 'ppt'])
 
 /**
  * Enhanced document parser that extracts both narrative text and embedded tables.
- * For PDF/DOCX/PPTX: tries LlamaParse first; falls back to flat-text extraction if
- * LLAMAPARSE_API_KEY is not set or the API call fails.
- * For CSV/XLSX/TSV: delegates to parseDocumentStructured() (tabular-only path).
- * For other formats: delegates to parseDocument().
+ *
+ * P3-1: when SIDECAR_PARSING is on and `opts.orgId` is supplied, rich documents
+ * route through the tiered cascade (sidecar Docling → LlamaParse opt-in → TS) and
+ * `parser_used` is returned for stamping; Docling picture refs are recorded as
+ * media_queue stubs (when `opts.sourceDocId` is given). When the flag is off the
+ * behavior is unchanged: LlamaParse-first for PDF/DOCX/PPTX, else flat text.
+ *
+ * For CSV/XLSX/TSV: delegates to parseDocumentStructured() (tabular-only path) —
+ * deterministic, no parser needed, so the cascade is not used there.
  */
 export async function parseDocumentEnhanced(
   fileName: string,
   buffer: Buffer,
-): Promise<{ text: string; tables: ParsedTable[] }> {
+  opts?: { orgId?: string; sourceDocId?: string },
+): Promise<{ text: string; tables: ParsedTable[]; parser_used?: string }> {
   const ext = (fileName.split('.').pop() ?? '').toLowerCase()
 
   // Tabular files — return structured rows with no narrative text
@@ -116,11 +123,22 @@ export async function parseDocumentEnhanced(
     return { text: '', tables: tables ?? [] }
   }
 
-  // Rich documents — try LlamaParse for table extraction + narrative text
+  // P3-1 tiered cascade (flag ON + orgId): sidecar → LlamaParse opt-in → TS
+  if (tieredParsingEnabled() && opts?.orgId) {
+    const parsed = await parseBinaryTiered(buffer, fileName, opts.orgId, async () => {
+      const text = await parseDocument(fileName, buffer)
+      return { text }
+    })
+    if (parsed.pictures.length > 0 && opts.sourceDocId) {
+      void enqueueMediaStubs(opts.orgId, opts.sourceDocId, parsed.pictures)
+    }
+    return { text: parsed.text, tables: parsed.tables, parser_used: parsed.parser_used }
+  }
+
+  // Legacy (flag OFF): rich documents — try LlamaParse, else flat text
   if (LLAMAPARSE_EXTS.has(ext)) {
     const result = await parseWithLlamaParse(fileName, buffer)
     if (result) return result
-    // Fallback: flat text only (LlamaParse not configured or failed)
     const text = await parseDocument(fileName, buffer)
     return { text, tables: [] }
   }

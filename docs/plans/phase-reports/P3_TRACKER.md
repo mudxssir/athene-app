@@ -8,7 +8,7 @@ _Branch: `pipeline/p3-docs-email-depth` · Flags: `SIDECAR_PARSING` (default OFF
 
 | ID | Title | Status | Size | Depends on |
 |----|-------|--------|------|------------|
-| P3-1 | Tiered binary parsing: sidecar `/parse` lane 1 → LlamaParse lane 2 (opt-in) → TS lane 3; `parser_used` stamped | in-progress (Drive done; MS/uploads next) | M | P1-11 |
+| P3-1 | Tiered binary parsing: sidecar `/parse` lane 1 → LlamaParse lane 2 (opt-in) → TS lane 3; `parser_used` stamped | done | M | P1-11 |
 | P3-2 | Docling output adapter: markdown+headings → structural chunker; tables → `tabularChunksFromParsed`; pictures → media queue stub | done | M | P3-1 |
 | P3-3 | D7: Drive `.xlsx` routes through tabular engine; `extractXlsxText` demoted to lane-3 fallback | done | S | P1 tabular |
 | P3-4 | D8: delete global HTML-strip from `normalizeContent`; per-shape converters own sanitization + Gmail HTML-part strip | done | M | — |
@@ -94,8 +94,27 @@ commit 2 (keeps each PR ≤ ~600 lines per the SDLC protocol)._
   opt-in / TS), opt-in cache, adapter chunk emission + parser stamping + media
   stubs; `test_main.py` +3 (tables/pictures fields, Docling extraction with stub,
   graceful degradation) = 16 Python green. 50 related TS tests green; tsc clean.
-- **Deferred to commit 2:** SharePoint/OneDrive/upload routing through
-  `parseDocumentEnhanced` (thread orgId, capture parser_used + media stubs).
+### P3-1: Microsoft + uploads wiring (2026-06-13, commit 2 of 2)
+
+- **`parseDocumentEnhanced`** gains `opts?: { orgId?; sourceDocId? }` and returns
+  `{ text, tables, parser_used? }`. When `tieredParsingEnabled() && opts.orgId`,
+  rich documents (PDF/DOCX/PPTX) route through `parseBinaryTiered`; Docling picture
+  refs → `enqueueMediaStubs(orgId, sourceDocId, …)`. Flag OFF → unchanged
+  LlamaParse-first behavior. CSV/XLSX/TSV stay on the deterministic
+  `parseDocumentStructured` path (no parser needed).
+- **Callers threaded:** `fetchDocContent` (SharePoint, sourceDocId
+  `ms_sharepoint_${itemId}`), `fetchOneDriveDocContent` (OneDrive,
+  `ms_drive_${itemId}`), upload route (`sourceDocId = storagePath`) — each matches
+  the chunk_id the indexer builds so media stubs link to the parent document.
+- **`parser_used` stamped** onto the prose + tabular chunks built in
+  `microsoft/index.ts` (both OneDrive and SharePoint sections) and the upload route.
+- Verified: tsc clean, `check-rls.mjs` green (no new `supabaseAdmin` token in
+  scanned dirs — the media write lives in `binary-parsing.ts`), 293 integration
+  tests green.
+- **Remaining (infra-gated, not code):** sidecar must be deployed
+  (`SIDECAR_URL`/`SIDECAR_AUTH_TOKEN`) + `SIDECAR_PARSING=true` per pilot org to
+  measure the parser-fallback-rate gate; `media_queue` depth surfaced in admin
+  sync-health is a small follow-up UI row (data is being written).
 
 ### P3-3: D7 — Drive .xlsx routes through the tabular engine (2026-06-13)
 

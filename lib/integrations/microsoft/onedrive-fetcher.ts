@@ -48,12 +48,14 @@ export async function fetchOneDriveDocContent(
   connectionId: string,
   orgId: string,
   itemId: string,
-): Promise<{ text: string; tables: ParsedTable[] }> {
+): Promise<{ text: string; tables: ParsedTable[]; parser_used?: string }> {
   const item = await graphFetch(connectionId, orgId, `/me/drive/items/${itemId}`)
   const fileName = item.name.toLowerCase()
   const arrayBuffer = await graphDownload(connectionId, orgId, `/me/drive/items/${itemId}/content`)
   const buffer = Buffer.from(arrayBuffer)
-  return parseDocumentEnhanced(fileName, buffer)
+  // sourceDocId matches the chunk_id index.ts builds (ms_drive_${id}) so
+  // media_queue stubs link back to the parent document.
+  return parseDocumentEnhanced(fileName, buffer, { orgId, sourceDocId: `ms_drive_${itemId}` })
 }
 
 /**

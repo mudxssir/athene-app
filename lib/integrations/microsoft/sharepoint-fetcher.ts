@@ -24,12 +24,14 @@ export async function fetchDocContent(
   orgId: string,
   driveId: string,
   itemId: string,
-): Promise<{ text: string; tables: ParsedTable[] }> {
+): Promise<{ text: string; tables: ParsedTable[]; parser_used?: string }> {
   const item = await graphFetch(connectionId, orgId, `/drives/${driveId}/items/${itemId}`)
   const fileName = item.name.toLowerCase()
   const arrayBuffer = await graphDownload(connectionId, orgId, `/drives/${driveId}/items/${itemId}/content`)
   const buffer = Buffer.from(arrayBuffer)
-  return parseDocumentEnhanced(fileName, buffer)
+  // sourceDocId matches the chunk_id index.ts builds (ms_sharepoint_${id}) so
+  // media_queue stubs link back to the parent document.
+  return parseDocumentEnhanced(fileName, buffer, { orgId, sourceDocId: `ms_sharepoint_${itemId}` })
 }
 
 /**

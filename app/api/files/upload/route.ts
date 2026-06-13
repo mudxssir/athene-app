@@ -223,8 +223,13 @@ export async function POST(req: NextRequest) {
 
         if (!indexed) {
           // Non-tabular path: use enhanced parser which extracts embedded tables via
-          // LlamaParse (PDF/DOCX/PPTX) and returns narrative text + structured tables.
-          const { text, tables } = await parseDocumentEnhanced(file.name, buffer);
+          // the tiered cascade (P3-1: sidecar → LlamaParse opt-in → TS) and returns
+          // narrative text + structured tables. sourceDocId = storagePath matches the
+          // chunk_id below so any Docling picture stubs link to this document.
+          const { text, tables, parser_used } = await parseDocumentEnhanced(file.name, buffer, {
+            orgId,
+            sourceDocId: storagePath,
+          });
           if (timedOut) return;
 
           // P1-12 shadow mode: sampled sidecar parse + structural-diff log;
@@ -242,6 +247,7 @@ export async function POST(req: NextRequest) {
             );
             if (timedOut) return;
             if (tableChunks.length > 0) {
+              if (parser_used) for (const c of tableChunks) c.metadata.parser_used = parser_used;
               await indexDocuments(tableChunks, orgId, connId, null, "restricted", ownerId);
               indexed = true;
             }
@@ -261,6 +267,7 @@ export async function POST(req: NextRequest) {
                   provider: "direct_upload",
                   resource_type: ext.toLowerCase(),
                   author: ownerId ?? undefined,
+                  ...(parser_used ? { parser_used } : {}),
                 },
               },
               orgId,
