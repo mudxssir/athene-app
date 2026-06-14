@@ -31,6 +31,14 @@ export const SYSTEM_CRON_DEFS: SystemCronDef[] = [
     path: '/api/worker/checkpoint-prune',
     cron: '0 2 * * *', // daily at 2 AM UTC
   },
+  {
+    // P5: drain the media_queue and caption images. No-op when MEDIA_CAPTIONS is
+    // off (the worker short-circuits), so flipping the flag is the only activation
+    // step. Fan-out body is empty → the worker drains every org with queued media.
+    name: 'caption-drain',
+    path: '/api/worker/caption',
+    cron: '*/15 * * * *', // every 15 minutes
+  },
 ]
 
 /**

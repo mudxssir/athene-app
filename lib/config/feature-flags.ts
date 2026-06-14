@@ -93,3 +93,14 @@ export const KG_CRM_EDGES = process.env.KG_CRM_EDGES === "true";
  * removes). Set TABULAR_VOCAB_ENRICHMENT=true to activate.
  */
 export const TABULAR_VOCAB_ENRICHMENT = process.env.TABULAR_VOCAB_ENRICHMENT === "true";
+
+/**
+ * P5: media-shape vision captions. When ON, the caption worker drains the
+ * `media_queue` (images discovered during parsing/sync), fetches each image's
+ * bytes, strips EXIF, captions it via the vision-capable model tier, and indexes
+ * a `[Image in {breadcrumb}]: {caption}` prose chunk linked to the parent doc.
+ * Gates both the worker drain and the enqueue/cron trigger, so when OFF the queue
+ * simply accumulates stubs harmlessly (rollback: pause = no drain). Default OFF
+ * until the P5 gate. Set MEDIA_CAPTIONS=true to activate.
+ */
+export const MEDIA_CAPTIONS = process.env.MEDIA_CAPTIONS === "true";
