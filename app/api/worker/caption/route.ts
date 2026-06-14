@@ -16,10 +16,12 @@ export const maxDuration = 300;
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { verifyQStashSignature, checkIdempotency } from '@/lib/qstash/verify'
+// SERVICE-ROLE JUSTIFICATION: QStash-verified background worker; writes sync_errors (DLQ) — no user-facing reads.
+import { supabaseAdmin } from '@/lib/supabase/server'
 import { logger } from '@/lib/logger'
 import { parseBody, uuidSchema } from '@/lib/validation'
 import { MEDIA_CAPTIONS } from '@/lib/config/feature-flags'
-import { runCaptionDrain, type DrainSummary } from '@/lib/integrations/caption-worker'
+import { runCaptionDrain, enqueueCaptionDrain } from '@/lib/integrations/caption-worker'
 import { listOrgsWithQueuedMedia } from '@/lib/integrations/media-queue'
 
 const CaptionSchema = z.object({
@@ -27,8 +29,8 @@ const CaptionSchema = z.object({
   org_id: uuidSchema.optional(),
 })
 
-/** Cap on orgs drained per cron tick (each drains one batch; rest wait for the next tick). */
-const MAX_ORGS_PER_TICK = 50
+/** Cap on orgs fanned out per cron tick (each gets its own enqueued drain job). */
+const MAX_ORGS_PER_TICK = 200
 
 export async function POST(request: Request): Promise<NextResponse> {
   const isValid = await verifyQStashSignature(request)
@@ -52,30 +54,40 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (!parsed.success) return parsed.response
   const { org_id } = parsed.data
 
-  try {
-    // Targeted single-org drain.
-    if (org_id) {
-      const summary = await runCaptionDrain(org_id)
-      logger.info({ org_id, ...summary }, '[caption] Drain complete')
-      return NextResponse.json({ status: 'ok', org_id, ...summary })
+  // Cron fan-out (no org_id): enqueue ONE drain job per org with queued media, so
+  // each org drains inside its own worker invocation (its own maxDuration budget).
+  // Draining all orgs inline here would risk a 300s timeout once vision calls add up.
+  if (!org_id) {
+    try {
+      const orgs = (await listOrgsWithQueuedMedia()).slice(0, MAX_ORGS_PER_TICK)
+      for (const o of orgs) enqueueCaptionDrain(o)
+      logger.info({ orgs: orgs.length }, '[caption] Cron fan-out enqueued')
+      return NextResponse.json({ status: 'ok', enqueued: orgs.length })
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      logger.error({ err: message }, '[caption] Fan-out failed')
+      return NextResponse.json({ error: message }, { status: 500 })
     }
+  }
 
-    // Cron fan-out: drain every org with queued media (bounded).
-    const orgs = (await listOrgsWithQueuedMedia()).slice(0, MAX_ORGS_PER_TICK)
-    const totals: DrainSummary & { orgs: number } = {
-      orgs: orgs.length, claimed: 0, captioned: 0, deduped: 0, skipped: 0, failed: 0, deferred: 0, requeued: 0,
-    }
-    for (const o of orgs) {
-      const s = await runCaptionDrain(o)
-      totals.claimed += s.claimed; totals.captioned += s.captioned; totals.deduped += s.deduped
-      totals.skipped += s.skipped; totals.failed += s.failed; totals.deferred += s.deferred
-      totals.requeued += s.requeued
-    }
-    logger.info(totals, '[caption] Cron fan-out complete')
-    return NextResponse.json({ status: 'ok', ...totals })
+  // Targeted single-org drain (one batch ≤ CAPTION_BATCH — fits the function budget).
+  try {
+    const summary = await runCaptionDrain(org_id)
+    logger.info({ org_id, ...summary }, '[caption] Drain complete')
+    return NextResponse.json({ status: 'ok', org_id, ...summary })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     logger.error({ org_id, err: message }, '[caption] Fatal error')
+    // DLQ: surface the failure on the admin sync-health page (playbook queueing standard).
+    try {
+      await supabaseAdmin.from('sync_errors').upsert({
+        org_id,
+        job_type: 'caption',
+        document_id: null,
+        error: message.slice(0, 500),
+        occurred_at: new Date().toISOString(),
+      }, { onConflict: 'org_id,job_type,document_id' })
+    } catch { /* DLQ write failure is non-fatal */ }
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }

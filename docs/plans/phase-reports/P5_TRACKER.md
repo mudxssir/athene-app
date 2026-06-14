@@ -194,6 +194,39 @@ not a blocker.
 
 ---
 
+## Post-implementation review round (2026-06-15)
+
+Full review against the codebase, the P5 purpose, the playbook plan/edge-protocols,
+and the SDLC rules. Findings + fixes:
+
+1. **Cron fan-out drained inline → `maxDuration` timeout risk (correctness).** The
+   no-body cron looped `await runCaptionDrain(org)` over up to 50 orgs in one 300s
+   function; once vision calls add up that overruns the budget and leaves orgs
+   un-drained. **Fixed:** the cron now **enqueues one per-org drain job** (via
+   `enqueueCaptionDrain`, deduped per org), so each org drains inside its own worker
+   invocation — the embed-retry-per-document pattern. `MAX_ORGS_PER_TICK` raised to
+   200 (enqueue is cheap).
+2. **No DLQ on a fatal per-org drain (SDLC queueing standard).** **Fixed:** the
+   per-org path now writes a `sync_errors` row (`job_type='caption'`, `document_id`
+   NULL — dedups via the `NULLS NOT DISTINCT` constraint) so failures surface on the
+   admin sync-health page, matching embed-retry.
+3. **RLS gate (caught by `check-rls.mjs`).** Adding `supabaseAdmin` to the worker
+   route (for the DLQ) required the SERVICE-ROLE JUSTIFICATION comment **and** an
+   allowlist entry — `app/api/worker/caption/route.ts` appended to
+   `scripts/rls-allowlist.txt`. Gate green.
+4. **Coverage:** added `enqueueCaptionDrain` tests (publishes a deduped/retried
+   per-org job; no-ops on empty org) now that the fan-out leans on it.
+
+Confirmed clean (no change): visibility inheritance never widens (test-asserted);
+every skip/fail path is telemetried (D12); race-safe claim + stale reclaim; budget
+defer-don't-drop; injection-guarded caption prompt; no content in logs; caption
+goes through `indexDocument` (chunk-text-store honored). **Accepted trade-offs
+(documented):** budget counts dedup-reuses (conservative, never overspends);
+oversized images skipped rather than downscaled (sidecar Pillow follow-up);
+docling-picture provenance refs skipped pending the sidecar image-handle follow-up.
+
+Suite after fixes: **1062 TS tests pass** (+66 P5); tsc clean; check-rls + check-chunk-text green.
+
 ## Gate to P6 (criteria + status)
 
 | Criterion | Status |

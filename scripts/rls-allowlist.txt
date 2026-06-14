@@ -39,6 +39,7 @@ app/api/admin/users/[id]/route.ts
 app/api/admin/users/route.ts
 
 # ── app/api: QStash-verified background workers ─────────────────
+app/api/worker/caption/route.ts
 app/api/worker/checkpoint-prune/route.ts
 app/api/worker/embed-retry/route.ts
 app/api/worker/hitl-cleanup/route.ts

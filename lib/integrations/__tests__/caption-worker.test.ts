@@ -7,12 +7,14 @@
 // budget (defer overflow). All P5 lib deps + indexDocument are mocked.
 // ============================================================
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/logger', () => ({ logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() } }))
 vi.mock('@/lib/config/feature-flags', () => ({ MEDIA_CAPTIONS: true }))
-vi.mock('@/lib/qstash/client', () => ({ qstash: { publishJSON: vi.fn(() => Promise.resolve({ messageId: 'm' })) } }))
+
+const { publishJSON } = vi.hoisted(() => ({ publishJSON: vi.fn(() => Promise.resolve({ messageId: 'm' })) }))
+vi.mock('@/lib/qstash/client', () => ({ qstash: { publishJSON } }))
 vi.mock('@/lib/supabase/server', () => ({
   supabaseAdmin: { from: vi.fn(() => ({ upsert: vi.fn(() => Promise.resolve({ error: null })) })) },
 }))
@@ -47,7 +49,7 @@ vi.mock('@/lib/integrations/media-prep', () => mp)
 vi.mock('@/lib/integrations/vision-caption', () => vc)
 vi.mock('@/lib/integrations/indexing', () => ({ indexDocument }))
 
-import { runCaptionDrain } from '@/lib/integrations/caption-worker'
+import { runCaptionDrain, enqueueCaptionDrain } from '@/lib/integrations/caption-worker'
 
 const ORG = 'org-1'
 const ctx = {
@@ -153,6 +155,30 @@ describe('runCaptionDrain — retries + placeholders (P5-5)', () => {
     const s2 = await runCaptionDrain(ORG)
     expect(s2.skipped).toBe(1)
     expect(mq.markSkipped).toHaveBeenCalledWith('r1', ORG, 'parent_missing')
+  })
+})
+
+describe('enqueueCaptionDrain (P5-5, cron fan-out)', () => {
+  const prevUrl = process.env.NEXT_PUBLIC_APP_URL
+  beforeEach(() => { process.env.NEXT_PUBLIC_APP_URL = 'https://app.example.com' })
+  afterEach(() => {
+    if (prevUrl === undefined) delete process.env.NEXT_PUBLIC_APP_URL
+    else process.env.NEXT_PUBLIC_APP_URL = prevUrl
+  })
+
+  it('publishes a per-org drain job (deduped, retried)', () => {
+    enqueueCaptionDrain(ORG)
+    expect(publishJSON).toHaveBeenCalledWith(expect.objectContaining({
+      url: 'https://app.example.com/api/worker/caption',
+      body: { org_id: ORG },
+      retries: 3,
+      deduplicationId: `org:caption-drain:${ORG}`,
+    }))
+  })
+
+  it('no-ops for an empty org id', () => {
+    enqueueCaptionDrain('')
+    expect(publishJSON).not.toHaveBeenCalled()
   })
 })
 
