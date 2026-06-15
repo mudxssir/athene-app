@@ -139,25 +139,46 @@ function MarkdownWithCitations({ content, citedSources }: MarkdownWithCitationsP
   if (!hasAnyCitations) {
     // Fast path: pure markdown, no citation processing needed
     return (
-      <div className="prose prose-sm prose-invert max-w-none
-        prose-p:leading-relaxed prose-p:my-1.5
+      <div className="prose prose-sm prose-invert max-w-none text-[15px]
+        prose-p:leading-[1.7] prose-p:my-3
         prose-headings:font-black prose-headings:tracking-tight prose-headings:text-foreground
-        prose-h1:text-lg prose-h2:text-base prose-h3:text-sm
+        prose-h1:text-lg prose-h1:mt-6 prose-h1:mb-2.5
+        prose-h2:text-base prose-h2:mt-6 prose-h2:mb-2
+        prose-h3:text-sm prose-h3:mt-5 prose-h3:mb-1.5
         prose-strong:font-black prose-strong:text-foreground
         prose-em:text-muted-foreground
         prose-code:bg-muted/60 prose-code:text-secondary prose-code:rounded prose-code:px-1 prose-code:py-0.5 prose-code:text-[12px] prose-code:font-mono prose-code:before:content-none prose-code:after:content-none
-        prose-pre:bg-muted/30 prose-pre:border prose-pre:border-border prose-pre:rounded-xl
-        prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5
-        prose-blockquote:border-l-primary/30 prose-blockquote:text-muted-foreground
+        prose-pre:bg-muted/30 prose-pre:border prose-pre:border-border prose-pre:rounded-xl prose-pre:my-3.5
+        prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-li:leading-[1.65] prose-li:pl-0.5
+        prose-blockquote:border-l-primary/30 prose-blockquote:text-muted-foreground prose-blockquote:my-3
         prose-a:text-secondary prose-a:no-underline hover:prose-a:underline
-        prose-hr:border-border"
+        prose-hr:border-border prose-hr:my-5
+        first:[&>*]:mt-0 last:[&>*]:mb-0"
       >
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
       </div>
     );
   }
 
-  // Slow path: split on citation tokens, interleave chips + markdown segments
+  // Slow path: preserve paragraph/section structure (split on blank lines) and
+  // interleave citation chips INLINE within each block. Without the block split,
+  // a multi-paragraph cited answer rendered as one inline run — a wall of text.
+  const blocks = content.split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
+  return (
+    <div className="flex flex-col gap-3.5 text-[15px] leading-[1.7]">
+      {blocks.map((block, bi) => (
+        <div key={`blk-${bi}`}>{renderCitedSegments(block, citedSources, bi)}</div>
+      ))}
+    </div>
+  );
+}
+
+// Render one text block, interleaving citation chips with inline-markdown segments.
+function renderCitedSegments(
+  content: string,
+  citedSources: CitedSource[] | undefined,
+  keyBase: number,
+): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
   const regex = new RegExp(CITATION_PATTERN.source, "g");
   let lastIndex = 0;
@@ -169,7 +190,7 @@ function MarkdownWithCitations({ content, citedSources }: MarkdownWithCitationsP
     if (match.index > lastIndex) {
       const segment = content.slice(lastIndex, match.index);
       parts.push(
-        <InlineMarkdown key={`md-${segKey++}`}>{segment}</InlineMarkdown>
+        <InlineMarkdown key={`md-${keyBase}-${segKey++}`}>{segment}</InlineMarkdown>
       );
     }
 
@@ -178,7 +199,7 @@ function MarkdownWithCitations({ content, citedSources }: MarkdownWithCitationsP
     // Knowledge-graph chip
     if (docId === "EXTRACTED") {
       parts.push(
-        <Tooltip key={`kg-${match.index}`}>
+        <Tooltip key={`kg-${keyBase}-${match.index}`}>
           <TooltipTrigger asChild>
             <span
               className="inline-flex items-center gap-1 px-2 py-0.5 mx-0.5 rounded text-[10px] font-bold uppercase tracking-wider cursor-default align-middle"
@@ -205,7 +226,7 @@ function MarkdownWithCitations({ content, citedSources }: MarkdownWithCitationsP
     const source = citedSources?.find((s) => s.document_id === docId);
     if (source) {
       parts.push(
-        <Tooltip key={`cite-${docId}-${match.index}`}>
+        <Tooltip key={`cite-${keyBase}-${docId}-${match.index}`}>
           <TooltipTrigger asChild>
             <span
               className="inline-flex items-center px-2 py-0.5 mx-0.5 bg-secondary/10 border border-secondary/20 rounded text-[10px] font-bold uppercase tracking-wider text-secondary cursor-pointer hover:bg-secondary/20 transition-colors align-middle"
@@ -235,7 +256,7 @@ function MarkdownWithCitations({ content, citedSources }: MarkdownWithCitationsP
     } else {
       // Unknown docId — render as plain text
       parts.push(
-        <span key={`cite-unknown-${match.index}`} className="align-middle">
+        <span key={`cite-unknown-${keyBase}-${match.index}`} className="align-middle">
           [{docId}]
         </span>
       );
@@ -247,13 +268,13 @@ function MarkdownWithCitations({ content, citedSources }: MarkdownWithCitationsP
   // Remaining text after last citation
   if (lastIndex < content.length) {
     parts.push(
-      <InlineMarkdown key={`md-${segKey++}`}>
+      <InlineMarkdown key={`md-${keyBase}-${segKey++}`}>
         {content.slice(lastIndex)}
       </InlineMarkdown>
     );
   }
 
-  return <div className="leading-relaxed text-[15px]">{parts}</div>;
+  return parts;
 }
 
 // ── Inline markdown segment ───────────────────────────────────

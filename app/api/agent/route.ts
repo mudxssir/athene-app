@@ -3,7 +3,7 @@ export const maxDuration = 60; // LangGraph agent has 55s internal timeout; keep
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { cachedAuth } from "@/lib/auth/cached-clerk";
-import { HumanMessage, isAIMessageChunk, isAIMessage } from "@langchain/core/messages";
+import { HumanMessage, isAIMessageChunk } from "@langchain/core/messages";
 import { getAgentGraph } from "@/lib/langgraph/graph";
 import { mapRole } from "@/lib/auth/clerk";
 import { rateLimit, cached, redis } from "@/lib/redis/client";
@@ -275,11 +275,20 @@ export async function POST(req: NextRequest) {
         for await (const [mode, chunk] of eventStream as AsyncIterable<[string, any]>) {
           if (mode === "messages") {
             const messageChunk = (chunk as any[])?.[0];
+            const meta = (chunk as any[])?.[1] as { langgraph_node?: string } | undefined;
             // Only stream tokens from AI model chunks — skip HumanMessage and
             // ToolMessage objects that LangGraph also emits in "messages" mode.
-            // Without this guard, the user's own question and tool-result strings
-            // (e.g. "[Retrieval complete] Found N chunks") appear in the assistant bubble.
             if (!isAIMessageChunk(messageChunk)) continue;
+            // Stream ONLY the answer-producing nodes. Intermediate nodes append
+            // status AIMessages to state for downstream context — e.g. retrieval's
+            // "[Retrieval complete] Found N chunks", the planner's plan, entity
+            // labels — which must never appear in the assistant bubble. (These are
+            // AIMessages, so the isAIMessageChunk guard above doesn't catch them;
+            // they surface as steps/pills instead.)
+            const INTERMEDIATE_NODES = new Set([
+              "retrieval", "cross_dept_retrieval", "planner", "supervisor",
+            ]);
+            if (meta?.langgraph_node && INTERMEDIATE_NODES.has(meta.langgraph_node)) continue;
             if (messageChunk?.content) {
               const token = typeof messageChunk.content === "string"
                 ? messageChunk.content
@@ -299,9 +308,6 @@ export async function POST(req: NextRequest) {
               }
             }
           } else if (mode === "values") {
-            const messages = chunk.messages as any[] | undefined;
-            const lastMessage = messages?.[messages.length - 1];
-
             // Always emit metadata (cited_sources, awaiting_approval, active_agent).
             // Only include `content` when NO tokens have been streamed yet — i.e. this
             // is a non-streaming response path (tool-only reply, routing message, etc.).
@@ -316,16 +322,13 @@ export async function POST(req: NextRequest) {
               active_agent: chunk.next ?? null,
             };
 
-            if (tokenCount === 0 && lastMessage && isAIMessage(lastMessage)) {
-              // Non-streaming path: surface the full message content to the client.
-              // GUARD: only an AI message's content is ever a valid answer. On a
-              // resumed multi-turn thread the last message at the first super-step
-              // is the user's NEW HumanMessage — emitting that as `content` echoed
-              // the user's own input back as the "answer". Restrict to AI messages.
-              const contentStr = typeof lastMessage.content === "string"
-                ? lastMessage.content
-                : "";
-              if (contentStr) frame.content = contentStr;
+            if (tokenCount === 0 && typeof chunk.final_answer === "string" && chunk.final_answer) {
+              // Non-streaming fallback: surface the canonical synthesized answer.
+              // We deliberately use `final_answer` (set only by the answer nodes)
+              // rather than messages[-1].content — mid-run the last message is an
+              // intermediate status AIMessage (retrieval summary) or, on a resumed
+              // thread, the user's own input, both of which leaked into the bubble.
+              frame.content = chunk.final_answer;
             }
 
             await withSSEFrameSpan("agent_chunk", async () => {
