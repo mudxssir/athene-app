@@ -196,6 +196,46 @@ describe("supervisor", () => {
     expect(result.hop_count).toBe(1);
   });
 
+  it("blocks END on the first hop of a turn (multi-turn echo fix) → retrieval", async () => {
+    // On a resumed thread the routing LLM sees the prior turn's answer and can
+    // wrongly return END for the new question. The fresh-turn guard overrides it.
+    mockInvoke.mockResolvedValue({
+      next_agent: "END",
+      task_type: "none",
+      complexity: "simple",
+      reasoning: "Looks already answered.",
+    });
+
+    const state = makeState({
+      hop_count: 0,
+      messages: [
+        { role: "user", content: "What were Q3 OKRs?" },
+        { role: "assistant", content: "Here are the Q3 OKRs…" },
+        { role: "user", content: "And Q4?" },
+      ] as any,
+    });
+    const result = await supervisor(state);
+
+    expect(result.next_node).toBe("retrieval");
+    expect(result.task_type).toBe("document_search");
+    expect(result.reasoning).toMatch(/\[Guard\].*first hop/);
+    expect(result.hop_count).toBe(1);
+  });
+
+  it("still allows END on a later hop (after the turn was processed)", async () => {
+    mockInvoke.mockResolvedValue({
+      next_agent: "END",
+      task_type: "none",
+      complexity: "simple",
+      reasoning: "Answer already delivered this turn.",
+    });
+
+    const state = makeState({ hop_count: 2 });
+    const result = await supervisor(state);
+
+    expect(result.next_node).toBe("END"); // guard only blocks hop 0
+  });
+
   it("increments hop_count on each invocation", async () => {
     mockInvoke.mockResolvedValue({
       next_agent: "retrieval",

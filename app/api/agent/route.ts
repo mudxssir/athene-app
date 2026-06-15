@@ -3,7 +3,7 @@ export const maxDuration = 60; // LangGraph agent has 55s internal timeout; keep
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { cachedAuth } from "@/lib/auth/cached-clerk";
-import { HumanMessage, isAIMessageChunk } from "@langchain/core/messages";
+import { HumanMessage, isAIMessageChunk, isAIMessage } from "@langchain/core/messages";
 import { getAgentGraph } from "@/lib/langgraph/graph";
 import { mapRole } from "@/lib/auth/clerk";
 import { rateLimit, cached, redis } from "@/lib/redis/client";
@@ -316,9 +316,12 @@ export async function POST(req: NextRequest) {
               active_agent: chunk.next ?? null,
             };
 
-            if (tokenCount === 0 && lastMessage) {
+            if (tokenCount === 0 && lastMessage && isAIMessage(lastMessage)) {
               // Non-streaming path: surface the full message content to the client.
-              // Only include if the last message carries actual text (not a tool call).
+              // GUARD: only an AI message's content is ever a valid answer. On a
+              // resumed multi-turn thread the last message at the first super-step
+              // is the user's NEW HumanMessage — emitting that as `content` echoed
+              // the user's own input back as the "answer". Restrict to AI messages.
               const contentStr = typeof lastMessage.content === "string"
                 ? lastMessage.content
                 : "";

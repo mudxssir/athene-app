@@ -181,6 +181,18 @@ export async function supervisor(state: AtheneStateType) {
     reasoning = `[Guard] Planner only runs on first hop — routing to retrieval. (${reasoning})`;
   }
 
+  // ── Fresh-turn guard: the current user turn has NOT been answered yet, so END
+  // is never valid on the first hop. On a multi-turn thread the routing LLM sees
+  // the PRIOR turn's delivered answer in the message history and can wrongly
+  // conclude "the request has been answered" (rule 4) → ending the graph without
+  // answering the new question. The user then sees their own input echoed back.
+  // Force retrieval so the new question is actually processed.
+  if (nextAgent === "END" && hopCount === 0) {
+    nextAgent = "retrieval";
+    taskType = "document_search";
+    reasoning = `[Guard] New user turn not yet answered — END not allowed on the first hop → retrieval. (${reasoning})`;
+  }
+
   // ── Hop-left guard: force synthesis/END when nearly out of hops ──
   if (hopsLeft <= 1 && nextAgent !== "synthesis" && nextAgent !== "END") {
     nextAgent = "synthesis";
