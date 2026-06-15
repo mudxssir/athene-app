@@ -33,22 +33,46 @@ export async function getCheckpointer(): Promise<PostgresSaver | MemorySaver> {
   // Ensure SSL for Supabase pooler connections
   const connectionString = ensureSsl(raw);
 
-  try {
-    const saver = PostgresSaver.fromConnString(connectionString, {
-      max: 2,  // cap pool size for serverless environments
-    } as any);
-    await saver.setup();
-    checkpointerInstance = saver;
-    usingMemory = false;
-    logger.info({}, "[checkpointer] PostgresSaver initialized.");
-    return saver;
-  } catch (err) {
-    // Do NOT cache the MemorySaver — allows retry on the next request rather
-    // than permanently degrading all subsequent requests to in-memory storage.
-    logger.error({ err: err instanceof Error ? err.message : String(err) }, "[checkpointer] Failed to initialize PostgresSaver, falling back to MemorySaver for this request only");
-    usingMemory = false; // Keep false so next request retries the DB
-    return new MemorySaver();
+  // Strict TLS first; on a self-signed / untrusted-CA failure (common with the
+  // Supabase pooler cert and behind corporate TLS-inspection proxies), retry once
+  // with cert verification relaxed. The connection stays encrypted — only CA
+  // verification is skipped — and persistence (multi-turn memory) is preserved
+  // instead of silently degrading to per-request MemorySaver. Default is strict.
+  const attempts: Array<Record<string, unknown>> = [
+    { max: 2 },
+    { max: 2, ssl: { rejectUnauthorized: false } },
+  ];
+
+  let lastErr: unknown = null;
+  for (let i = 0; i < attempts.length; i++) {
+    try {
+      const saver = PostgresSaver.fromConnString(connectionString, attempts[i] as any);
+      await saver.setup();
+      checkpointerInstance = saver;
+      usingMemory = false;
+      logger.info(
+        { relaxedTls: i > 0 },
+        i > 0
+          ? "[checkpointer] PostgresSaver initialized with relaxed TLS (untrusted CA) — persistence enabled."
+          : "[checkpointer] PostgresSaver initialized."
+      );
+      return saver;
+    } catch (err) {
+      lastErr = err;
+      const isCertError = /self-signed|certificate|unable to verify|SELF_SIGNED/i.test(String(err));
+      // Only escalate to the relaxed-TLS attempt for cert-class errors.
+      if (i === 0 && !isCertError) break;
+    }
   }
+
+  // Do NOT cache the MemorySaver — allows retry on the next request rather
+  // than permanently degrading all subsequent requests to in-memory storage.
+  logger.error(
+    { err: lastErr instanceof Error ? lastErr.message : String(lastErr) },
+    "[checkpointer] Failed to initialize PostgresSaver, falling back to MemorySaver for this request only"
+  );
+  usingMemory = false; // Keep false so next request retries the DB
+  return new MemorySaver();
 }
 
 /** Returns true if the active checkpointer is in-memory (non-persistent). */
