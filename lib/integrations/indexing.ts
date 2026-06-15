@@ -442,6 +442,25 @@ type VisibilityLevel = 'org_wide' | 'department' | 'bi_accessible' | 'confidenti
  */
 type UpsertDocumentResult = { documentId: string; contentChanged: boolean }
 
+/**
+ * The doc-level metadata keys the KG builder reads to produce deterministic edges.
+ * Comparing only these (not the whole metadata object) means a volatile field like
+ * `last_modified` ticking does NOT trigger a needless re-extraction — only a real
+ * change to the structured KG inputs does.
+ */
+const KG_METADATA_KEYS = ['structured_owners', 'structured_account'] as const
+
+/** True when any KG-relevant structured metadata key differs between stored and new. */
+export function structuredMetadataChanged(
+  stored: Record<string, unknown> | null | undefined,
+  next: Record<string, unknown>,
+): boolean {
+  const a = (stored ?? {}) as Record<string, unknown>
+  return KG_METADATA_KEYS.some(
+    (k) => JSON.stringify(a[k] ?? null) !== JSON.stringify(next[k] ?? null),
+  )
+}
+
 async function upsertDocumentRecord(
   chunk: FetchedChunk,
   orgId: string,
@@ -452,17 +471,42 @@ async function upsertDocumentRecord(
 ): Promise<UpsertDocumentResult> {
   const newContentHash = createHash('sha256').update(chunk.content).digest('hex')
 
+  // Doc-level metadata consumed by the KG builder (structured_owners → OWNS/
+  // WORKS_ON edges; structured_account → TIED_TO_ACCOUNT). Built once, reused.
+  const newMetadata = {
+    ...chunk.metadata,
+    ...(chunk.structured_owners ? { structured_owners: chunk.structured_owners } : {}),
+  }
+
   // Check whether an identical version of this document is already indexed.
   // If the content_hash matches, skip re-embedding to avoid wasting API quota.
   const { data: existing } = await supabaseAdmin
     .from('documents')
-    .select('id, content_hash')
+    .select('id, content_hash, metadata')
     .eq('org_id', orgId)
     .eq('connection_id', connectionId)
     .eq('external_id', chunk.chunk_id)
     .maybeSingle()
 
   if (existing?.content_hash === newContentHash) {
+    // Content unchanged → no re-embed. BUT if the fetcher now emits structured
+    // KG metadata (structured_owners / structured_account) that the stored row
+    // lacks or that differs — e.g. a deterministic graph feature was just enabled
+    // (KG_OWNER_GRAPH / KG_CRM_EDGES) and the source content is static — refresh
+    // the doc metadata and clear last_extracted_hash to force KG re-extraction,
+    // so the new edges build. No re-embed: embeddings are still valid for the
+    // identical content. Without this, "enable graph flag → re-sync" silently
+    // no-ops on already-indexed docs (content-hash dedup swallows the new metadata).
+    if (structuredMetadataChanged(existing.metadata, newMetadata)) {
+      const { error: refreshErr } = await supabaseAdmin
+        .from('documents')
+        .update({ metadata: newMetadata, last_extracted_hash: null })
+        .eq('id', existing.id as string)
+        .eq('org_id', orgId)
+      if (refreshErr) {
+        logger.warn({ documentId: existing.id, err: refreshErr.message }, '[indexing] structured-metadata refresh failed (non-fatal)')
+      }
+    }
     return { documentId: existing.id as string, contentChanged: false }
   }
 
@@ -479,10 +523,7 @@ async function upsertDocumentRecord(
         owner_user_id: ownerUserId,
         visibility,
         external_url: chunk.source_url,
-        metadata: {
-          ...chunk.metadata,
-          ...(chunk.structured_owners ? { structured_owners: chunk.structured_owners } : {}),
-        },
+        metadata: newMetadata,
         content_hash: newContentHash,
       },
       { onConflict: 'org_id,connection_id,external_id' }
