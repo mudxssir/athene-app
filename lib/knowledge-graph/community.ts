@@ -21,6 +21,49 @@ import { logger } from '@/lib/logger'
 
 const PAGE_SIZE = 5_000
 
+// ---- Pure Louvain partition (P6-5) --------------------------
+//
+// Extracted so the per-app community-scope builder (community-scopes.ts) and the
+// org-wide detectCommunities both run the same modularity optimisation. Pure (no
+// DB) → unit-testable. This is the interim engine; the Leiden sidecar lane
+// (graspologic, hierarchical partitions) replaces it behind this same shape once
+// the parity test passes (playbook A-vs-B verdict).
+
+export interface PartitionEdge { source: string; target: string; weight?: number }
+export interface PartitionCommunity { communityId: string; memberIds: string[] }
+
+/**
+ * Louvain partition over an undirected weighted graph. Parallel edges accumulate
+ * weight; self-loops and edges to unknown nodes are skipped. Each community's id
+ * is its lowest member node id (lexicographic) so reruns are stable. Isolated
+ * nodes each form their own (singleton) community.
+ */
+export function louvainPartition(nodeIds: string[], edges: PartitionEdge[]): PartitionCommunity[] {
+  if (nodeIds.length === 0) return []
+  const graph = new Graph({ type: 'undirected', multi: false, allowSelfLoops: false })
+  for (const id of nodeIds) if (!graph.hasNode(id)) graph.addNode(id)
+  for (const e of edges) {
+    if (e.source === e.target) continue
+    if (!graph.hasNode(e.source) || !graph.hasNode(e.target)) continue
+    const w = e.weight ?? 1
+    if (graph.hasEdge(e.source, e.target)) {
+      graph.updateEdgeAttribute(e.source, e.target, 'weight', (cur) => (cur ?? 0) + w)
+    } else {
+      graph.addEdge(e.source, e.target, { weight: w })
+    }
+  }
+  const assignments = louvain(graph, { getEdgeWeight: 'weight' })
+  const byCluster = new Map<number | string, string[]>()
+  for (const [nodeId, cluster] of Object.entries(assignments)) {
+    if (!byCluster.has(cluster)) byCluster.set(cluster, [])
+    byCluster.get(cluster)!.push(nodeId)
+  }
+  return [...byCluster.values()].map((memberIds) => ({
+    communityId: memberIds.reduce((min, id) => (id < min ? id : min)),
+    memberIds,
+  }))
+}
+
 // ---- Paginated loads ----------------------------------------
 
 async function paginateNodes(orgId: string): Promise<{ id: string }[]> {

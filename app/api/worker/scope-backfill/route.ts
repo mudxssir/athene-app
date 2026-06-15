@@ -20,6 +20,7 @@ import { logger } from '@/lib/logger'
 import { parseBody, uuidSchema } from '@/lib/validation'
 import { HIERARCHY_SCOPES } from '@/lib/config/feature-flags'
 import { backfillScopeMembershipsPage, enqueueScopeBackfill } from '@/lib/knowledge-graph/scope-backfill'
+import { buildCommunityScopes } from '@/lib/knowledge-graph/community-scopes'
 
 const Schema = z.object({
   org_id: uuidSchema,
@@ -45,7 +46,12 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   try {
     const { processed, nextCursor } = await backfillScopeMembershipsPage(org_id, cursor ?? '')
-    if (nextCursor) enqueueScopeBackfill(org_id, nextCursor) // continue paging
+    if (nextCursor) {
+      enqueueScopeBackfill(org_id, nextCursor) // continue paging
+    } else {
+      // Membership backfill done → (re)build per-app community scopes (P6-5).
+      await buildCommunityScopes(org_id)
+    }
     logger.info({ org_id, processed, done: !nextCursor }, '[scope-backfill] page complete')
     return NextResponse.json({ status: 'ok', processed, done: !nextCursor })
   } catch (err: unknown) {

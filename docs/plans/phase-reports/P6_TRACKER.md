@@ -21,7 +21,7 @@ _Branch: `pipeline/p6-hierarchy-scopes` (off `pipeline/p5-media-captions`) · Fl
 | P6-2 | Scope registry + assignment rules: app/vertical/dept/community/person keys, `parent_scope_id` roll-up chain (pure TS, unit-tested) | §1, §1.1 | **done** | S | P6-1 |
 | P6-3 | Incremental membership maintenance in `builder.ts` (touched nodes only) + dirty marking | §3.1 | **done** | M | P6-2 |
 | P6-4 | Backfill job (paced, resumable, per-org) + rebuild escape hatch `POST /api/admin/graph/rebuild-scopes` | §3.1, §3.4 | **done** | M | P6-3 |
-| P6-5 | L1 communities per app scope via existing Louvain (`detectCommunities`); persist `community`-level scopes. **Leiden sidecar lane = infra-gated follow-up** | §3 step 3 | todo | M | P6-3 |
+| P6-5 | L1 communities per app scope via Louvain (`louvainPartition`); persist `community`-level scopes. **Leiden sidecar lane = infra-gated follow-up** | §3 step 3 | **done** | M | P6-3 |
 | P6-6 | Summary worker: debounced, bottom-up (community→app→vertical/dept→org), `input_hash` skip, visibility-class inputs, GraphRAG-fork prompt, highlights schema, `get_scope_summary` tool | §4 | todo | L | P6-4, P6-5 |
 | P6-7 | Person scopes: activation, 2-hop membership + personal summary, 7-day TTL sweep, live-BFS fallback + background rematerialize, nightly canary; My Work/obligations read scope-first | §3.2 | todo | L | P6-6 |
 | P6-8 | Blocker matrix (`blockers_by_scope`, dept×dept recursive CTE depth-6 + cycle guard) + responsibility ledger + unowned-blocker surfacing + admin surface + watchlist template | §5 | todo | M | P6-3 |
@@ -174,8 +174,24 @@ reverse) is always safe. No chunking/embedding change → no re-embed.
   rate-limited 5/h): clear → enqueue backfill. Flag-gated; service-role allowlisted.
 - 10 tests (`scope-backfill.test.ts`). Suite 1091 TS; tsc + gates green.
 
-**Next:** P6-5 (Louvain communities) → P6-6 (summaries) → P6-7 (person scopes) →
-P6-8 (blocker matrix) → P6-9 (briefing/chat wiring).
+### P6-5 — per-app community scopes (Louvain interim) (2026-06-15)
+
+- Extracted a **pure** `louvainPartition(nodeIds, edges)` into `community.ts` (stable
+  lowest-id community ids; existing org-wide `detectCommunities` untouched). 4 tests.
+- `community-scopes.ts` `buildCommunityScopes(orgId)`: per app scope, induce the
+  subgraph from its members + the org edges (loaded once, filtered in memory), run
+  Louvain, and materialize each cluster ≥ `MIN_COMMUNITY_SIZE` (3) as a
+  `community`-level kg_scope (parent = app) + memberships. Idempotent (stable keys
+  `${provider}#${lowestNodeId}`, PK member upserts) + prunes stale communities →
+  hash-stable. 5 tests.
+- Wired into the scope-backfill worker's completion (last page → `buildCommunityScopes`).
+  Service-role allowlisted.
+- **Leiden (infra-gated follow-up):** graspologic `/graph/leiden` sidecar lane +
+  modularity/briefing parity test before retiring Louvain — swapping is localized to
+  the `louvainPartition` call. The one P6 piece needing the deployed Python sidecar.
+
+**Next:** P6-6 (summaries) → P6-7 (person scopes) → P6-8 (blocker matrix) →
+P6-9 (briefing/chat wiring).
 
 ## SDLC checklist (per ticket, same discipline as P0–P5)
 

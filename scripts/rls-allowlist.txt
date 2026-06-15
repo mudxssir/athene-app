@@ -23,6 +23,7 @@ lib/knowledge-graph/community.ts
 lib/knowledge-graph/event-extractor.ts
 lib/knowledge-graph/scope-maintenance.ts
 lib/knowledge-graph/scope-backfill.ts
+lib/knowledge-graph/community-scopes.ts
 
 # ── app/api: Clerk-authed admin surface ─────────────────────────
 app/api/admin/audit-log/route.ts
