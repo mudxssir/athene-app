@@ -7,7 +7,32 @@
 // ============================================================
 
 import { describe, it, expect } from 'vitest'
-import { applyPrefixTask } from '@/lib/ai/embedding-factory'
+import { applyPrefixTask, needsPrefixTask } from '@/lib/ai/embedding-factory'
+
+describe('needsPrefixTask (P7-2 — regression-safe scoping)', () => {
+  it('prefixes ONLY the TEI lane with a prefix-family model', () => {
+    expect(needsPrefixTask('tei', 'nomic-embed-text-v1.5')).toBe(true)
+    expect(needsPrefixTask('tei', 'bge-base-en-v1.5')).toBe(true)
+    expect(needsPrefixTask('tei', 'intfloat/e5-base')).toBe(true)
+  })
+
+  it('does NOT prefix the existing nomic-API lane (the regression guard)', () => {
+    // Pre-P7 nomic embedded query+passage identically; retroactively prefixing it
+    // would mismatch already-stored passages until a re-embed. Must stay unchanged.
+    expect(needsPrefixTask('nomic', 'nomic-embed-text-v1.5')).toBe(false)
+  })
+
+  it('does NOT prefix jina/google/openai/together (in-band or no task)', () => {
+    expect(needsPrefixTask('jina', 'jina-embeddings-v3')).toBe(false)
+    expect(needsPrefixTask('google', 'text-embedding-004')).toBe(false)
+    expect(needsPrefixTask('openai', 'text-embedding-3-small')).toBe(false)
+    expect(needsPrefixTask('together', 'togethercomputer/m2-bert-80M-8k-base')).toBe(false)
+  })
+
+  it('does NOT prefix a TEI server running a non-prefix model', () => {
+    expect(needsPrefixTask('tei', 'some-symmetric-model')).toBe(false)
+  })
+})
 
 describe('applyPrefixTask (P7-2 sovereignty lane)', () => {
   it('prefixes queries with search_query:', () => {

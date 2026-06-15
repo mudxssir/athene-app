@@ -14,6 +14,11 @@
 // Mirrors check-rls.mjs: a scan + an explicit allow-list file. Reads license
 // strings from each prod dependency's installed package.json.
 //
+// Scope: DIRECT production dependencies only (package.json `dependencies`), not the
+// transitive tree. Transitive/deep-license scanning + the Python sidecar image scan
+// are separate ops (documented in P7_TRACKER) — this gate catches the first-order
+// risk that review can act on.
+//
 // Exit 0 → every prod dep is permissive or explicitly allow-listed.
 // Exit 1 → one or more deps have a non-permissive / unknown license.
 // ============================================================

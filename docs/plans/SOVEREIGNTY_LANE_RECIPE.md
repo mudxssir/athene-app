@@ -9,10 +9,15 @@ Plan B §4)._
 ## What's wired (code)
 - **`tei` provider** in `lib/ai/embedding-factory.ts` — reuses the OpenAI-compatible
   `/v1/embeddings` path (`embedWithOpenAICompat`); TEI exposes that endpoint.
-- **Prefix task mapping** (`applyPrefixTask`) — nomic/BGE/TEI signal the retrieval
-  task by *prefixing the text* (`search_query: ` / `search_document: `), not via an
-  API `task` param. Wired off the existing `EmbeddingHint`. (This also fixes the
-  prior nomic lane, which embedded queries and passages identically.)
+- **Prefix task mapping** (`applyPrefixTask`) — TEI-served retrieval models
+  (nomic/BGE/e5/gte) signal the task by *prefixing the text* (`search_query: ` /
+  `search_document: `), not via an API `task` param. Wired off the existing
+  `EmbeddingHint`. **Scoped to the `tei` provider only** (`needsPrefixTask`): the
+  existing nomic-API and local-BGE lanes are left unchanged — retroactively
+  prefixing them would shift query embeddings out of the space their already-stored
+  passages live in, until a re-embed. The TEI lane is new (no stored data), so it
+  is correct from day one. An org wanting correct asymmetric nomic/BGE pins to
+  `tei` and re-embeds.
 - **Activation switch** — the existing `embedding_model_pinned` org setting (Plan A).
   No new feature flag; the lane is inactive until `TEI_URL` is set.
 
@@ -37,9 +42,11 @@ Plan B §4)._
    Apache-2.0, prefix task types. BGE-base (`BAAI/bge-base-en-v1.5`, MIT) is the
    alternative; it already exists as the Xenova local fallback.
 2. **Point the app at it:** set `TEI_URL` (+ `TEI_MODEL`, `TEI_API_KEY`).
-3. **Pin the org:** set `organizations.embedding_model_pinned = 'tei'` (or the exact
-   `TEI_MODEL` name). The pinned-config resolver routes that org's embeds to TEI and
-   never to an external API (checked before jina/google).
+3. **Pin the org:** set `organizations.embedding_model_pinned = 'tei'` (explicit
+   `tei` / `tei-*` pin only — the resolver deliberately does NOT reroute an org
+   pinned to a bare model name like `nomic-embed-text-v1.5` just because `TEI_URL`
+   is set, so a nomic-API org is never silently moved into TEI's vector space). The
+   actual served model is `TEI_MODEL`. Routed to TEI before any external API.
 4. **Re-embed** the org with the existing paced job (`scripts/migrations/re-embed.ts`)
    so the search index is single-model (the `check-model-pinning` CI assertion stays
    green — one `embedding_model` per org).

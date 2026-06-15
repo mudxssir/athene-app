@@ -32,11 +32,16 @@ Per-org AES-256-GCM via `deriveOrgKey` (same KMS scheme as BYOK); self-identifyi
   (+ `TEI_MODEL`, `TEI_API_KEY`). Wired into `resolveSystemConfig` (last-resort default)
   + `resolvePinnedConfig` (checked **before** external APIs, so a sovereignty-pinned org
   never leaks).
-- **Prefix task mapping** (`applyPrefixTask`) — nomic/BGE/TEI signal the retrieval task
-  by prefixing the text (`search_query: ` / `search_document: `), not via an API task
-  param. Wired off the existing `EmbeddingHint`. **Also fixes the prior nomic lane**,
-  which embedded queries and passages identically (latent asymmetric-retrieval bug).
-  Idempotent (never double-prefixes).
+- **Prefix task mapping** (`applyPrefixTask`) — TEI-served retrieval models signal the
+  task by prefixing the text (`search_query: ` / `search_document: `), not via an API
+  task param. Wired off `EmbeddingHint`. Idempotent (never double-prefixes).
+- **Regression-safe scoping (review fix):** `needsPrefixTask` is gated to
+  `provider === 'tei'` + a prefix-family model **only**. The existing nomic-API and
+  local-BGE lanes are left UNCHANGED — retroactively prefixing them would mismatch
+  their already-stored (un-prefixed) passages until a re-embed (silent semantic
+  drift). TEI is a new lane with no stored data → correct from day one. Pinned-config
+  routes to TEI only on an explicit `tei`/`tei-*` pin (not a bare model-name match),
+  so a nomic-API org is never silently rerouted. 4 regression-guard tests added.
 - Activation is the existing `embedding_model_pinned` switch — **no new flag**; inactive
   until `TEI_URL` is set. Same code path → light-up is config + re-embed.
 - `SOVEREIGNTY_LANE_RECIPE.md`: TEI/nomic Docker deploy + activation + verification +

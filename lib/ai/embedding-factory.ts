@@ -38,18 +38,27 @@ type EmbeddingProviderName = "openai" | "jina" | "together" | "nomic" | "google"
 
 // ---- Sovereignty lane: prefix-based task types (P7-2) -------------------
 //
-// nomic-embed-text-v1.5, BGE, and most self-hosted models served via TEI use
-// a *prefix* to signal the retrieval task (asymmetric search), rather than an
-// API `task` parameter. The convention (nomic/BGE): prepend `search_query: ` to
-// queries and `search_document: ` to passages. This maps cleanly onto our
-// EmbeddingHint plumbing (Plan B §4). Models that take a task parameter
-// (jina/google) are NOT prefixed — they handle it in-band.
+// nomic-embed-text-v1.5, BGE, and most retrieval models served via TEI use a
+// *prefix* to signal the task (asymmetric search), rather than an API `task`
+// parameter: prepend `search_query: ` to queries and `search_document: ` to
+// passages (Plan B §4). Models with a task parameter (jina/google) are NOT
+// prefixed — they handle it in-band.
+//
+// SCOPE (regression-safe): prefixing is applied ONLY to the `tei` provider — the
+// new self-host lane, which has no pre-existing stored embeddings, so it is
+// correct from day one. The existing nomic-API and local-BGE lanes are left
+// UNCHANGED: retroactively prefixing them would shift query embeddings out of the
+// space their already-stored passages live in (an asymmetry mismatch) until a
+// full re-embed — a silent semantic drift the playbook forbids. An org that wants
+// correct asymmetric nomic/BGE uses the TEI sovereignty lane (the recommended
+// self-host path) and re-embeds, which the model-pinning + re-embed flow handles.
 
-/** Models/providers that need the text prefixed with the task (no API task param). */
-const PREFIX_TASK_MODELS = /(nomic|bge|e5|gte|tei)/i
+/** Retrieval-model families served by TEI that take a task *prefix*, not a param. */
+const PREFIX_TASK_MODELS = /(nomic|bge|e5|gte)/i
 
-function needsPrefixTask(provider: EmbeddingProviderName, model: string): boolean {
-  return provider === "tei" || provider === "nomic" || PREFIX_TASK_MODELS.test(model)
+/** Whether to prepend the task prefix: TEI lane + a prefix-family model only. */
+export function needsPrefixTask(provider: EmbeddingProviderName, model: string): boolean {
+  return provider === "tei" && PREFIX_TASK_MODELS.test(model)
 }
 
 /** Prefix texts with the nomic/BGE task marker derived from the hint. Idempotent-safe. */
@@ -517,13 +526,16 @@ async function resolvePinnedConfig(orgId: string): Promise<EmbeddingConfig | nul
 
   const model = await fetchOrgPinnedModel(orgId)
 
-  // P7-2 sovereignty lane: pin to self-hosted TEI. `embedding_model_pinned = 'tei'`
-  // (or any model name when TEI_URL is set and the model is TEI-served) routes to
-  // the in-boundary server. Checked first so a sovereignty-pinned org never leaks
-  // to an external API.
-  if ((model === 'tei' || model.startsWith('tei-') || model === (process.env.TEI_MODEL ?? 'nomic-embed-text-v1.5')) && process.env.TEI_URL) {
+  // P7-2 sovereignty lane: pin to self-hosted TEI via an EXPLICIT `tei` pin only
+  // (`embedding_model_pinned = 'tei'` or `tei-*`). We deliberately do NOT match the
+  // bare model name (e.g. 'nomic-embed-text-v1.5') here: doing so would silently
+  // reroute an org pinned to the nomic *API* over to TEI the moment TEI_URL is set,
+  // changing its embedding space without a re-embed. Opting into sovereignty is an
+  // explicit pin; the actual TEI-served model is set by TEI_MODEL. Checked before
+  // the external-API branches so a tei-pinned org never leaks out of the boundary.
+  if ((model === 'tei' || model.startsWith('tei-')) && process.env.TEI_URL) {
     const tei = resolveTeiConfig()
-    if (tei) return { ...tei, model: model === 'tei' ? tei.model : model }
+    if (tei) return tei
   }
 
   // Map pinned model name → system provider config
