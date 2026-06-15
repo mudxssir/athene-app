@@ -17,31 +17,51 @@
 // column moves out of metadata entirely. Tracked in playbook P7 item 1.
 // ============================================================
 
+import { CHUNK_TEXT_ENCRYPTION } from '@/lib/config/feature-flags'
+import { encryptChunkText, decryptChunkText, isEncrypted } from './chunk-crypto'
+
+/** Preview written to content_preview: redacted (no plaintext at rest) when encrypting. */
+export function chunkPreview(content: string): string {
+  return CHUNK_TEXT_ENCRYPTION ? '' : content.slice(0, 200)
+}
+
 /**
  * Returns a metadata object carrying the persisted chunk text.
  * Spread-merges on top of the base metadata; never mutates the input.
+ * When CHUNK_TEXT_ENCRYPTION is on and an orgId is supplied, the text is stored
+ * as a per-org AES-GCM envelope (P7); otherwise plaintext (unchanged).
  */
 export function writeChunkText(
   baseMeta: Record<string, unknown>,
-  text: string
+  text: string,
+  orgId?: string,
 ): Record<string, unknown> {
-  return { ...baseMeta, chunk_text: text }
+  const stored = CHUNK_TEXT_ENCRYPTION && orgId ? encryptChunkText(text, orgId) : text
+  return { ...baseMeta, chunk_text: stored }
 }
 
 /**
  * Reads the stored chunk text from a document_embeddings row shape.
- * Falls back to content_preview (200-char cap) for pre-zero-copy rows;
- * returns null when neither is usable.
+ * Transparently decrypts an `encv1:` envelope using the row's org_id (no caller
+ * signature change). Falls back to content_preview for pre-zero-copy rows;
+ * returns null when neither is usable (incl. a failed decrypt — tamper/wrong key).
  */
 export function readChunkText(row: {
   metadata?: unknown
   content_preview?: string | null
+  org_id?: string | null
 }): string | null {
-  const fromMeta = (row.metadata as Record<string, unknown> | null | undefined)?.[
-    'chunk_text'
-  ]
+  const meta = row.metadata as Record<string, unknown> | null | undefined
+  const fromMeta = meta?.['chunk_text']
   if (typeof fromMeta === 'string' && fromMeta.trim().length > 0) {
-    return fromMeta.trim()
+    if (isEncrypted(fromMeta)) {
+      const orgId = row.org_id ?? (meta?.['org_id'] as string | undefined) ?? ''
+      const dec = decryptChunkText(fromMeta, orgId)
+      if (dec && dec.trim().length > 0) return dec.trim()
+      // decrypt failed → fall through to preview (redacted/empty under encryption)
+    } else {
+      return fromMeta.trim()
+    }
   }
   const preview = row.content_preview?.trim()
   return preview && preview.length > 0 ? preview : null

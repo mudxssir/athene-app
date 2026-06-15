@@ -1,5 +1,7 @@
 import { withRLS, type RLSContext } from "./rls-client";
 import { logger } from "@/lib/logger";
+import { CHUNK_TEXT_ENCRYPTION } from "@/lib/config/feature-flags";
+import { decryptChunkText, isEncrypted } from "@/lib/indexing/chunk-crypto";
 
 export type SearchResult = {
   id: string;
@@ -31,6 +33,19 @@ export async function similaritySearch(
       throw error;
     }
 
-    return (data as SearchResult[]) || [];
+    const rows = (data as SearchResult[]) || [];
+
+    // P7: the RPC returns the raw (possibly encrypted) metadata value; decrypt
+    // chunk_text app-side at this single retrieval boundary so all downstream
+    // consumers see plaintext. No-op when encryption is off.
+    if (CHUNK_TEXT_ENCRYPTION) {
+      for (const r of rows) {
+        const ct = (r.metadata as Record<string, unknown> | null | undefined)?.chunk_text;
+        if (typeof ct === "string" && isEncrypted(ct)) {
+          (r.metadata as Record<string, unknown>).chunk_text = decryptChunkText(ct, context.org_id) ?? "";
+        }
+      }
+    }
+    return rows;
   });
 }

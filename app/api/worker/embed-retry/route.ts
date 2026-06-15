@@ -70,7 +70,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     // 1. Fetch all pending rows for this document
     const { data: rows, error: fetchErr } = await supabaseAdmin
       .from('document_embeddings')
-      .select('id, chunk_index, metadata, content_preview, source_type, department_id')
+      .select('id, org_id, chunk_index, metadata, content_preview, source_type, department_id')
       .eq('org_id', org_id)
       .eq('document_id', document_id)
       .eq('needs_embedding', true)

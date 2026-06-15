@@ -115,3 +115,14 @@ export const MEDIA_CAPTIONS = process.env.MEDIA_CAPTIONS === "true";
  * until the P6 gate. Set HIERARCHY_SCOPES=true to activate.
  */
 export const HIERARCHY_SCOPES = process.env.HIERARCHY_SCOPES === "true";
+
+/**
+ * P7: encrypt chunk_text at rest with per-org AES-256-GCM (key derived from
+ * KMS_KEY + org id). When ON, writeChunkText encrypts and content_preview is
+ * redacted (no plaintext leaks); readers decrypt transparently via the
+ * self-identifying `encv1:` envelope. When OFF, chunk text is stored plaintext
+ * exactly as before (the P0 choke-point design makes this config, not refactor).
+ * Mixed rows read correctly during a paced re-encryption migration. Default OFF
+ * until the program-exit gate. Set CHUNK_TEXT_ENCRYPTION=true to activate.
+ */
+export const CHUNK_TEXT_ENCRYPTION = process.env.CHUNK_TEXT_ENCRYPTION === "true";

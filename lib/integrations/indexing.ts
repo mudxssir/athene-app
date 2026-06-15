@@ -19,7 +19,7 @@ import { isSkipSentinel } from './base'
 import { logger } from '@/lib/logger'
 import { embedBatchDetailed, embedBatchLateChunking, embedBatchPinned, type EmbeddingHint } from '@/lib/ai/embedding-factory'
 import { chunk as tokenChunk } from '@/lib/langgraph/tools/chunker'
-import { writeChunkText } from '@/lib/indexing/chunk-text-store'
+import { writeChunkText, chunkPreview } from '@/lib/indexing/chunk-text-store'
 import { PIPELINE_SHAPE_ROUTING, CONTEXT_ENVELOPE } from '@/lib/config/feature-flags'
 import { buildBreadcrumb, buildContextHeader, assembleEmbedText } from '@/lib/indexing/context-envelope'
 import { generateDocContext, shapeGetsDocContext } from '@/lib/indexing/doc-context'
@@ -576,7 +576,7 @@ async function writeSkipEmbeddingRow(
   visibility: VisibilityLevel,
   ownerUserId: string | null,
 ): Promise<void> {
-  const meta = writeChunkText(chunk.metadata, chunk.content)
+  const meta = writeChunkText(chunk.metadata, chunk.content, orgId)
   const { error } = await supabaseAdmin.from('document_embeddings').upsert([{
     org_id: orgId,
     document_id: documentId,
@@ -591,7 +591,7 @@ async function writeSkipEmbeddingRow(
     parent_chunk_index: null,
     needs_embedding: false,
     content_hash: createHash('sha256').update(chunk.content).digest('hex'),
-    content_preview: chunk.content.slice(0, 200),
+    content_preview: chunkPreview(chunk.content),
     metadata: meta,
   }])
   if (error) {
@@ -701,7 +701,7 @@ export async function indexDocument(
       // upsert over a previously-flagged row clears the flag (review fix #5).
       for (const group of parentGroups) {
         const parentIdx = nextChunkIndex++
-        const meta = writeChunkText(chunk.metadata, group.parentText)
+        const meta = writeChunkText(chunk.metadata, group.parentText, orgId)
         if (structuredFields) (meta as Record<string, unknown>).structured_fields = structuredFields
         records.push({
           org_id: orgId,
@@ -717,7 +717,7 @@ export async function indexDocument(
           parent_chunk_index: null,
           needs_embedding: false,
           content_hash: createHash('sha256').update(group.parentText).digest('hex'),
-          content_preview: group.parentText.slice(0, 200),
+          content_preview: chunkPreview(group.parentText),
           metadata: meta,
         })
       }
@@ -755,7 +755,7 @@ export async function indexDocument(
         for (let ci = 0; ci < childTexts.length; ci++) {
           const text = childTexts[ci]
           const childIdx = nextChunkIndex++
-          const meta = writeChunkText(chunk.metadata, text)
+          const meta = writeChunkText(chunk.metadata, text, orgId)
           if (structuredFields) (meta as Record<string, unknown>).structured_fields = structuredFields
           records.push({
             org_id: orgId,
@@ -771,7 +771,7 @@ export async function indexDocument(
             parent_chunk_index: gi,  // points to parent row's chunk_index
             needs_embedding: groupNeedsRetry,
             content_hash: createHash('sha256').update(text).digest('hex'),
-            content_preview: text.slice(0, 200),
+            content_preview: chunkPreview(text),
             metadata: meta,
           })
         }
@@ -847,7 +847,7 @@ export async function indexDocument(
 
   // 3. Build the records to upsert — must match document_embeddings schema exactly
   const records = contentChunks.map((text, index) => {
-    const meta = writeChunkText(chunk.metadata, text)
+    const meta = writeChunkText(chunk.metadata, text, orgId)
     if (structuredFields) meta.structured_fields = structuredFields
     // P3-13: store the embedded header (separate key from the raw chunk_text).
     if (headers[index]) meta.context_header = headers[index]
@@ -865,7 +865,7 @@ export async function indexDocument(
       parent_chunk_index: null,
       needs_embedding: needsRetry,
       content_hash: createHash('sha256').update(text).digest('hex'),
-      content_preview: text.slice(0, 200),
+      content_preview: chunkPreview(text),
       metadata: meta,
     }
   })
@@ -1014,7 +1014,7 @@ export async function indexDocuments(
     const isRecord = PIPELINE_SHAPE_ROUTING ? item.chunk.shape === 'record' : RECORD_SOURCE_TYPES.has(item.chunk.metadata.provider as string)
     const structuredFields = isRecord ? extractStructuredFields(item.chunk.metadata) : null
     return item.subChunks.map((text, index) => {
-      const meta = writeChunkText(item.chunk.metadata, text)
+      const meta = writeChunkText(item.chunk.metadata, text, orgId)
       if (structuredFields) meta.structured_fields = structuredFields
       // P3-13: the embedded header is auditable (separate key from chunk_text).
       const header = itemHeaders[ii][index]
@@ -1029,7 +1029,7 @@ export async function indexDocuments(
         chunk_index: index,
         parent_chunk_index: null,  // P1-8: bulk path uses standalone rows (no parent grouping); structural docs use indexDocument
         content_hash: createHash('sha256').update(text).digest('hex'),
-        content_preview: text.slice(0, 200),
+        content_preview: chunkPreview(text),
         metadata: meta,
       }
     })
