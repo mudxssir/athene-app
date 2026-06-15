@@ -20,7 +20,7 @@ _Branch: `pipeline/p6-hierarchy-scopes` (off `pipeline/p5-media-captions`) · Fl
 | P6-1 | Schema (`kg_scopes`/`kg_scope_members`/`kg_scope_summaries`) + RLS + dept/org lifecycle triggers | §2, §3.3 | **done** | M | — |
 | P6-2 | Scope registry + assignment rules: app/vertical/dept/community/person keys, `parent_scope_id` roll-up chain (pure TS, unit-tested) | §1, §1.1 | **done** | S | P6-1 |
 | P6-3 | Incremental membership maintenance in `builder.ts` (touched nodes only) + dirty marking | §3.1 | **done** | M | P6-2 |
-| P6-4 | Backfill job (paced, resumable, per-org) + rebuild escape hatch `POST /api/admin/graph/rebuild-scopes` | §3.1, §3.4 | todo | M | P6-3 |
+| P6-4 | Backfill job (paced, resumable, per-org) + rebuild escape hatch `POST /api/admin/graph/rebuild-scopes` | §3.1, §3.4 | **done** | M | P6-3 |
 | P6-5 | L1 communities per app scope via existing Louvain (`detectCommunities`); persist `community`-level scopes. **Leiden sidecar lane = infra-gated follow-up** | §3 step 3 | todo | M | P6-3 |
 | P6-6 | Summary worker: debounced, bottom-up (community→app→vertical/dept→org), `input_hash` skip, visibility-class inputs, GraphRAG-fork prompt, highlights schema, `get_scope_summary` tool | §4 | todo | L | P6-4, P6-5 |
 | P6-7 | Person scopes: activation, 2-hop membership + personal summary, 7-day TTL sweep, live-BFS fallback + background rematerialize, nightly canary; My Work/obligations read scope-first | §3.2 | todo | L | P6-6 |
@@ -157,8 +157,25 @@ reverse) is always safe. No chunking/embedding change → no re-embed.
 - **Verification:** full suite **1081 TS** (+19 P6), 0 regressions; tsc clean; check-rls +
   check-chunk-text green. `builder-tabular-tier-c` flag mock extended with `HIERARCHY_SCOPES`.
 
-**Next:** P6-4 (backfill + rebuild escape hatch) → P6-5 (Louvain communities) → P6-6
-(summaries) → P6-7 (person scopes) → P6-8 (blocker matrix) → P6-9 (briefing/chat wiring).
+### P6-4 — backfill + rebuild escape hatch (2026-06-15)
+
+- Refactored `scope-maintenance.ts` to expose `applyScopeMemberships(orgId, entries[])`
+  — a multi-provider core (ensure each scope once via a cache; one membership row per
+  (node,scope)). `maintainScopeMemberships` (P6-3) is now a thin wrapper; its 6 tests
+  unchanged/green.
+- `scope-backfill.ts`: `backfillScopeMembershipsPage(orgId, cursor, limit)` pages
+  kg_nodes by id-cursor, resolves each node's provider(s) from `source_documents →
+  documents.source_type` (a node spans connectors → can join multiple app scopes),
+  and applies memberships. Idempotent → hash-stable across reruns (the §6 acceptance
+  criterion). `clearScopeMemberships` (rebuild teardown — drops memberships, keeps the
+  stable skeleton). `enqueueScopeBackfill` (deduped per (org,cursor)).
+- Worker `app/api/worker/scope-backfill` pages via self re-enqueue (Vercel-timeout
+  safe) + sync_errors DLQ. Admin `POST /api/admin/graph/rebuild-scopes` (admin,
+  rate-limited 5/h): clear → enqueue backfill. Flag-gated; service-role allowlisted.
+- 10 tests (`scope-backfill.test.ts`). Suite 1091 TS; tsc + gates green.
+
+**Next:** P6-5 (Louvain communities) → P6-6 (summaries) → P6-7 (person scopes) →
+P6-8 (blocker matrix) → P6-9 (briefing/chat wiring).
 
 ## SDLC checklist (per ticket, same discipline as P0–P5)
 

@@ -56,6 +56,86 @@ async function ensureScope(orgId: string, d: ScopeDescriptor, parentId: string |
   return data.id as string
 }
 
+/** One node's membership in the structural scopes implied by a provider + its depts. */
+export interface ScopeMembershipEntry {
+  nodeId: string
+  provider: string
+  departmentIds: string[]
+}
+
+/**
+ * Core membership upsert shared by the incremental path (P6-3) and the backfill
+ * (P6-4). Ensures every implied scope (org → each vertical → each app; each dept)
+ * exists with its parent link — each ensured at most once per call — then upserts
+ * one membership row per (node, scope). A node may appear under multiple providers
+ * (cross-source entity); each contributes its app/vertical memberships. Non-fatal.
+ */
+export async function applyScopeMemberships(
+  orgId: string,
+  entries: ScopeMembershipEntry[],
+  opts?: { departmentNames?: Record<string, string> },
+): Promise<void> {
+  if (!orgId || entries.length === 0) return
+  try {
+    const orgScopeId = await ensureScope(orgId, ORG_SCOPE, null)
+    if (!orgScopeId) return // no org scope → cannot parent anything; bail (rebuild repairs)
+
+    // Ensure each distinct scope once; cache descriptor (level:key) → scope id.
+    const scopeIdCache = new Map<string, string | null>([[`org:root`, orgScopeId]])
+    const ensureCached = async (d: ScopeDescriptor, parentId: string | null): Promise<string | null> => {
+      const k = `${d.level}:${d.key}`
+      if (scopeIdCache.has(k)) return scopeIdCache.get(k)!
+      const id = await ensureScope(orgId, d, parentId)
+      scopeIdCache.set(k, id)
+      return id
+    }
+
+    // Pre-ensure app/vertical per distinct provider (vertical first, for parenting).
+    const providers = [...new Set(entries.map((e) => e.provider).filter(Boolean))]
+    for (const provider of providers) {
+      const vDesc = verticalScope(provider)
+      const vId = vDesc ? await ensureCached(vDesc, orgScopeId) : null
+      const aDesc = appScope(provider)
+      if (aDesc) await ensureCached(aDesc, vId ?? orgScopeId)
+    }
+    // Pre-ensure distinct departments (parent = org).
+    for (const deptId of new Set(entries.flatMap((e) => e.departmentIds).filter(Boolean))) {
+      await ensureCached(departmentScope(deptId, opts?.departmentNames?.[deptId]), orgScopeId)
+    }
+
+    // Build membership rows: each entry → its app, vertical, and dept scopes.
+    const seen = new Set<string>()
+    const rows: Array<{ org_id: string; scope_id: string; node_id: string; weight: number }> = []
+    const addMember = (scopeId: string | null | undefined, nodeId: string) => {
+      if (!scopeId) return
+      const k = `${scopeId}:${nodeId}`
+      if (seen.has(k)) return
+      seen.add(k)
+      rows.push({ org_id: orgId, scope_id: scopeId, node_id: nodeId, weight: 1 })
+    }
+    for (const e of entries) {
+      const vDesc = verticalScope(e.provider)
+      const aDesc = appScope(e.provider)
+      if (aDesc) addMember(scopeIdCache.get(`app:${aDesc.key}`), e.nodeId)
+      if (vDesc) addMember(scopeIdCache.get(`vertical:${vDesc.key}`), e.nodeId)
+      for (const deptId of e.departmentIds) addMember(scopeIdCache.get(`department:${deptId}`), e.nodeId)
+    }
+    if (rows.length === 0) return
+
+    const { error } = await supabaseAdmin
+      .from('kg_scope_members')
+      .upsert(rows, { onConflict: 'scope_id,node_id' })
+    if (error) {
+      logger.warn({ orgId, count: rows.length, err: error.message }, '[scope-maintenance] member upsert failed')
+    }
+  } catch (err) {
+    logger.warn(
+      { orgId, err: err instanceof Error ? err.message : String(err) },
+      '[scope-maintenance] non-fatal failure (rebuild will repair)',
+    )
+  }
+}
+
 /**
  * Maintain app/vertical/department scope memberships for the touched nodes of one
  * document. `provider` is the syncing connection's source_type; per-node
@@ -71,64 +151,10 @@ export async function maintainScopeMemberships(
 ): Promise<void> {
   if (!HIERARCHY_SCOPES || !orgId || !provider || nodes.length === 0) return
 
-  try {
-    // 1. Resolve touched nodes → ids (+ their department_ids).
-    const touched: Array<{ id: string; departmentIds: string[] }> = []
-    for (const n of nodes) {
-      const id = nodeIdMap.get(nodeKey(n.label, n.entity_type))
-      if (id) touched.push({ id, departmentIds: n.department_ids ?? [] })
-    }
-    if (touched.length === 0) return
-
-    // 2. Ensure the scope skeleton (org → vertical → app; departments → org).
-    const orgScopeId = await ensureScope(orgId, ORG_SCOPE, null)
-    if (!orgScopeId) return // no org scope → cannot parent anything; bail (backfill repairs)
-
-    const appDesc = appScope(provider)
-    const verticalDesc = verticalScope(provider)
-
-    let verticalId: string | null = null
-    if (verticalDesc) verticalId = await ensureScope(orgId, verticalDesc, orgScopeId)
-
-    let appId: string | null = null
-    if (appDesc) appId = await ensureScope(orgId, appDesc, verticalId ?? orgScopeId)
-
-    // Distinct departments across touched nodes → ensure each (parent = org).
-    const deptIds = [...new Set(touched.flatMap((t) => t.departmentIds).filter(Boolean))]
-    const deptScopeId = new Map<string, string>()
-    for (const deptId of deptIds) {
-      const id = await ensureScope(orgId, departmentScope(deptId, opts?.departmentNames?.[deptId]), orgScopeId)
-      if (id) deptScopeId.set(deptId, id)
-    }
-
-    // 3. Build membership rows: each node → its app, vertical, and dept scopes.
-    const seen = new Set<string>()
-    const rows: Array<{ org_id: string; scope_id: string; node_id: string; weight: number }> = []
-    const addMember = (scopeId: string | null, nodeId: string) => {
-      if (!scopeId) return
-      const k = `${scopeId}:${nodeId}`
-      if (seen.has(k)) return
-      seen.add(k)
-      rows.push({ org_id: orgId, scope_id: scopeId, node_id: nodeId, weight: 1 })
-    }
-    for (const t of touched) {
-      addMember(appId, t.id)
-      addMember(verticalId, t.id)
-      for (const deptId of t.departmentIds) addMember(deptScopeId.get(deptId) ?? null, t.id)
-    }
-    if (rows.length === 0) return
-
-    // 4. Upsert memberships (idempotent on the PK).
-    const { error } = await supabaseAdmin
-      .from('kg_scope_members')
-      .upsert(rows, { onConflict: 'scope_id,node_id' })
-    if (error) {
-      logger.warn({ orgId, count: rows.length, err: error.message }, '[scope-maintenance] member upsert failed')
-    }
-  } catch (err) {
-    logger.warn(
-      { orgId, provider, err: err instanceof Error ? err.message : String(err) },
-      '[scope-maintenance] non-fatal failure (backfill will repair)',
-    )
+  const entries: ScopeMembershipEntry[] = []
+  for (const n of nodes) {
+    const id = nodeIdMap.get(nodeKey(n.label, n.entity_type))
+    if (id) entries.push({ nodeId: id, provider, departmentIds: n.department_ids ?? [] })
   }
+  await applyScopeMemberships(orgId, entries, opts)
 }
