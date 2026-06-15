@@ -1,9 +1,30 @@
 import { withRLS, type RLSContext } from "../supabase/rls-client";
 import { embed } from "../ai/embedder";
 import { fetchOrgPinnedModel } from "../ai/embedding-factory";
-import { PIPELINE_SHAPE_ROUTING } from "@/lib/config/feature-flags";
+import { PIPELINE_SHAPE_ROUTING, CHUNK_TEXT_ENCRYPTION } from "@/lib/config/feature-flags";
+import { decryptChunkText, isEncrypted } from "@/lib/indexing/chunk-crypto";
 import { withVectorSearchSpan } from "../telemetry/spans";
 import { logger } from "@/lib/logger";
+
+/**
+ * P7-1 fix: the LIVE retrieval boundary. The vector_search RPCs COALESCE the
+ * stored `metadata->>'chunk_text'` into their `chunk_text` / `content_preview`
+ * output columns in SQL — so when CHUNK_TEXT_ENCRYPTION is on those carry the
+ * `encv1:` envelope. Decrypt them app-side here (per-org key from the search
+ * context) before any consumer (synthesis-agent, reranker, citations) sees them.
+ * No-op when encryption is off or the value is plaintext.
+ */
+function decryptRowsInPlace(rows: any[], orgId: string): void {
+  if (!CHUNK_TEXT_ENCRYPTION) return;
+  for (const r of rows) {
+    if (typeof r.chunk_text === "string" && isEncrypted(r.chunk_text)) {
+      r.chunk_text = decryptChunkText(r.chunk_text, orgId) ?? "";
+    }
+    if (typeof r.content_preview === "string" && isEncrypted(r.content_preview)) {
+      r.content_preview = decryptChunkText(r.content_preview, orgId) ?? "";
+    }
+  }
+}
 
 /**
  * P1-15: resolve the org's pinned model for the p_model_filter RPC param.
@@ -78,6 +99,7 @@ export async function vectorSearch({
       }
 
       const rows = data ?? [];
+      decryptRowsInPlace(rows, orgId);
 
       if (rows.length === 0) {
         logger.warn(
@@ -152,6 +174,7 @@ export async function crossDeptVectorSearch(params: Params) {
       if (error) throw new Error(`[vector-search] ${error.message}`);
 
       const rows = data ?? [];
+      decryptRowsInPlace(rows, params.orgId);
       if (rows.length === 0) {
         logger.warn(
           { orgId: params.orgId, topK, minSimilarity },
