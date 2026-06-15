@@ -18,3 +18,5 @@ export default {
 
 // Re-export concrete tool instances so node files can import from here
 export { vectorSearchTool, crossDeptVectorSearchTool } from './vector-search'
+// P6-9: registers get_scope_summary (loads the module → registerTool side-effect).
+export { scopeSummaryTool } from './get-scope-summary'

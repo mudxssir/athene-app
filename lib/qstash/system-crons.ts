@@ -39,6 +39,13 @@ export const SYSTEM_CRON_DEFS: SystemCronDef[] = [
     path: '/api/worker/caption',
     cron: '*/15 * * * *', // every 15 minutes
   },
+  {
+    // P6-7: daily person-scope maintenance — sweep stale scopes + canary drift
+    // check. No-op when HIERARCHY_SCOPES is off. Empty body → fan out per org.
+    name: 'person-scope-sweep',
+    path: '/api/worker/person-scope',
+    cron: '0 3 * * *', // daily at 3 AM UTC
+  },
 ]
 
 /**

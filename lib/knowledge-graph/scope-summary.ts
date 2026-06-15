@@ -59,6 +59,10 @@ interface MemberNode {
 }
 
 function nodeVisibleToScope(scope: ScopeRow, n: MemberNode): boolean {
+  // Person scopes were materialized under the member's own RLS (P6-7), so their
+  // members are already visibility-correct for that person — don't re-exclude
+  // their own confidential items from their personal summary.
+  if (scope.level === 'person') return true
   if (EXCLUDED_VIS.has(n.visibility)) return false
   if (scope.level === 'department') return (n.department_ids ?? []).includes(scope.key)
   return true

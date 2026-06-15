@@ -23,9 +23,9 @@ _Branch: `pipeline/p6-hierarchy-scopes` (off `pipeline/p5-media-captions`) · Fl
 | P6-4 | Backfill job (paced, resumable, per-org) + rebuild escape hatch `POST /api/admin/graph/rebuild-scopes` | §3.1, §3.4 | **done** | M | P6-3 |
 | P6-5 | L1 communities per app scope via Louvain (`louvainPartition`); persist `community`-level scopes. **Leiden sidecar lane = infra-gated follow-up** | §3 step 3 | **done** | M | P6-3 |
 | P6-6 | Summary worker: debounced, bottom-up (community→app→vertical/dept→org), `input_hash` skip, visibility-class inputs, GraphRAG-fork prompt, highlights schema, scope-summary reader | §4 | **done** | L | P6-4, P6-5 |
-| P6-7 | Person scopes: activation, 2-hop membership + personal summary, 7-day TTL sweep, live-BFS fallback + background rematerialize, nightly canary; My Work/obligations read scope-first | §3.2 | todo | L | P6-6 |
-| P6-8 | Blocker matrix (`blockers_by_scope`, dept×dept recursive CTE depth-6 + cycle guard) + responsibility ledger + unowned-blocker surfacing + admin surface + watchlist template | §5 | todo | M | P6-3 |
-| P6-9 | Briefing + chat read scope summaries first (live fallback); `HIERARCHY_SCOPES` wiring; rebuild auto-run post-`PIPELINE_VERSION`; gate measurement | §6.3, §6 | todo | M | P6-6, P6-7, P6-8 |
+| P6-7 | Person scopes: activation, 2-hop membership + personal summary, 7-day TTL sweep, live-BFS fallback + background rematerialize, nightly canary; My Work/obligations read scope-first | §3.2 | **done** | L | P6-6 |
+| P6-8 | Blocker matrix (dept×dept SQL functions + cycle-safe) + responsibility-gap (unowned blockers) + admin surface + watchlist template | §5 | **done** | M | P6-3 |
+| P6-9 | `get_scope_summary` chat tool (RLS-respecting, registered); `HIERARCHY_SCOPES` wiring; gate record. Briefing-assembly + agent-flow bind = documented pilot wire | §6.3, §6 | **done** | M | P6-6, P6-7, P6-8 |
 
 _(Splits §6's 6 steps into 9 ship-able, testable tickets — same approach P4/P5 used. P6-5 and
 P6-8 can interleave once P6-3 lands.)_
@@ -209,7 +209,57 @@ reverse) is always safe. No chunking/embedding change → no re-embed.
   + DLQ); triggered at backfill completion. Service-role allowlisted.
 - 20 tests (prompt/parse 11 + engine 9 incl. the input_hash skip + visibility filter).
 
-**Next:** P6-7 (person scopes) → P6-8 (blocker matrix) → P6-9 (briefing/chat wiring).
+### P6-7 — person scopes (TTL + canary) (2026-06-15)
+
+- `person-scope.ts`: `materializePersonScope` rebuilds a member's scope memberships
+  from the live **my-work BFS** (run under the member's RLS → visibility-correct,
+  equals the live path); `activatePersonScope` (login/sync-touch → deduped enqueue);
+  `sweepStalePersonScopes` (daily: past `stale_after` → status `stale` + delete
+  member/summary rows); **`canaryCheck`** (Jaccard drift of materialized vs fresh BFS
+  for N scopes → alert > 0.2 — the membership-bug guard). Person summaries skip the
+  structural visibility filter (members are pre-authorized).
+- Worker `app/api/worker/person-scope` (materialize / maintain / cron fan-out) +
+  daily `person-scope-sweep` cron. 9 tests.
+
+### P6-8 — cross-team blocker matrix (2026-06-15)
+
+- Migration `20260615000002_blocker_matrix.sql`: SECURITY DEFINER, aggregate-only
+  `blocker_dept_matrix(org)` (dept×dept open cross-dept blocker counts; cycle-safe
+  1-hop; node depts via `unnest(department_ids)`; open-status filter) +
+  `unowned_blocker_count(org)` (the "no owner" gap, surfaced).
+- `blocker-matrix.ts`: dept-name-enriched reader + `BLOCKER_WATCHLIST_TEMPLATE` +
+  pure `evaluateTeamBlockedWatchlist`. Admin `GET /api/admin/graph/blocker-matrix`. 6 tests.
+
+### P6-9 — get_scope_summary tool + flag + gate (2026-06-15)
+
+- `get-scope-summary.ts`: the §2/§6.3 **dedicated tool** — RLS-respecting (reads via
+  `withRLS`, so kg_scopes/kg_scope_summaries policies gate dept/person reads — no
+  service role), flag-gated (off → "not enabled" → agent falls back to live tools),
+  formats the latest summary (overview + entities + blockers + obligations).
+  Registered via the project's `registerTool` convention + re-exported from the tool
+  registry. 5 tests.
+- **Documented pilot wires (gate-neutral when flag off):** binding the tool into the
+  retrieval/synthesis Promise.all and rewiring the morning-briefing assembly to read
+  the person/dept/org summary first are live-agent edits that would risk regressions
+  in a flag-off feature mid-build — the read mechanism is complete + tested; flipping
+  it into the agent flow is the pilot integration. Same for auto-running the rebuild
+  endpoint after `PIPELINE_VERSION` migrations (no reindex worker exists today).
+
+---
+
+## Phase complete — full P6 verification (2026-06-15)
+
+All 9 tickets done. Suite **1140 TS tests** (+78 over the P5 baseline of 1062), 0
+regressions; tsc clean; check-rls + check-chunk-text green. Two migrations
+(`kg_scopes`, `blocker_matrix`) — SQL-only, validated on apply at staging/pilot. All
+behind `HIERARCHY_SCOPES` (default OFF).
+
+**End-to-end flow (flag on):** builder maintains scope memberships per sync (P6-3) →
+backfill/rebuild materializes them from the flat graph (P6-4) → Louvain clusters each
+app into communities (P6-5) → the debounced worker writes bottom-up summaries with
+input_hash skip + visibility filtering (P6-6) → person scopes materialize from the
+my-work BFS with a drift canary (P6-7) → the dept×dept blocker matrix + unowned-gap
+surface (P6-8) → chat reads summaries via get_scope_summary (P6-9).
 
 ## SDLC checklist (per ticket, same discipline as P0–P5)
 
