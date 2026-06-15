@@ -156,15 +156,15 @@ describe('selectDirtyScopes (P6-6)', () => {
       ],
       error: null,
     })
-    dbResponses.push({ data: null, error: null }) // org-s: no summary → dirty
-    dbResponses.push({ data: null, error: null }) // comm-s: no summary → dirty
+    dbResponses.push({ data: [], error: null }) // batched summaries: none → both dirty
     const dirty = await selectDirtyScopes(ORG)
     expect(dirty.map((s) => s.level)).toEqual(['community', 'org']) // community (rank 0) first
   })
 
   it('skips scopes whose summary is newer than their updated_at', async () => {
     dbResponses.push({ data: [{ id: 's1', level: 'app', key: 'jira', title: 'J', updated_at: '2026-06-15T10:00:00Z' }], error: null })
-    dbResponses.push({ data: { created_at: '2026-06-15T11:00:00Z' }, error: null }) // summary newer → clean
+    // Batched summaries query: s1's latest summary is newer than its updated_at → clean.
+    dbResponses.push({ data: [{ scope_id: 's1', created_at: '2026-06-15T11:00:00Z' }], error: null })
     expect(await selectDirtyScopes(ORG)).toEqual([])
   })
 })

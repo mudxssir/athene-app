@@ -461,6 +461,55 @@ export function structuredMetadataChanged(
   )
 }
 
+/**
+ * Chunk-level analog of the doc-level KG-metadata refresh: backfill the Tier-C
+ * `schema` block (P4-1) onto a tabular stats chunk's stored embedding rows when
+ * content is unchanged but the fetcher now emits a `schema` the stored rows lack.
+ * Gated on the in-memory `schema` presence — a no-op (zero DB work) for every
+ * non-tabular chunk, so it stays off the hot sync path. Non-fatal.
+ */
+async function refreshChunkSchemaMetadata(
+  chunk: FetchedChunk,
+  orgId: string,
+  documentId: string,
+): Promise<void> {
+  const schema = (chunk.metadata as Record<string, unknown>).schema
+  if (!Array.isArray(schema) || schema.length === 0) return // not a schema-bearing chunk
+
+  const { data: rows, error } = await supabaseAdmin
+    .from('document_embeddings')
+    .select('id, metadata')
+    .eq('org_id', orgId)
+    .eq('document_id', documentId)
+  if (error || !rows) {
+    if (error) logger.warn({ documentId, err: error.message }, '[indexing] schema-refresh read failed (non-fatal)')
+    return
+  }
+
+  let patched = 0
+  for (const row of rows) {
+    const meta = (row.metadata ?? {}) as Record<string, unknown>
+    if (JSON.stringify(meta.schema ?? null) === JSON.stringify(schema)) continue // already current
+    const { error: updErr } = await supabaseAdmin
+      .from('document_embeddings')
+      .update({ metadata: { ...meta, schema } })
+      .eq('id', (row as { id: string }).id)
+      .eq('org_id', orgId)
+    if (updErr) logger.warn({ id: (row as { id: string }).id, err: updErr.message }, '[indexing] schema-refresh row update failed')
+    else patched++
+  }
+
+  // Force KG re-extraction so buildSchemaEntityGraph reads the now-present schema.
+  if (patched > 0) {
+    const { error: docErr } = await supabaseAdmin
+      .from('documents')
+      .update({ last_extracted_hash: null })
+      .eq('id', documentId)
+      .eq('org_id', orgId)
+    if (docErr) logger.warn({ documentId, err: docErr.message }, '[indexing] schema-refresh extract-flag clear failed')
+  }
+}
+
 async function upsertDocumentRecord(
   chunk: FetchedChunk,
   orgId: string,
@@ -687,7 +736,19 @@ export async function indexDocument(
   const { documentId, contentChanged } = await upsertDocumentRecord(
     chunk, orgId, connectionId, departmentId, visibility, ownerUserId
   )
-  if (!contentChanged) return documentId
+  if (!contentChanged) {
+    // Content-unchanged dedup skips the embedding rewrite — but the builder reads
+    // the deterministic Tier-C `schema` block (P4-1) from CHUNK-level metadata
+    // (document_embeddings.metadata). A tabular doc indexed before P4-1 (or before
+    // TABULAR_TIER_C was enabled) has no `schema` on its stored chunk rows, so a
+    // re-sync of static table data would never backfill the schema entities. When
+    // the freshly-fetched stats chunk now carries `schema` that the stored row
+    // lacks, patch the chunk metadata + force KG re-extraction (no re-embed —
+    // embeddings are valid for the identical content). Mirrors the doc-level
+    // owner/account refresh in upsertDocumentRecord, at chunk granularity.
+    await refreshChunkSchemaMetadata(chunk, orgId, documentId)
+    return documentId
+  }
 
   // 0b. Skip-sentinels: keep the doc row (flagged), write no embeddings (P0-5)
   if (isSkipSentinel(chunk.content)) {

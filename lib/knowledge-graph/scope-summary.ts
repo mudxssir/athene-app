@@ -126,25 +126,34 @@ export async function gatherScopeInputs(orgId: string, scope: ScopeRow): Promise
   }
 
   // 4. Child scope summaries (latest version each) — strict bottom-up rollup.
+  // Batched: one query for all child scopes' summaries (not one per child), reduced
+  // to the highest version per scope in memory.
   const { data: childScopes } = await supabaseAdmin
     .from('kg_scopes')
     .select('id, title')
     .eq('org_id', orgId)
     .eq('parent_scope_id', scope.id)
+  const children = (childScopes ?? []) as Array<{ id: string; title: string }>
   const childSummaries: ScopeSummaryContext['childSummaries'] = []
   const childVersions: string[] = []
-  for (const c of (childScopes ?? []) as Array<{ id: string; title: string }>) {
-    const { data: sum } = await supabaseAdmin
+  if (children.length > 0) {
+    const { data: sums } = await supabaseAdmin
       .from('kg_scope_summaries')
-      .select('summary, version')
+      .select('scope_id, summary, version')
       .eq('org_id', orgId)
-      .eq('scope_id', c.id)
+      .in('scope_id', children.map((c) => c.id))
       .order('version', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    if (sum && (sum as { summary?: string }).summary) {
-      childSummaries.push({ title: c.title, overview: (sum as { summary: string }).summary })
-      childVersions.push(`${c.id}:${(sum as { version: number }).version}`)
+    // First row per scope_id = highest version (ordered desc).
+    const latestByScope = new Map<string, { summary: string; version: number }>()
+    for (const r of (sums ?? []) as Array<{ scope_id: string; summary: string; version: number }>) {
+      if (!latestByScope.has(r.scope_id)) latestByScope.set(r.scope_id, { summary: r.summary, version: r.version })
+    }
+    for (const c of children) {
+      const latest = latestByScope.get(c.id)
+      if (latest?.summary) {
+        childSummaries.push({ title: c.title, overview: latest.summary })
+        childVersions.push(`${c.id}:${latest.version}`)
+      }
     }
   }
 
@@ -259,17 +268,21 @@ export async function selectDirtyScopes(orgId: string, limit = 200): Promise<Sco
     if (error) logger.warn({ orgId, err: error.message }, '[scope-summary] scope load failed')
     return []
   }
+  // Batched: one query for the org's latest summary timestamp per scope (not one
+  // per scope), reduced to the most-recent created_at per scope in memory.
+  const { data: sumRows } = await supabaseAdmin
+    .from('kg_scope_summaries')
+    .select('scope_id, created_at')
+    .eq('org_id', orgId)
+    .order('created_at', { ascending: false })
+  const latestSummaryAt = new Map<string, string>()
+  for (const r of (sumRows ?? []) as Array<{ scope_id: string; created_at: string }>) {
+    if (!latestSummaryAt.has(r.scope_id)) latestSummaryAt.set(r.scope_id, r.created_at) // first = newest
+  }
+
   const dirty: Array<ScopeRow & { rank: number }> = []
   for (const s of scopes as Array<ScopeRow & { updated_at: string }>) {
-    const latest = await supabaseAdmin
-      .from('kg_scope_summaries')
-      .select('created_at')
-      .eq('org_id', orgId)
-      .eq('scope_id', s.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    const summaryAt = (latest.data as { created_at?: string } | null)?.created_at
+    const summaryAt = latestSummaryAt.get(s.id)
     if (!summaryAt || new Date(s.updated_at).getTime() > new Date(summaryAt).getTime()) {
       dirty.push({ id: s.id, level: s.level, key: s.key, title: s.title, rank: LEVEL_RANK[s.level] ?? 1 })
     }
