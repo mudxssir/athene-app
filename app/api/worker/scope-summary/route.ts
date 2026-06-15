@@ -2,13 +2,15 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 // ============================================================
-// app/api/worker/scope-backfill/route.ts — P6-4
+// app/api/worker/scope-summary/route.ts — P6-6
 //
-// QStash worker that backfills KG scope memberships one node-page at a time and
-// re-enqueues itself for the next page until the org's graph is exhausted
-// (Vercel-timeout safe, resumable). Dormant when HIERARCHY_SCOPES is off.
+// Debounced summary worker: regenerates summaries for an org's dirty scopes
+// bottom-up (community → app → vertical/dept → org, children before parents),
+// skipping any whose input_hash is unchanged. Processes a capped batch per
+// invocation and re-enqueues (deduped) while more remain. Dormant when
+// HIERARCHY_SCOPES is off.
 //
-// Payload: { org_id: string, cursor?: string }
+// Payload: { org_id: string }
 // ============================================================
 
 import { NextResponse } from 'next/server'
@@ -19,14 +21,12 @@ import { supabaseAdmin } from '@/lib/supabase/server'
 import { logger } from '@/lib/logger'
 import { parseBody, uuidSchema } from '@/lib/validation'
 import { HIERARCHY_SCOPES } from '@/lib/config/feature-flags'
-import { backfillScopeMembershipsPage, enqueueScopeBackfill } from '@/lib/knowledge-graph/scope-backfill'
-import { buildCommunityScopes } from '@/lib/knowledge-graph/community-scopes'
-import { enqueueScopeSummary } from '@/lib/knowledge-graph/scope-summary'
+import { selectDirtyScopes, summarizeScope, enqueueScopeSummary } from '@/lib/knowledge-graph/scope-summary'
 
-const Schema = z.object({
-  org_id: uuidSchema,
-  cursor: z.string().optional(),
-})
+const Schema = z.object({ org_id: uuidSchema })
+
+/** Summaries per invocation (each is one LLM call). Re-enqueue handles the rest. */
+const SUMMARY_BATCH = 25
 
 export async function POST(request: Request): Promise<NextResponse> {
   if (!(await verifyQStashSignature(request))) {
@@ -43,26 +43,25 @@ export async function POST(request: Request): Promise<NextResponse> {
   try { raw = await request.json() } catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }) }
   const parsed = parseBody(Schema, raw)
   if (!parsed.success) return parsed.response
-  const { org_id, cursor } = parsed.data
+  const { org_id } = parsed.data
 
   try {
-    const { processed, nextCursor } = await backfillScopeMembershipsPage(org_id, cursor ?? '')
-    if (nextCursor) {
-      enqueueScopeBackfill(org_id, nextCursor) // continue paging
-    } else {
-      // Membership backfill done → (re)build per-app community scopes (P6-5),
-      // then trigger the bottom-up summary refresh (P6-6).
-      await buildCommunityScopes(org_id)
-      enqueueScopeSummary(org_id)
+    const dirty = await selectDirtyScopes(org_id, SUMMARY_BATCH)
+    const counts = { generated: 0, unchanged: 0, empty: 0, error: 0 }
+    for (const scope of dirty) {
+      counts[await summarizeScope(org_id, scope)]++
     }
-    logger.info({ org_id, processed, done: !nextCursor }, '[scope-backfill] page complete')
-    return NextResponse.json({ status: 'ok', processed, done: !nextCursor })
+    // If we filled the batch there are likely more dirty scopes — continue.
+    if (dirty.length === SUMMARY_BATCH) enqueueScopeSummary(org_id)
+
+    logger.info({ org_id, ...counts, more: dirty.length === SUMMARY_BATCH }, '[scope-summary] batch complete')
+    return NextResponse.json({ status: 'ok', ...counts })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
-    logger.error({ org_id, err: message }, '[scope-backfill] Fatal error')
+    logger.error({ org_id, err: message }, '[scope-summary] Fatal error')
     try {
       await supabaseAdmin.from('sync_errors').upsert({
-        org_id, job_type: 'scope-backfill', document_id: null,
+        org_id, job_type: 'scope-summary', document_id: null,
         error: message.slice(0, 500), occurred_at: new Date().toISOString(),
       }, { onConflict: 'org_id,job_type,document_id' })
     } catch { /* DLQ write failure is non-fatal */ }

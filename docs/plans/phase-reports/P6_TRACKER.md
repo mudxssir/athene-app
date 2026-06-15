@@ -22,7 +22,7 @@ _Branch: `pipeline/p6-hierarchy-scopes` (off `pipeline/p5-media-captions`) · Fl
 | P6-3 | Incremental membership maintenance in `builder.ts` (touched nodes only) + dirty marking | §3.1 | **done** | M | P6-2 |
 | P6-4 | Backfill job (paced, resumable, per-org) + rebuild escape hatch `POST /api/admin/graph/rebuild-scopes` | §3.1, §3.4 | **done** | M | P6-3 |
 | P6-5 | L1 communities per app scope via Louvain (`louvainPartition`); persist `community`-level scopes. **Leiden sidecar lane = infra-gated follow-up** | §3 step 3 | **done** | M | P6-3 |
-| P6-6 | Summary worker: debounced, bottom-up (community→app→vertical/dept→org), `input_hash` skip, visibility-class inputs, GraphRAG-fork prompt, highlights schema, `get_scope_summary` tool | §4 | todo | L | P6-4, P6-5 |
+| P6-6 | Summary worker: debounced, bottom-up (community→app→vertical/dept→org), `input_hash` skip, visibility-class inputs, GraphRAG-fork prompt, highlights schema, scope-summary reader | §4 | **done** | L | P6-4, P6-5 |
 | P6-7 | Person scopes: activation, 2-hop membership + personal summary, 7-day TTL sweep, live-BFS fallback + background rematerialize, nightly canary; My Work/obligations read scope-first | §3.2 | todo | L | P6-6 |
 | P6-8 | Blocker matrix (`blockers_by_scope`, dept×dept recursive CTE depth-6 + cycle guard) + responsibility ledger + unowned-blocker surfacing + admin surface + watchlist template | §5 | todo | M | P6-3 |
 | P6-9 | Briefing + chat read scope summaries first (live fallback); `HIERARCHY_SCOPES` wiring; rebuild auto-run post-`PIPELINE_VERSION`; gate measurement | §6.3, §6 | todo | M | P6-6, P6-7, P6-8 |
@@ -190,8 +190,26 @@ reverse) is always safe. No chunking/embedding change → no re-embed.
   modularity/briefing parity test before retiring Louvain — swapping is localized to
   the `louvainPartition` call. The one P6 piece needing the deployed Python sidecar.
 
-**Next:** P6-6 (summaries) → P6-7 (person scopes) → P6-8 (blocker matrix) →
-P6-9 (briefing/chat wiring).
+### P6-6 — debounced bottom-up summaries (2026-06-15)
+
+- `prompts/scope-summary.ts`: GraphRAG-style report prompt **forked (design only)** —
+  injection-delimited entities/relations/blockers/child-reports + the fixed highlights
+  JSON schema (overview, key_entities, active_blockers, recent_decisions,
+  open_obligations, cross_scope_links, rating); cross-scope nudge at vertical/org.
+  `parseScopeHighlights` is robust (plain/fenced/noisy JSON, rating clamp, null guards).
+  Executed via `resolveModelClient` — never GraphRAG's pipeline (A-vs-B verdict).
+- `scope-summary.ts`: `gatherScopeInputs` (top-K by membership weight per level;
+  **visibility filter** — structural scopes drop confidential/restricted, dept scopes
+  require dept membership; edges + active blockers among the K; child summaries =
+  strict bottom-up rollup; stable `input_hash` over member+edge+child-version sets);
+  `summarizeScope` (skip on unchanged hash → else LLM → parse → insert version+1 →
+  stamp freshness); `selectDirtyScopes` (touched-after-summary, ordered children-first);
+  `loadLatestScopeSummary` reader; deduped `enqueueScopeSummary`.
+- Worker `app/api/worker/scope-summary` (bottom-up, capped 25/invocation, re-enqueue
+  + DLQ); triggered at backfill completion. Service-role allowlisted.
+- 20 tests (prompt/parse 11 + engine 9 incl. the input_hash skip + visibility filter).
+
+**Next:** P6-7 (person scopes) → P6-8 (blocker matrix) → P6-9 (briefing/chat wiring).
 
 ## SDLC checklist (per ticket, same discipline as P0–P5)
 
