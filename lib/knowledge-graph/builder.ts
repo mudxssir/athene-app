@@ -24,8 +24,9 @@ import { buildStructuredLinkGraph } from './structured-links'
 import { buildStructuredOwnerGraph } from './structured-owners'
 import { buildStructuredRecordGraph } from './structured-records'
 import { buildSchemaEntityGraph, TABULAR_RESOURCE_TYPES } from '@/lib/integrations/bi-chunking'
-import { KG_OWNER_GRAPH, TABULAR_TIER_C, KG_CRM_EDGES } from '@/lib/config/feature-flags'
+import { KG_OWNER_GRAPH, TABULAR_TIER_C, KG_CRM_EDGES, HIERARCHY_SCOPES } from '@/lib/config/feature-flags'
 import { upsertGraph, deleteByDocument } from './storage'
+import { maintainScopeMemberships } from './scope-maintenance'
 import { detectCommunities } from './community'
 import { extractAndUpsertEvents } from './event-extractor'
 import { readChunkText, hasFullChunkText } from '@/lib/indexing/chunk-text-store'
@@ -341,6 +342,14 @@ async function processDocument(
     extractAndUpsertEvents(extractorChunks, orgId, docId, nodeIdMap).catch((err: any) =>
       logger.warn({ err: err?.message, docId }, "[builder] Event extraction failed")
     )
+
+    // 7c. Scope-membership maintenance (P6-3, Plan C §3.1) — upsert the touched
+    // nodes into their app/vertical/department scopes. Behind HIERARCHY_SCOPES;
+    // non-fatal (scopes are derivative — backfill repairs). awaited so a failure
+    // is logged within the build, but it never throws.
+    if (HIERARCHY_SCOPES) {
+      await maintainScopeMemberships(orgId, doc.source_type, nodes, nodeIdMap)
+    }
   }
 
   // 8. Mark document as extracted

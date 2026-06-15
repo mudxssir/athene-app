@@ -104,3 +104,14 @@ export const TABULAR_VOCAB_ENRICHMENT = process.env.TABULAR_VOCAB_ENRICHMENT ===
  * until the P5 gate. Set MEDIA_CAPTIONS=true to activate.
  */
 export const MEDIA_CAPTIONS = process.env.MEDIA_CAPTIONS === "true";
+
+/**
+ * P6: KG hierarchy materialization (Plan C). When ON, the builder maintains
+ * scope memberships for touched nodes after upsertGraph, the backfill/community/
+ * summary workers run, person scopes activate, and briefing/chat read scope
+ * summaries first (with live fallback). When OFF, all readers fall back to live
+ * queries and the derived scope tables simply go unread — scopes are derivative,
+ * so teardown is always safe (rollback: flag off → live queries). Default OFF
+ * until the P6 gate. Set HIERARCHY_SCOPES=true to activate.
+ */
+export const HIERARCHY_SCOPES = process.env.HIERARCHY_SCOPES === "true";

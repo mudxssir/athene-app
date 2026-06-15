@@ -20,6 +20,7 @@ vi.mock('@/lib/config/feature-flags', () => ({
   KG_OWNER_GRAPH: false,
   KG_CRM_EDGES: false,
   PIPELINE_SHAPE_ROUTING: false,
+  HIERARCHY_SCOPES: false,
 }))
 
 const { mockSupabase } = vi.hoisted(() => ({ mockSupabase: { from: vi.fn(), rpc: vi.fn() } }))

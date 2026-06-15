@@ -21,6 +21,7 @@ lib/knowledge-graph/modules/resolver.ts
 lib/knowledge-graph/backfill-entity-resolution.ts
 lib/knowledge-graph/community.ts
 lib/knowledge-graph/event-extractor.ts
+lib/knowledge-graph/scope-maintenance.ts
 
 # ── app/api: Clerk-authed admin surface ─────────────────────────
 app/api/admin/audit-log/route.ts
