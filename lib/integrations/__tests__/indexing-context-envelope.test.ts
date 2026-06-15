@@ -24,6 +24,7 @@ const { embedBatchMock, supabaseState, docContextMock, situatingMock } = vi.hois
 vi.mock('@/lib/config/feature-flags', () => ({
   CONTEXT_ENVELOPE: true,
   PIPELINE_SHAPE_ROUTING: false,
+  CHUNK_TEXT_ENCRYPTION: false,
 }))
 
 vi.mock('@/lib/indexing/doc-context', () => ({

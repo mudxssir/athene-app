@@ -29,6 +29,9 @@ const PATTERNS = [
 
 const ALLOWED = [
   'lib/indexing/chunk-text-store.ts',
+  // P7-1: the re-encryption migration is part of the encryption subsystem — it
+  // rewrites the chunk_text envelope in place, alongside the store helper.
+  'lib/indexing/re-encrypt.ts',
   'lib/indexing/__tests__/',
 ]
 

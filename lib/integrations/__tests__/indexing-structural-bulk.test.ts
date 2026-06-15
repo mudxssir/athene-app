@@ -22,6 +22,7 @@ const h = vi.hoisted(() => {
 vi.mock('@/lib/config/feature-flags', () => ({
   get PIPELINE_SHAPE_ROUTING() { return h.flagOn },
   CONTEXT_ENVELOPE: false,
+  CHUNK_TEXT_ENCRYPTION: false,
 }))
 
 vi.mock('@/lib/logger', () => ({

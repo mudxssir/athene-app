@@ -18,5 +18,7 @@ export default {
 
 // Re-export concrete tool instances so node files can import from here
 export { vectorSearchTool, crossDeptVectorSearchTool } from './vector-search'
-// P6-9: registers get_scope_summary (loads the module → registerTool side-effect).
-export { scopeSummaryTool } from './get-scope-summary'
+// P6-9: get_scope_summary (scopeSummaryTool) is imported directly by its consumer
+// when wired into the agent flow (the pilot integration), not auto-registered here
+// — auto-registration pulled it into the agent bundle for no benefit (nothing reads
+// toolsRegistry yet) and risked an import cycle in the compiled graph.
