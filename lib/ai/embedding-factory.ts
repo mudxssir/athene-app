@@ -34,7 +34,29 @@ export type EmbeddingHint = "document" | "structured" | "query"
 
 // ---- Provider config types ---------------------------------------------
 
-type EmbeddingProviderName = "openai" | "jina" | "together" | "nomic" | "google"
+type EmbeddingProviderName = "openai" | "jina" | "together" | "nomic" | "google" | "tei"
+
+// ---- Sovereignty lane: prefix-based task types (P7-2) -------------------
+//
+// nomic-embed-text-v1.5, BGE, and most self-hosted models served via TEI use
+// a *prefix* to signal the retrieval task (asymmetric search), rather than an
+// API `task` parameter. The convention (nomic/BGE): prepend `search_query: ` to
+// queries and `search_document: ` to passages. This maps cleanly onto our
+// EmbeddingHint plumbing (Plan B §4). Models that take a task parameter
+// (jina/google) are NOT prefixed — they handle it in-band.
+
+/** Models/providers that need the text prefixed with the task (no API task param). */
+const PREFIX_TASK_MODELS = /(nomic|bge|e5|gte|tei)/i
+
+function needsPrefixTask(provider: EmbeddingProviderName, model: string): boolean {
+  return provider === "tei" || provider === "nomic" || PREFIX_TASK_MODELS.test(model)
+}
+
+/** Prefix texts with the nomic/BGE task marker derived from the hint. Idempotent-safe. */
+export function applyPrefixTask(texts: string[], hint?: EmbeddingHint): string[] {
+  const prefix = hint === "query" ? "search_query: " : "search_document: "
+  return texts.map((t) => (t.startsWith("search_query: ") || t.startsWith("search_document: ") ? t : prefix + t))
+}
 
 interface EmbeddingConfig {
   provider: EmbeddingProviderName
@@ -45,6 +67,25 @@ interface EmbeddingConfig {
 }
 
 // ---- System default resolution -----------------------------------------
+
+/**
+ * P7-2 sovereignty lane: a self-hosted text-embeddings-inference (TEI) server,
+ * configured by env. TEI exposes an OpenAI-compatible /v1/embeddings endpoint, so
+ * it reuses embedWithOpenAICompat; the prefix-task mapping handles nomic/BGE. The
+ * org's data never leaves the deployment boundary. Returns null when TEI_URL is
+ * unset (lane inactive). TEI_MODEL defaults to the nomic self-host default.
+ */
+function resolveTeiConfig(): EmbeddingConfig | null {
+  const baseUrl = process.env.TEI_URL
+  if (!baseUrl) return null
+  return {
+    provider: "tei",
+    model: process.env.TEI_MODEL ?? "nomic-embed-text-v1.5",
+    dims: EMBEDDING_DIMS,
+    apiKey: process.env.TEI_API_KEY ?? "",
+    baseUrl: baseUrl.replace(/\/+$/, "") + "/v1",
+  }
+}
 
 function resolveSystemConfig(): EmbeddingConfig | null {
   if (process.env.GOOGLE_API_KEY) {
@@ -81,7 +122,9 @@ function resolveSystemConfig(): EmbeddingConfig | null {
       baseUrl: "https://api-atlas.nomic.ai/v1",
     }
   }
-  return null
+  // Sovereignty lane (P7-2): self-hosted TEI as the last-resort system default —
+  // existing API-key deployments are unchanged; a pure-TEI deployment works.
+  return resolveTeiConfig()
 }
 
 // ---- BYOK resolution ---------------------------------------------------
@@ -182,11 +225,19 @@ async function embedWithOpenAI(
 
 async function embedWithOpenAICompat(
   texts: string[],
-  config: EmbeddingConfig
+  config: EmbeddingConfig,
+  hint?: EmbeddingHint,
 ): Promise<number[][]> {
-  // Together AI and Nomic AI both expose an OpenAI-compatible /v1/embeddings endpoint
-  const client = new OpenAI({ apiKey: config.apiKey, baseURL: config.baseUrl })
-  const res = await client.embeddings.create({ model: config.model, input: texts })
+  // Together AI, Nomic AI, and self-hosted TEI all expose an OpenAI-compatible
+  // /v1/embeddings endpoint. Prefix-task models (nomic/BGE/TEI) need the task
+  // marker prepended to the text (P7-2 sovereignty lane); together's m2-bert does
+  // not, so we gate on needsPrefixTask.
+  const input = needsPrefixTask(config.provider, config.model)
+    ? applyPrefixTask(texts, hint)
+    : texts
+  // TEI may run without auth; OpenAI client requires a non-empty key string.
+  const client = new OpenAI({ apiKey: config.apiKey || "tei-local", baseURL: config.baseUrl })
+  const res = await client.embeddings.create({ model: config.model, input })
   return res.data.sort((a, b) => a.index - b.index).map((d) => d.embedding)
 }
 
@@ -273,7 +324,8 @@ async function callProviderWithRetry(
           return await embedWithJina(texts, config, hint, lateChunking)
         case "together":
         case "nomic":
-          return await embedWithOpenAICompat(texts, config)
+        case "tei":
+          return await embedWithOpenAICompat(texts, config, hint)
       }
     } catch (err) {
       lastErr = err
@@ -464,6 +516,15 @@ async function resolvePinnedConfig(orgId: string): Promise<EmbeddingConfig | nul
   if (byok) return byok
 
   const model = await fetchOrgPinnedModel(orgId)
+
+  // P7-2 sovereignty lane: pin to self-hosted TEI. `embedding_model_pinned = 'tei'`
+  // (or any model name when TEI_URL is set and the model is TEI-served) routes to
+  // the in-boundary server. Checked first so a sovereignty-pinned org never leaks
+  // to an external API.
+  if ((model === 'tei' || model.startsWith('tei-') || model === (process.env.TEI_MODEL ?? 'nomic-embed-text-v1.5')) && process.env.TEI_URL) {
+    const tei = resolveTeiConfig()
+    if (tei) return { ...tei, model: model === 'tei' ? tei.model : model }
+  }
 
   // Map pinned model name → system provider config
   if ((model === 'jina-embeddings-v3' || model.startsWith('jina-')) && process.env.JINA_API_KEY) {

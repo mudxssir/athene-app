@@ -352,6 +352,30 @@ normalizer hard-forces EXTRACTED → 1.0 (`extractor.ts:140`).
 | D11 | P2 | MS/upload paths index skip-sentinel strings as real content; Drive drops them | `microsoft/index.ts` vs `drive-fetcher.ts:358` | drop everywhere + skipped-content counter |
 | D12 | P3 | Notion images / chart PNGs / Slack & Gmail attachments dropped silently (Gmail attachment fetcher exists, never called) | `pages-fetcher.ts:91`, `gmail-fetcher.ts:169` | placeholders + per-sync skip metrics |
 
+### 6.1 Closure register (P7-4)
+
+Every defect is closed by code (behind its phase's flag where applicable). The "Sev"
+column above is the *audit-estimated* phase; "Closed in" is where it actually landed.
+
+| # | Closed in | How it was closed | Flag |
+|---|---|---|---|
+| D1 | P1 (interim P0) | Decision/extraction gate routes on `data_shape` (prose/email/thread), not provider strings; P0 added the interim source-set, P1's `extractionTier(shape)` made it shape-keyed. | `PIPELINE_SHAPE_ROUTING` |
+| D2 | **P4-1** | `extractSchemaEntities` wired into `builder.ts` via `buildSchemaEntityGraph` — tabular docs → service/metric/dimension nodes, **0 LLM** (Tier C). | `TABULAR_TIER_C` |
+| D3 | P1 + **P4-6** | Calendars → `record` shape in P1; structured_fields/tz/recurrence/skip depth in P4-6. | `PIPELINE_SHAPE_ROUTING` |
+| D4 | **P3-5/6** | One chunk per email (Gmail+Outlook), Talon quote/signature cleaning, thread parents; per-slice docs migration. | `PIPELINE_SHAPE_ROUTING` |
+| D5 | **P0-2** | `'query'` hint passed at all search call sites; mapped to Jina `retrieval.query` (asymmetric). | — (baseline) |
+| D6 | P0 (interim) + **P1-13/15** | Embedding pinning (`embedding_model_pinned`), per-row `embedding_model`, search model-filter, `needs_embedding` retry queue (no silent cross-model fallback). | `PIPELINE_SHAPE_ROUTING` |
+| D7 | **P3-3** | Drive `.xlsx` routes through `tabularChunksFromParsed`; `extractXlsxText` demoted to lane-3 fallback. | `SIDECAR_PARSING` |
+| D8 | **P3-4** | Global HTML-strip removed from `normalizeContent`; per-shape converters own sanitization; fence-aware (code survives byte-identical). | — (shipped) |
+| D9 | **P0-4** | Embedding batches grouped by resolved hint before `embedBatch`. | — (baseline) |
+| D10 | **P1-4** | `extractionTier(shape)` replaces the never-emitted provider-string tier list. | `PIPELINE_SHAPE_ROUTING` |
+| D11 | **P0-5** | Skip-sentinel strings dropped everywhere (MS/upload); `sync_skips` counter. | — (baseline) |
+| D12 | **P5** | Every media path → `media_queue` + caption worker; every skip/failure telemetried (`sync_skips`) + placeholder chunk — no silent drop; `fetchGmailAttachment` revived. | `MEDIA_CAPTIONS` |
+
+**Status: D1–D12 all closed.** All closing code is merged to `main` and verified
+by the test suite; the flag column shows what activates each in production
+(per-org, default-OFF until enablement — see `FEATURE_ROLLOUT_RUNBOOK.md`).
+
 ---
 
 ## 7. Per-Vertical Module Layer (unchanged, and correctly orthogonal)

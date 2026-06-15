@@ -1,0 +1,8 @@
+# License allow-list (P7-3) — packages whose package.json `license` field is
+# non-SPDX or "UNKNOWN" but whose actual LICENSE has been verified permissive.
+# Format: <package-name>  # <reason / verified license>
+# Checked by scripts/check-licenses.mjs.
+
+@nangohq/frontend  # MIT — Nango SDK ("SEE LICENSE IN LICENSE FILE"); github.com/NangoHQ/nango LICENSE = MIT (Elastic-2.0 applies to the server, not these client SDKs)
+@nangohq/node  # MIT — Nango Node SDK, same as @nangohq/frontend
+@browserbasehq/sdk  # MIT — Browserbase SDK; package omits the SPDX field, repo LICENSE = MIT. (browser-use surface is REFOCUS-deprecated; SDK still in deps.)

@@ -12,6 +12,7 @@
     "lint": "eslint",
     "check:rls": "node scripts/check-rls.mjs",
     "check:chunk-text": "node scripts/check-chunk-text-store.mjs",
+    "check:licenses": "node scripts/check-licenses.mjs",
     "eval:fixtures": "tsx scripts/eval/generate-fixtures.ts",
     "eval:retrieval": "NODE_OPTIONS=--conditions=react-server tsx scripts/eval/run-eval.ts"
   },
