@@ -146,6 +146,15 @@ export default function FilesPage() {
 
   useEffect(() => { loadFiles(); }, [loadFiles]);
 
+  // Poll while any file is still indexing so the status badge updates without a manual refresh
+  useEffect(() => {
+    const hasIndexing = files.some((f) => f.status === 'Indexing');
+    if (!hasIndexing) return;
+
+    const interval = setInterval(() => { loadFiles(); }, 8000);
+    return () => clearInterval(interval);
+  }, [files, loadFiles]);
+
   const handleUpload = () => { fileInputRef.current?.click(); };
 
   const uploadFile = useCallback(async (file: File) => {

@@ -19,7 +19,7 @@ export async function snowflakeFetch(connectionId: string, orgId: string, sql: s
     },
     body: {
       statement: sql,
-      timeout: 60,
+      timeout: 30,
       ...(binds && binds.length > 0 ? { binds } : {})
     }
   })

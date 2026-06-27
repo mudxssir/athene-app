@@ -1,5 +1,4 @@
 import { ChatOpenAI } from "@langchain/openai";
-import { ChatAnthropic } from "@langchain/anthropic";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { supabaseAdmin } from "../supabase/server";
 import { logger } from "@/lib/logger";
@@ -44,7 +43,7 @@ function resolveModelName(tierOrName: ModelTier | string): string {
  */
 export async function fetchByokPlaintext(
   orgId: string,
-  provider: "openai" | "anthropic" | "google" | "deepseek"
+  provider: "openai" | "google" | "deepseek"
 ): Promise<string | null> {
   if (!orgId) return null;
   let orgKey: string;
@@ -104,21 +103,21 @@ class LLMFactory {
 
   /**
    * BYOK — returns a provider-specific model using a decrypted org key.
-   * Supports: openai | anthropic | google | deepseek.
+   * Supports: openai | google | deepseek.
    * Falls back to system default when no BYOK key is found.
    */
   static async getBYOKModel(orgId: string, provider: string, temperature: number = 0) {
     const cacheKey = `byok-${orgId}-${provider}-${temperature}`;
     if (this.instances.has(cacheKey)) return this.instances.get(cacheKey);
 
-    const validProviders = ["openai", "anthropic", "google", "deepseek"];
+    const validProviders = ["openai", "google", "deepseek"];
     if (!validProviders.includes(provider)) {
       return this.getModel("medium", temperature);
     }
 
     const apiKey = await fetchByokPlaintext(
       orgId,
-      provider as "openai" | "anthropic" | "google" | "deepseek"
+      provider as "openai" | "google" | "deepseek"
     );
 
     if (!apiKey) {
@@ -127,13 +126,7 @@ class LLMFactory {
     }
 
     let instance: any;
-    if (provider === "anthropic") {
-      instance = new ChatAnthropic({
-        apiKey,
-        modelName: "claude-sonnet-4-6",
-        temperature,
-      });
-    } else if (provider === "openai") {
+    if (provider === "openai") {
       instance = new ChatOpenAI({ apiKey, modelName: "gpt-4o", temperature });
     } else if (provider === "deepseek") {
       instance = makeDeepSeekModel("deepseek-chat", temperature, apiKey);

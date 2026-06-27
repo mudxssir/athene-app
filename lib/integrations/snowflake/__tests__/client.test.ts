@@ -44,7 +44,7 @@ describe('snowflake client', () => {
           Authorization: 'Bearer test-token',
           'X-Snowflake-Authorization-Token-Type': 'OAUTH',
         }),
-        body: JSON.stringify({ statement: 'SELECT 1', timeout: 60 })
+        body: JSON.stringify({ statement: 'SELECT 1', timeout: 30 })
       })
     )
   })

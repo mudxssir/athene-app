@@ -631,6 +631,7 @@ async function browseSalesforce(
     resources: [
       { id: 'accounts', name: 'Accounts', type: 'object_type', hasChildren: false, path: '/accounts' },
       { id: 'cases', name: 'Cases', type: 'object_type', hasChildren: false, path: '/cases' },
+      { id: 'contacts', name: 'Contacts', type: 'object_type', hasChildren: false, path: '/contacts' },
       { id: 'opportunities', name: 'Opportunities', type: 'object_type', hasChildren: false, path: '/opportunities' },
     ],
   }

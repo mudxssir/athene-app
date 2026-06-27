@@ -52,7 +52,7 @@ async function listChannels(connectionId: string, orgId: string) {
   while (true) {
     const res = await slackFetch<any>(connectionId, orgId, 'conversations.list', {
       exclude_archived: 'true',
-      types: 'public_channel',
+      types: 'public_channel,private_channel',
       limit: '200',
       ...(cursor ? { cursor } : {}),
     })
